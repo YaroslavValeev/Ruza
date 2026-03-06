@@ -1,0 +1,20 @@
+---
+description: Mocks + contract tests.
+alwaysApply: false
+---
+
+# Skill: Testing & Quality
+
+## Purpose
+Контроль регрессии booking/checkin/kpi.
+
+## Triggers
+tests / regression
+
+## Steps
+1) In-memory mock Sheets.
+2) Contract tests ключевых сценариев.
+3) Smoke тесты ролей.
+
+## Quality Gates
+- изменения без тестов не принимаются

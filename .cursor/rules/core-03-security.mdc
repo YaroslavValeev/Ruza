@@ -1,0 +1,17 @@
+---
+description: Security & privacy: consent, secrets, on-device voice/face.
+alwaysApply: true
+---
+
+# Security & Privacy (Always)
+
+## Secrets
+- Секреты только в `.env` / локальном хранилище, **не коммитить**.
+- Service account JSON хранится локально (путь позже), в репо — только `.env.example`.
+
+## Consent
+- Face/Voice — только по согласию (флаги в `clients`).
+- В Sheets не хранить изображения/аудио.
+
+## Anti-malware
+- Не ставить сторонние skills/плагины без ревью кода.

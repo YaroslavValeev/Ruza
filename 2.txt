@@ -1,0 +1,44 @@
+# Cursor CLI automation
+CURSOR_API_KEY=cc914dc93e5dfda8424c3a12b65c2d79b4a9777ce38d9d9d
+
+# Runner settings
+MW_REPO_PATH=/mnt/e/Проекты MyWave/Site_MyWave
+MW_BASE_BRANCH=main
+MW_ALLOWED_REPOS=Site_MyWave
+MW_AUTONOMY=high
+
+wsl --shutdown
+
+git status -sb
+
+yaroslav@DESKTOP-O0C122K:/mnt/e/Проекты MyWave/Site_MyWave$ git status -sb
+--name-status --staged
+Refresh index: 100% (11951/11951), done.
+## fix/remove-garbage-show-toplevel
+ D "e --show-toplevel)\357\200\242 && git apply --3way --verbose"
+yaroslav@DESKTOP-O0C122K:/mnt/e/Проекты MyWave/Site_MyWave$ git diff --name-status --staged
+yaroslav@DESKTOP-O0C122K:/mnt/e/Проекты MyWave/Site_MyWave$ ls -la ~/.ssh/id_ed25519 ~/.ssh/id_ed25519.pub 2>/dev/null || ssh-keygen -t ed25519 -C "yaroslav@DESKTOP-O0C122K"
+Generating public/private ed25519 key pair.
+Enter file in which to save the key (/home/yaroslav/.ssh/id_ed25519): SHA256:6yOjogggjrN0EHDjEUzu2oVQFbDuIa1akDM0awdtf8E
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in SHA256:6yOjogggjrN0EHDjEUzu2oVQFbDuIa1akDM0awdtf8E
+Your public key has been saved in SHA256:6yOjogggjrN0EHDjEUzu2oVQFbDuIa1akDM0awdtf8E.pub
+The key fingerprint is:
+SHA256:d1mDmmnzpNMerWnerGRAcJuR4xV5+jVI2xLa7OsO5yU yaroslav@DESKTOP-O0C122K
+The key's randomart image is:
++--[ED25519 256]--+
+|        . o..o   |
+|         oo+o+.  |
+|         .+o*oB  |
+|         ..=.O +.|
+|        S O =....|
+|         o O o.  |
+|          o.*Eo. |
+|           ==Bo  |
+|           oO=o  |
++----[SHA256]-----+
+
+ssh -T git@github.com
+
+- cat ~/.ssh/id_ed25519.pub

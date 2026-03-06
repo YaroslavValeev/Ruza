@@ -1,0 +1,18 @@
+---
+description: Windows+WSL conventions + projects on E:.
+alwaysApply: true
+---
+
+# Windows + WSL Conventions (Always)
+
+## Environment
+- Windows 10; projects on **E:** (WSL: `/mnt/e/...`)
+- Python available in Windows
+- Node tools may run in WSL if needed
+
+## Command labeling
+Любые команды в ответе должны быть помечены:
+- **[PowerShell]** или **[WSL2]**
+
+## Paths
+- `E:\...` ↔ `/mnt/e/...`

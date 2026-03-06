@@ -1,0 +1,20 @@
+---
+description: RBAC auth via staff_users sheet.
+alwaysApply: false
+---
+
+# Skill: RBAC Auth
+
+## Purpose
+Ролевой доступ на базе staff_users (Sheets).
+
+## Triggers
+auth / roles / permissions
+
+## Steps
+1) Session token with staff_user_id+role.
+2) Permissions matrix.
+3) Guards in UI + enforcement in API.
+
+## Quality Gates
+- нельзя обойти роль через UI

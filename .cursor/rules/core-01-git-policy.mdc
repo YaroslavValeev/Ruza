@@ -1,0 +1,21 @@
+---
+description: Git workflow: commit ok, push blocked by hooks.
+alwaysApply: true
+---
+
+# Git Policy — Commit OK, Push Blocked (Always)
+
+## Rules
+- Allowed: status/diff/add/commit/checkout -b/merge
+- Forbidden: git push (blocked), changing remotes, credential helpers.
+
+## Push bypass for human operator
+- Bash: `ALLOW_GIT_PUSH=1 git push`
+- PowerShell: `$env:ALLOW_GIT_PUSH=1; git push`
+
+## Implementation
+- `.githooks/pre-push`
+- `git config core.hooksPath .githooks`
+
+## Quality Gates
+- Перед коммитом: минимальные проверки (линтер/тесты если есть).

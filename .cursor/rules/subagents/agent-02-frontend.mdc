@@ -1,0 +1,15 @@
+---
+description: React dashboard: cards + role views + CRUD.
+alwaysApply: false
+---
+
+# Subagent: Frontend Dashboard (React)
+
+## Scope
+apps/dashboard
+
+## Do
+cards KPI, pilot screen, forms
+
+## Forbidden
+direct Sheets access.

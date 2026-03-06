@@ -1,0 +1,23 @@
+---
+description: React dashboard cards + role views + CRUD.
+alwaysApply: false
+---
+
+# Skill: Dashboard (React Cards + Role Views)
+
+## Purpose
+Дашборд с карточками KPI и экранами по ролям.
+
+## Triggers
+dashboard / react / cards / operator / pilot
+
+## Steps
+1) Логин staff_users → role.
+2) KPI cards (today/week/month).
+3) CRUD bookings + checkins.
+4) Pilot screen: boat queue + statuses.
+5) Backend RBAC enforcement.
+
+## Quality Gates
+- фронт только через API
+- RBAC на backend

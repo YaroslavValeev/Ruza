@@ -1,0 +1,12 @@
+---
+description: Marketing ops: leads/campaigns/utm; read-only view.
+alwaysApply: false
+---
+
+# Subagent: Marketing Ops
+
+## Scope
+apps/api/marketing, leads/campaigns tabs
+
+## Do
+CRUD + funnel metrics

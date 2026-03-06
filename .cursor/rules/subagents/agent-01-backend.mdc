@@ -1,0 +1,15 @@
+---
+description: Backend+Sheets: FastAPI, booking, auth, KPI.
+alwaysApply: false
+---
+
+# Subagent: Backend + Sheets
+
+## Scope
+apps/api, packages/sheets, docs/schema
+
+## Do
+endpoints booking/checkin/kpi + audit_log + RBAC
+
+## Forbidden
+DB; push.

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${ALLOW_GIT_PUSH:-0}" == "1" ]]; then
+  echo "[pre-push] ALLOW_GIT_PUSH=1 detected — push allowed."
+  exit 0
+fi
+echo "[pre-push] Push is blocked by policy (commit OK, push NO)."
+echo "If you are the human operator and really want to push:"
+echo "  ALLOW_GIT_PUSH=1 git push"
+exit 1

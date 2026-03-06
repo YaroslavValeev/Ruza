@@ -1,0 +1,21 @@
+---
+description: Leads/campaigns/utm in Sheets, CAC and funnel.
+alwaysApply: false
+---
+
+# Skill: Marketing Pipeline (Sheets-first)
+
+## Purpose
+Маркетинг без CRM: лиды/кампании/UTM + воронка.
+
+## Triggers
+leads / campaigns / utm / cac
+
+## Steps
+1) CRUD leads/campaigns.
+2) conversion lead→booking.
+3) CAC estimate и funnel метрики.
+4) marketing_read view.
+
+## Quality Gates
+- не ломать booking

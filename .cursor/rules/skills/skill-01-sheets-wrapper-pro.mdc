@@ -1,0 +1,25 @@
+---
+description: Sheets wrapper PRO: schema validation, audit_log, idempotency.
+alwaysApply: false
+---
+
+# Skill: Sheets Wrapper PRO
+
+## Purpose
+Работа с Sheets как с “БД”: валидация, аудит, идемпотентность.
+
+## Triggers
+sheets / schema / audit / idempotent
+
+## Context to Read
+docs/SHEETS_SCHEMA.md, packages/sheets/
+
+## Steps
+1) Проверить обязательные колонки табов.
+2) Реализовать read/append/update/find.
+3) booking_id idempotent.
+4) Любое изменение → audit_log.
+
+## Quality Gates
+- Любое изменение логируется
+- Тесты без реальных ключей

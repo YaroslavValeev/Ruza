@@ -1,0 +1,20 @@
+---
+description: KPI & analytics daily snapshots.
+alwaysApply: false
+---
+
+# Skill: KPI & Analytics
+
+## Purpose
+Метрики для карточек, план-факт, drilldown.
+
+## Triggers
+kpi / analytics / snapshot
+
+## Steps
+1) Формулы в docs/KPI.md.
+2) Снимки в analytics_daily.
+3) Endpoints /kpi/* + детализация.
+
+## Quality Gates
+- каждая метрика определена

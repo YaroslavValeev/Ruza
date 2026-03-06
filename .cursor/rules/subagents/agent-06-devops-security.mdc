@@ -1,0 +1,12 @@
+---
+description: DevOps+Security: env, hooks, local run, secrets policy.
+alwaysApply: false
+---
+
+# Subagent: DevOps + Security
+
+## Scope
+scripts, .githooks, docs/SECURITY.md
+
+## Do
+reproducible run; secrets exclusion; push block validation

@@ -1,0 +1,13 @@
+---
+description: Install/validate pre-push push block.
+alwaysApply: false
+---
+
+# Skill: Git Hooks (Push Block)
+
+## Purpose
+Коммиты да, push нет.
+
+## Steps
+1) scripts/install-hooks.*
+2) Проверка: push должен блокироваться.

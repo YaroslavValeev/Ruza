@@ -1,0 +1,20 @@
+---
+description: Forecasts & targets tabs + UI cards.
+alwaysApply: false
+---
+
+# Skill: Forecasts & Targets
+
+## Purpose
+kpi_targets + forecast_monthly, assumptions, сравнение план/факт.
+
+## Triggers
+forecast / targets / plan fact
+
+## Steps
+1) CRUD targets/forecast (admin).
+2) UI: plan vs fact cards.
+3) Любые изменения → audit_log.
+
+## Quality Gates
+- прозрачные допущения

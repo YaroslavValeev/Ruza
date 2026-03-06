@@ -1,0 +1,22 @@
+---
+description: Booking engine + pilot endpoints.
+alwaysApply: false
+---
+
+# Skill: Booking Engine v1
+
+## Purpose
+Слоты и записи поверх schedule + slot_overrides + bookings, плюс pilot view.
+
+## Triggers
+availability / bookings / cancel / capacity / pilot
+
+## Steps
+1) availability(date) с учётом overrides и capacity.
+2) create/update/cancel booking с идемпотентностью.
+3) check-in и статусы ready/late.
+4) pilot endpoints: очередь по boat_id.
+
+## Quality Gates
+- no overbook
+- audit_log всегда

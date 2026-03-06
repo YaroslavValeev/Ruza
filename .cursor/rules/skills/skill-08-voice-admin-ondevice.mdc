@@ -1,0 +1,22 @@
+---
+description: On-device voice admin prototype.
+alwaysApply: false
+---
+
+# Skill: Voice Admin (On-device)
+
+## Purpose
+Голосовой администратор на одном ноутбуке (push-to-talk).
+
+## Triggers
+voice / stt / tts
+
+## Steps
+1) FSM сценарии (docs/VOICE_FLOWS.md).
+2) STT/TTS локально.
+3) Только события в логах.
+4) Интеграция: checkins + уведомления.
+
+## Quality Gates
+- есть ручной режим
+- no cloud by default

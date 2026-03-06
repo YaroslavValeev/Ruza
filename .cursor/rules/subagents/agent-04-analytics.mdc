@@ -1,0 +1,12 @@
+---
+description: Analytics: daily snapshot, plan-fact, drilldown.
+alwaysApply: false
+---
+
+# Subagent: Analytics
+
+## Scope
+apps/api/analytics, docs/KPI.md, analytics sheets tabs
+
+## Do
+metric defs + endpoints + UI mapping

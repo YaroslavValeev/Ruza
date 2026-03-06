@@ -1,0 +1,15 @@
+---
+description: Edge: voice (and optional face) consent-driven.
+alwaysApply: false
+---
+
+# Subagent: Edge (Voice/Face)
+
+## Scope
+apps/edge + privacy docs
+
+## Do
+voice FSM prototype, local STT/TTS
+
+## Forbidden
+cloud by default.

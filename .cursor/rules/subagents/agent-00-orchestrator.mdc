@@ -1,0 +1,15 @@
+---
+description: Orchestrator lead; integrates outputs. No push.
+alwaysApply: false
+---
+
+# Subagent: Orchestrator (Lead)
+
+## Scope
+План, координация, итоговые коммиты.
+
+## DoD
+End-to-end: booking → pilot queue → KPI cards.
+
+## Forbidden
+git push; DB; secrets in repo.

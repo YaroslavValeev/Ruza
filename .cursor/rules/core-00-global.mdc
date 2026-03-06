@@ -1,0 +1,34 @@
+---
+description: Core rules: Sheets-only, React dashboard, roles, privacy, no OpenAI API in code.
+alwaysApply: true
+---
+
+# Ice Beach Wake Club Automation — Core Rules (Always)
+
+## Purpose
+Единые правила для реализации цифровой экосистемы клуба на «Айс пляж»:
+- Google Sheets = единственный источник истины,
+- Admin/Pilot dashboard (карточки + управление),
+- on-device voice admin + опционально face check-in,
+- масштабирование до мультиклубной модели.
+
+## Hard Constraints
+- **Источник истины — только Google Sheets.** БД не добавлять.
+- **Dashboard стек зафиксирован: React + Vite + Tailwind** (MVP).
+- **Роли обязательны** (admin / operator / pilot / coach / marketing-read).
+- **Код — без OpenAI API.** Допустимы локальные модели on-device.
+- **Git-политика:** агент может commit, не может push (хуки).
+
+## Data Minimization
+- Биометрия/аудио не выгружать в облака по умолчанию.
+- В Sheets не хранить фото/видео/аудио клиентов.
+- Идентификация по телефону — обязательный fallback.
+
+## Output Standard
+Каждая задача заканчивается:
+- список файлов,
+- команды проверки,
+- краткий Next steps.
+
+## Non-goals
+- Не подключать внешние CRM на старте.

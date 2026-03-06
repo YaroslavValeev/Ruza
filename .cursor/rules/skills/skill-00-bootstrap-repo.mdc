@@ -1,0 +1,22 @@
+---
+description: Bootstrap repo + docs + React+FastAPI skeleton.
+alwaysApply: false
+---
+
+# Skill: Bootstrap Repo (Greenfield)
+
+## Purpose
+Создать каркас проекта: FastAPI + React dashboard + Sheets wrapper + docs.
+
+## Triggers
+инициализируй проект / скелет / setup / greenfield
+
+## Steps
+1) Создать структуру: apps/api, apps/dashboard, packages/sheets, docs, scripts.
+2) Зафиксировать контракты: docs/SHEETS_SCHEMA.md, docs/ARCHITECTURE.md.
+3) Добавить .env.example и .gitignore для секретов.
+4) Подготовить команды dev/run и минимальные проверки.
+
+## Quality Gates
+- Нет БД
+- Нет секретов в git

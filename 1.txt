@@ -1,0 +1,34 @@
+TRAINER_CHAT_ID=510686579
+
+cd "/mnt/e/Проекты MyWave/Site_MyWave"
+
+
+
+cat > .env.local <<'EOF'
+MW_REPO_PATH="/mnt/e/Проекты MyWave/Site_MyWave"
+MW_RUNNER_REPO_PATH="/mnt/e/mw/site_mywave_runner"
+
+TG_CONTROL_BOT_TOKEN="8574113537:AAEj4CzjInEWfMjhJc1uA3tq9pLqgnK5kMI"
+TG_CONTROL_ALLOWED_IDS="510686579"
+EOF
+
+# остановить если он сейчас запущен
+# (Ctrl+C в том терминале)
+
+origin/runner/autonomous-control
+
+1. 1Jos8absjdLueLoWXZDJS67PRHXfrQ-fnTq-yiXk2_18
+2. E:\Проекты MyWave\NEW2026\Ruza
+Дай мне “нулевой” сценарий запуска разработки
+
+wsl --shutdown
+
+cd /mnt/e/mw/site_mywave_runner
+pwd
+ls -la automation/tg_control_bot.py
+ls -lb automation | sed -n '1,30p'
+file automation/tg_control_bot.py
+
+git fetch
+
+git pull --ff-only
