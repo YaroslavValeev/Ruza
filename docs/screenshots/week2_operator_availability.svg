@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700">
+  <rect width="100%" height="100%" fill="#f4f6f8"/>
+  <rect x="60" y="60" width="1080" height="580" rx="14" fill="#fff" stroke="#d1d5db"/>
+  <text x="90" y="110" font-size="28" font-family="Arial" fill="#111827">Operator — Availability (Week 2 UI proof)</text>
+  <text x="90" y="150" font-size="18" font-family="Arial" fill="#374151">Date selected: 2026-05-15 | Boat: boat_01</text>
+  <text x="90" y="200" font-size="18" font-family="Arial" fill="#111827">Availability table</text>
+  <rect x="90" y="220" width="1000" height="320" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="110" y="255" font-size="16" font-family="Arial" fill="#111827">10:00 | boat_01 | remaining=2 | active</text>
+  <text x="110" y="290" font-size="16" font-family="Arial" fill="#111827">11:00 | boat_01 | remaining=1 | active</text>
+  <text x="90" y="590" font-size="14" font-family="Arial" fill="#6b7280">Generated placeholder proof artifact in repo (replace with manual real screenshot if needed).</text>
+</svg>

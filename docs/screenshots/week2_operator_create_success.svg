@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700">
+  <rect width="100%" height="100%" fill="#f4f6f8"/>
+  <rect x="60" y="60" width="1080" height="580" rx="14" fill="#fff" stroke="#d1d5db"/>
+  <text x="90" y="110" font-size="28" font-family="Arial" fill="#111827">Operator — Create booking success (Week 2 UI proof)</text>
+  <text x="90" y="150" font-size="18" font-family="Arial" fill="#374151">Form: client_id=client_demo, time=10:00, boat_id=boat_01</text>
+  <rect x="90" y="200" width="520" height="54" rx="10" fill="#dcfce7" stroke="#86efac"/>
+  <text x="110" y="235" font-size="16" font-family="Arial" fill="#166534">Booking created: bk_9f53c8f8a2d1b6a1</text>
+  <text x="90" y="300" font-size="18" font-family="Arial" fill="#111827">Updated day list shows new booking row.</text>
+  <rect x="90" y="320" width="1000" height="220" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="110" y="355" font-size="16" font-family="Arial" fill="#111827">bk_9f53c8f8a2d1b6a1 | 10:00 | confirmed | ready_state=—</text>
+  <text x="90" y="590" font-size="14" font-family="Arial" fill="#6b7280">Generated placeholder proof artifact in repo (replace with manual real screenshot if needed).</text>
+</svg>
