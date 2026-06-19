@@ -1,0 +1,27 @@
+---
+description: MyWave north star from 3.txt — vision, sequencing, DoD for all agents.
+alwaysApply: true
+---
+
+# MyWave North Star (Always)
+
+Полный документ: `docs/MYWAVE_NORTH_STAR.md` (источник — `3.txt`).
+
+## Ядро (1 фраза)
+MyWave = измеримый прогресс + медиа-доказательства + монетизация (продукты / ивенты / партнёрства).
+
+## Приоритет разработки Ruza
+1. **Cash-cow** — booking, check-in, pilot, KPI (Sheets-only). Сначала всегда это.
+2. **Growth** — gear/media (вне текущего MVP Ruza).
+3. **Option** — SponsorOS (leads/funnel — зачаток; полная платформа — после green smoke).
+
+## Режим команды
+- **Ship every week:** один законченный бизнес-узел с DoD.
+- **Не распыляться:** без БД, без внешних CRM, без OpenAI API в коде.
+- **3 CTA экосистемы:** Записаться | Купить | Стать партнёром — новая фича усиливает один из них.
+
+## DoD Orchestrator
+`booking → pilot queue → KPI` + preflight без blockers + smoke green.
+
+## Перед задачей
+Спросить себя: Cash-cow или Option? Есть измеримый DoD? Можно зашипить за неделю?

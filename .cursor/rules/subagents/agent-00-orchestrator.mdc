@@ -11,5 +11,8 @@ alwaysApply: false
 ## DoD
 End-to-end: booking → pilot queue → KPI cards.
 
+## North Star
+Сверка с `docs/MYWAVE_NORTH_STAR.md`: sequencing (Cash-cow → Growth → Option), ship every week, не распыляться на SponsorOS до green smoke.
+
 ## Forbidden
 git push; DB; secrets in repo.

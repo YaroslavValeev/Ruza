@@ -85,7 +85,10 @@ Ruza/
 
 ## Документация
 
+- **[docs/MYWAVE_NORTH_STAR.md](docs/MYWAVE_NORTH_STAR.md)** — путеводная звезда команды (стратегия MyWave → приоритеты Ruza)
 - [docs/SHEETS_SCHEMA.md](docs/SHEETS_SCHEMA.md) — контракт табов
+- **[docs/SERVER_COMMANDS.md](docs/SERVER_COMMANDS.md)** — команды для VPS / Timeweb / Docker
+- [docs/STAGING_DEPLOY.md](docs/STAGING_DEPLOY.md) — staging runbook
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/TEST_PLAN.md](docs/TEST_PLAN.md)
 - [docs/SECURITY.md](docs/SECURITY.md)

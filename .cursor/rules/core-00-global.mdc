@@ -6,11 +6,13 @@ alwaysApply: true
 # Ice Beach Wake Club Automation — Core Rules (Always)
 
 ## Purpose
-Единые правила для реализации цифровой экосистемы клуба на «Айс пляж»:
+Единые правила для реализации цифровой экосистемы клуба на «Айс пляж» (слой **MyWave Training** в бренд-архитектуре):
 - Google Sheets = единственный источник истины,
 - Admin/Pilot dashboard (карточки + управление),
 - on-device voice admin + опционально face check-in,
 - масштабирование до мультиклубной модели.
+
+Стратегический ориентир: `docs/MYWAVE_NORTH_STAR.md`.
 
 ## Hard Constraints
 - **Источник истины — только Google Sheets.** БД не добавлять.

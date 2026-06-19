@@ -10,6 +10,8 @@ from typing import Any
 from dotenv import load_dotenv
 
 
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+load_dotenv(_REPO_ROOT / ".env")
 load_dotenv()
 
 DEFAULT_LAN_CORS_REGEX = r"^https?://(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$"
