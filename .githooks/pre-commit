@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+export PYTHONPATH="${ROOT}/icebeach-wakeclub"
+
+if command -v python >/dev/null 2>&1; then
+  python -m pytest "${ROOT}/icebeach-wakeclub/apps/api/tests" -q
+else
+  echo "[pre-commit] python not found, skipping pytest"
+fi

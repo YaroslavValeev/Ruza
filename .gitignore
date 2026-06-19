@@ -1,7 +1,14 @@
 secrets/
 .env
 .env.local
+.env.docker
 __pycache__/
 *.pyc
 node_modules/
 dist/
+**/.runlogs/
+service-account.json
+**/service-account.json
+1.txt
+2.txt
+3.txt

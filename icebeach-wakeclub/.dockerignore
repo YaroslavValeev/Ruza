@@ -1,0 +1,15 @@
+.git
+.gitignore
+.pytest_cache
+**/__pycache__
+**/*.pyc
+**/.runlogs
+node_modules
+dist
+apps/dashboard/node_modules
+apps/dashboard/dist
+secrets
+.env
+.env.*
+apps/api/.env
+apps/dashboard/.env.local

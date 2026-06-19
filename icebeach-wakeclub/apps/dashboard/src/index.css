@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --game-bg-deep: #07111f;
+  --game-bg-mid: #10233a;
+  --game-neon-cyan: #59e3ff;
+  --game-neon-blue: #4d88ff;
+  --game-neon-orange: #ffb44d;
+  --game-panel: rgba(11, 21, 38, 0.84);
+  --game-border: rgba(112, 188, 255, 0.24);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Trebuchet MS", "Arial Rounded MT Bold", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(89, 227, 255, 0.12), transparent 24%),
+    radial-gradient(circle at top right, rgba(255, 180, 77, 0.14), transparent 18%),
+    linear-gradient(180deg, #0b1324 0%, #07111f 56%, #0c1830 100%);
+  color: #edf8ff;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: 0.35;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: rgba(89, 227, 255, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(112, 188, 255, 0.35);
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(9, 17, 31, 0.75);
+}
+
+@layer components {
+  .game-panel {
+    @apply rounded-[26px] border px-4 py-4 shadow-[0_18px_45px_rgba(0,0,0,0.34)] backdrop-blur-xl sm:px-5 sm:py-5;
+    background: linear-gradient(180deg, rgba(15, 31, 55, 0.96) 0%, rgba(9, 20, 37, 0.96) 100%);
+    border-color: var(--game-border);
+  }
+
+  .game-panel-soft {
+    @apply rounded-3xl border p-3 backdrop-blur-xl;
+    background: rgba(8, 18, 33, 0.72);
+    border-color: rgba(112, 188, 255, 0.16);
+  }
+
+  .game-heading {
+    @apply text-xl font-black tracking-wide text-white sm:text-2xl;
+    text-shadow: 0 0 18px rgba(89, 227, 255, 0.2);
+  }
+
+  .game-subheading {
+    @apply text-sm leading-relaxed text-cyan-100/70;
+  }
+
+  .game-input {
+    @apply min-h-12 w-full rounded-2xl border px-4 py-3 text-[15px] text-white outline-none transition;
+    background: rgba(6, 13, 25, 0.96);
+    border-color: rgba(112, 188, 255, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .game-input:focus {
+    border-color: rgba(89, 227, 255, 0.72);
+    box-shadow: 0 0 0 3px rgba(89, 227, 255, 0.12);
+  }
+
+  .game-button {
+    @apply min-h-12 rounded-2xl px-4 py-3 text-center text-sm font-black uppercase tracking-[0.08em] text-white transition;
+    background: linear-gradient(180deg, #3fa9ff 0%, #1768ff 100%);
+    box-shadow: 0 14px 28px rgba(23, 104, 255, 0.24), inset 0 1px 0 rgba(255,255,255,0.28);
+  }
+
+  .game-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 32px rgba(23, 104, 255, 0.34), inset 0 1px 0 rgba(255,255,255,0.34);
+  }
+
+  .game-button:disabled {
+    @apply cursor-not-allowed opacity-60;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .game-button-secondary {
+    @apply min-h-12 rounded-2xl border px-4 py-3 text-sm font-black uppercase tracking-[0.08em] text-cyan-50 transition;
+    background: linear-gradient(180deg, rgba(17, 34, 60, 0.96) 0%, rgba(11, 23, 42, 0.96) 100%);
+    border-color: rgba(112, 188, 255, 0.24);
+  }
+
+  .game-chip {
+    @apply inline-flex items-center rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.08em];
+    background: rgba(9, 21, 38, 0.94);
+    border-color: rgba(112, 188, 255, 0.2);
+  }
+
+  .game-tab {
+    @apply min-h-12 whitespace-nowrap rounded-2xl border px-2 py-3 text-center text-[12px] font-semibold tracking-normal transition sm:px-3 sm:text-sm sm:font-black sm:uppercase sm:tracking-[0.08em];
+    background: rgba(7, 16, 30, 0.94);
+    border-color: rgba(112, 188, 255, 0.16);
+    color: rgba(233, 247, 255, 0.85);
+  }
+
+  .game-tab-active {
+    background: linear-gradient(180deg, rgba(89, 227, 255, 0.18) 0%, rgba(33, 92, 187, 0.42) 100%);
+    border-color: rgba(89, 227, 255, 0.7);
+    box-shadow: 0 0 0 1px rgba(89, 227, 255, 0.12), 0 14px 30px rgba(16, 89, 168, 0.24);
+    color: white;
+  }
+
+  .game-card {
+    @apply rounded-[24px] border p-4;
+    background: linear-gradient(180deg, rgba(14, 28, 49, 0.98) 0%, rgba(9, 18, 34, 0.98) 100%);
+    border-color: rgba(112, 188, 255, 0.18);
+  }
+
+  .game-stat {
+    @apply rounded-[24px] border p-4;
+    background: linear-gradient(180deg, rgba(15, 31, 55, 0.96) 0%, rgba(9, 19, 36, 0.98) 100%);
+    border-color: rgba(112, 188, 255, 0.18);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .game-badge-success {
+    @apply rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-emerald-100;
+    background: rgba(5, 91, 62, 0.36);
+    border-color: rgba(52, 211, 153, 0.36);
+  }
+
+  .game-badge-warn {
+    @apply rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-amber-100;
+    background: rgba(120, 53, 15, 0.3);
+    border-color: rgba(251, 191, 36, 0.34);
+  }
+
+  .game-badge-info {
+    @apply rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-cyan-100;
+    background: rgba(12, 55, 91, 0.32);
+    border-color: rgba(89, 227, 255, 0.24);
+  }
+}
+
