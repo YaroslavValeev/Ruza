@@ -17,7 +17,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "confirmed": {"arrived", "late", "cancelled", "no_show"},
     "arrived": {"ready", "late", "cancelled"},
     "ready": {"in_progress", "late", "cancelled"},
-    "in_progress": {"done", "cancelled"},
+    "in_progress": {"done"},
     "late": {"arrived", "no_show", "cancelled"},
     "done": set(),
     "cancelled": set(),

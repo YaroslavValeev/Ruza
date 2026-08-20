@@ -12,6 +12,7 @@ from ..config import Settings, get_settings
 from ..dependencies import get_sheet_wrapper
 from ..models import LoginCodeRequest, LoginCodeResponse, LoginRequest, LoginVerifyRequest, SessionResponse
 from ..services.common import generate_auth_code, hash_auth_code, phones_match
+from ..services.otp_delivery import deliver_login_code
 from ..services.pilot import get_pilot_boat_id
 
 
@@ -120,6 +121,7 @@ def request_login_code(
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login code requests")
 
     code = generate_auth_code()
+    delivery_channel = deliver_login_code(code=code, telegram_id=str(user.get("telegram_id") or ""))
     auth_code_id = f"auth-{uuid4()}"
     row = {
         "auth_code_id": auth_code_id,
@@ -129,18 +131,18 @@ def request_login_code(
         "created_at": now.isoformat(),
         "expires_at": (now + timedelta(seconds=settings.auth_code_ttl_seconds)).isoformat(),
         "used_at": "",
-        "delivery_channel": "manual",
+        "delivery_channel": delivery_channel,
     }
     sheet.append_row("auth_codes", row, unique_key="auth_code_id")
     sheet.write_audit(
         action="request_login_code",
         entity="auth",
         entity_id=staff_user_id,
-        diff_json={"delivery_channel": "manual", "auth_code_id": auth_code_id},
+        diff_json={"delivery_channel": delivery_channel, "auth_code_id": auth_code_id},
         actor=staff_user_id,
     )
     return LoginCodeResponse(
-        delivery_channel="manual",
+        delivery_channel=delivery_channel,
         expires_in_seconds=settings.auth_code_ttl_seconds,
         debug_code=code if settings.debug_auth_codes_in_response else None,
         staff_user_id=staff_user_id,

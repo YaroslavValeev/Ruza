@@ -315,6 +315,27 @@ export function getLeads(token?: string): Promise<LeadItem[]> {
   return fetchApi<LeadItem[]>("/leads", { token });
 }
 
+export function updateLeadStatus(leadId: string, status: LeadItem["status"], token?: string): Promise<LeadItem> {
+  return fetchApi<LeadItem>(`/leads/${encodeURIComponent(leadId)}/status`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify({ status }),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function createLead(
+  payload: { full_name: string; phone: string; source?: string; notes?: string },
+  token?: string,
+): Promise<LeadItem> {
+  return fetchApi<LeadItem>("/leads", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export function getMarketingFunnel(token: string | undefined, dateFrom: string, dateTo: string): Promise<MarketingFunnel> {
   const search = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
   return fetchApi<MarketingFunnel>(`/marketing/funnel?${search.toString()}`, { token });

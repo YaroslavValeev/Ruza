@@ -17,6 +17,7 @@ os.environ.setdefault("SPREADSHEET_ID", "test-sheet")
 os.environ.setdefault("SESSION_SECRET", "test-secret")
 os.environ.setdefault("GOOGLE_SERVICE_ACCOUNT_JSON", str(Path(__file__).resolve()))
 os.environ.setdefault("AUTH_DEBUG_CODE_IN_RESPONSE", "true")
+os.environ["TELEGRAM_BOT_TOKEN"] = ""
 
 
 MockSheetWrapper = InMemorySheetWrapper

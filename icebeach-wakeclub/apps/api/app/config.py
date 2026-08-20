@@ -82,6 +82,14 @@ def get_settings() -> Settings:
     )
     cors_allow_origin_regex = os.getenv("CORS_ALLOW_ORIGIN_REGEX", DEFAULT_LAN_CORS_REGEX).strip() or None
 
+    environment = os.getenv("APP_ENV", "local").strip() or "local"
+    debug_auth_codes_in_response = _truthy_env("AUTH_DEBUG_CODE_IN_RESPONSE", "false")
+    allow_legacy_staff_login = _truthy_env("ALLOW_LEGACY_STAFF_LOGIN", "false")
+    if environment == "production" and debug_auth_codes_in_response:
+        raise RuntimeError("AUTH_DEBUG_CODE_IN_RESPONSE cannot be true when APP_ENV=production")
+    if environment == "production" and allow_legacy_staff_login:
+        raise RuntimeError("ALLOW_LEGACY_STAFF_LOGIN cannot be true when APP_ENV=production")
+
     return Settings(
         spreadsheet_id=spreadsheet_id,
         service_account_json_path=service_account_json_path,
@@ -90,14 +98,14 @@ def get_settings() -> Settings:
         session_max_age_seconds=int(os.getenv("SESSION_MAX_AGE_SECONDS", "28800")),
         session_cookie_name=os.getenv("SESSION_COOKIE_NAME", "icebeach_session"),
         session_cookie_secure=_truthy_env("SESSION_COOKIE_SECURE", "false"),
-        allow_legacy_staff_login=_truthy_env("ALLOW_LEGACY_STAFF_LOGIN", "false"),
+        allow_legacy_staff_login=allow_legacy_staff_login,
         auth_code_ttl_seconds=int(os.getenv("AUTH_CODE_TTL_SECONDS", "300")),
         auth_code_rate_limit_window_seconds=int(os.getenv("AUTH_CODE_RATE_LIMIT_WINDOW_SECONDS", "600")),
         auth_code_rate_limit_max_attempts=int(os.getenv("AUTH_CODE_RATE_LIMIT_MAX_ATTEMPTS", "5")),
-        debug_auth_codes_in_response=_truthy_env("AUTH_DEBUG_CODE_IN_RESPONSE", "false"),
+        debug_auth_codes_in_response=debug_auth_codes_in_response,
         cors_allow_origins=cors_allow_origins,
         cors_allow_origin_regex=cors_allow_origin_regex,
         api_host=os.getenv("API_HOST", "127.0.0.1"),
         api_port=int(os.getenv("API_PORT", "8000")),
-        environment=os.getenv("APP_ENV", "local").strip() or "local",
+        environment=environment,
     )

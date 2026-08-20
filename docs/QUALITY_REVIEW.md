@@ -11,9 +11,9 @@
 |------|--------|
 | Google Sheets как SoT | Канон зафиксирован, live staging зависит от credentials |
 | FastAPI booking/check-in/pilot/KPI | MVP есть, контрактные тесты закрывают ядро смены |
-| React dashboard (роли) | MVP есть; UX смены доведён в этом проходе |
-| Auth по SMS-коду | Код есть; боевая доставка OTP **ещё не подключена** |
-| Voice admin on-device | Прототип, не блокер Cash-cow |
+| React dashboard (роли) | MVP есть; UX смены и воронки лидов доведены в этом проходе |
+| Auth по SMS-коду | Код есть; Telegram OTP-адаптер готов, но токен не задаём до ротации секретов |
+| Voice admin on-device | Прототип FSM, не блокер Cash-cow |
 | Staging Timeweb | Чеклист есть, GO после 2× green smoke на live Sheets |
 | SponsorOS / Gear / Desktop Personal_Helper | Вне текущего репо, не трогаем |
 
@@ -25,12 +25,13 @@
 |------|--------|
 | UX (сменный UI) | 5/10 до правок: вход по `staff_user_id`, check-in без подтверждения брони, пилот смешивает роли оператора |
 | Backend | CI красный (`httpx`/`get_settings` на импорте), availability рисовала 30 слотов вне schedule |
-| Security / DevOps | OTP debug в Docker example, hooks без +x, секреты в git history (`1.txt`/`2.txt`) — нужна ротация человеком |
-| Analytics | KPI считал не `done`, а все активные брони; воронка `contacted` не копила `booked` |
-| Marketing | Экран выпадал из визуальной системы, период сезона не был виден |
+| Security / DevOps | OTP debug в Docker example, hooks без +x, секреты в git history (`1.txt`/`2.txt`) |
+| Analytics | KPI считал не `done`, а все активные брони; snapshot мог затирать чужой `club_id` |
+| Marketing | Экран выпадал из визуальной системы, не было смены статуса лида |
 
 ## 3. Что исправлено в этом проходе
 
+### Волна 1
 - CI: pinned FastAPI/httpx, app больше не падает на импорте без Google env
 - Слоты только из `schedule` (если расписание заполнено)
 - Check-in пишет бронь только после валидного FSM; `cancelled` больше не превращается в `late`
@@ -39,17 +40,32 @@
 - UX: login, nav, check-in с подтверждением, очередь раньше формы, лодки списком, NO-GO на KPI
 - Demo API без Google: `scripts/demo_local.py`
 
-## 4. Что сознательно отложено
+### Волна 2 (без ротации секретов)
+- Сессия сверяет живую роль и `is_active` из `staff_users`
+- Face check-in требует `consent_face`
+- `in_progress` → только `done` (оператор не может отменить заезд на воде)
+- Analytics snapshot keyed по `(date, club_id)`
+- UTM write только admin/operator
+- OTP: канал `telegram` если задан `TELEGRAM_BOT_TOKEN`, иначе `manual`
+- Production invariant: debug OTP и legacy login запрещены при `APP_ENV=production`
+- Marketing: создание лида и смена статуса для admin/operator
+- Бейджи `ready` / `in_progress` заметнее на экране смены
+- CI dashboard: `npm ci`; pre-commit ищет `python3`, затем `python`
 
-- Боевая доставка OTP (SMS/Telegram)
+## 4. Что сознательно отложено владельцем
+
+- **Ротация секретов из git history** — только после завершения всех текущих работ
+- Боевой Telegram/SMS OTP (адаптер есть, токен не кладём)
 - Конкурентные записи в Sheets (single-writer)
-- Мультиклубный snapshot_id
+- Live Sheets / Timeweb staging в этом окружении
 - Frontend unit/a11y автотесты
 - CAC attribution и UTM public ingest
+- SponsorOS / Gear / слияние Personal_Helper–Agents–Molt
 
 ## 5. Критерий готовности к пилотной смене
 
 1. pytest зелёный  
 2. dashboard build зелёный  
 3. demo: login → бронь → arrived → ready → in_progress → done  
-4. На staging: 2× smoke + preflight без blockers
+4. На staging: 2× smoke + preflight без blockers  
+5. После закрытия работ: ротация секретов человеком, затем `TELEGRAM_BOT_TOKEN` при необходимости

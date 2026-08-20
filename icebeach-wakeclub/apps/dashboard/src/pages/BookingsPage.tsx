@@ -134,9 +134,14 @@ function getActionLabel(status: BookingStatus): string {
 }
 
 function getStatusBadge(status: BookingStatus): string {
+  if (status === "ready" || status === "in_progress") return "game-badge-live";
   if (status === "done") return "game-badge-success";
   if (status === "late" || status === "no_show" || status === "cancelled") return "game-badge-warn";
   return "game-badge-info";
+}
+
+function isLiveShiftStatus(status: BookingStatus): boolean {
+  return status === "ready" || status === "in_progress";
 }
 
 function matchesBookingFilter(booking: BookingItem, statusFilter: BookingViewFilter, rideFilter: RideType | "all", wetsuitOnly: boolean): boolean {
@@ -817,7 +822,10 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
 
         <div className={`grid gap-4 ${compactList ? "" : "xl:grid-cols-2"}`}>
           {filteredBookings.map((booking) => (
-            <article key={booking.booking_id} className={`game-card ${compactList ? "space-y-3" : "space-y-4"}`}>
+            <article
+              key={booking.booking_id}
+              className={`game-card ${compactList ? "space-y-3" : "space-y-4"} ${isLiveShiftStatus(booking.status) ? "border-orange-300/70 shadow-[0_0_24px_rgba(249,115,22,0.28)]" : ""}`}
+            >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/60">{booking.time} • {booking.boat_id}</div>

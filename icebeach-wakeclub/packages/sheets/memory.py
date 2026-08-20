@@ -58,7 +58,16 @@ def default_minimal_tabs() -> dict[str, list[dict[str, str]]]:
                 "consent_face": "false",
                 "consent_voice": "false",
                 "created_at": "2026-03-01T00:00:00Z",
-            }
+            },
+            {
+                "client_id": "client_2",
+                "club_id": CLUB_ID,
+                "full_name": "Ирина Смирнова",
+                "phone": "+79990000012",
+                "consent_face": "true",
+                "consent_voice": "true",
+                "created_at": "2026-03-01T00:00:00Z",
+            },
         ],
         "pricing": [
             {
@@ -171,7 +180,28 @@ def demo_tabs(*, today: date | None = None) -> dict[str, list[dict[str, str]]]:
             "wetsuit_gender": "male",
             "notes": "Гидрокостюм к старту",
             "discount": "0",
-        }
+        },
+        {
+            "booking_id": "bkg_demo_confirmed",
+            "club_id": CLUB_ID,
+            "client_id": "client_2",
+            "date": today.isoformat(),
+            "time": "10:30",
+            "boat_id": "boat_1",
+            "status": "confirmed",
+            "total_price": "12000",
+            "created_by": "staff_001",
+            "created_at": f"{today.isoformat()}T07:05:00Z",
+            "updated_at": f"{today.isoformat()}T07:05:00Z",
+            "coach_required": "false",
+            "coach_user_id": "",
+            "ride_type": "surf",
+            "wetsuit_required": "false",
+            "wetsuit_size": "",
+            "wetsuit_gender": "",
+            "notes": "",
+            "discount": "0",
+        },
     ]
     tabs["kpi_targets"] = [
         {
@@ -250,6 +280,38 @@ class InMemorySheetWrapper:
                 )
                 return updated
         raise ValueError(f"Row not found in '{tab_name}' where {id_column}={id_value}")
+
+    def update_matching(
+        self,
+        tab_name: str,
+        filters: dict[str, str],
+        patch: dict[str, str],
+        *,
+        actor: str = "system",
+        audit_entity: str | None = None,
+    ) -> dict[str, str]:
+        matches: list[int] = []
+        for index, row in enumerate(self.tabs.get(tab_name, [])):
+            if all(str(row.get(key, "")) == str(value) for key, value in filters.items()):
+                matches.append(index)
+        if not matches:
+            raise ValueError(f"Row not found in '{tab_name}' matching {filters}")
+        if len(matches) > 1:
+            raise ValueError(f"Duplicate rows found in '{tab_name}' matching {filters}")
+        index = matches[0]
+        updated = dict(self.tabs[tab_name][index])
+        for key, value in patch.items():
+            updated[key] = "" if value is None else str(value)
+        self.tabs[tab_name][index] = updated
+        entity_id = str(next(iter(filters.values()), ""))
+        self.write_audit(
+            action="update",
+            entity=audit_entity or tab_name.rstrip("s"),
+            entity_id=entity_id,
+            diff_json=patch,
+            actor=actor,
+        )
+        return updated
 
     def write_audit(
         self,

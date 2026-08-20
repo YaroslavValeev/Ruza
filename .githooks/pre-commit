@@ -4,8 +4,15 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 export PYTHONPATH="${ROOT}/icebeach-wakeclub"
 
-if command -v python >/dev/null 2>&1; then
-  python -m pytest "${ROOT}/icebeach-wakeclub/apps/api/tests" -q
+PYTHON_BIN=""
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+fi
+
+if [[ -n "${PYTHON_BIN}" ]]; then
+  "${PYTHON_BIN}" -m pytest "${ROOT}/icebeach-wakeclub/apps/api/tests" -q
 else
-  echo "[pre-commit] python not found, skipping pytest"
+  echo "[pre-commit] python/python3 not found, skipping pytest"
 fi

@@ -113,6 +113,12 @@ def create_checkin(
     booking_id = booking.get("booking_id", "")
     client_id = booking.get("client_id", "")
 
+    if payload.method == "face":
+        clients = sheet.find("clients", {"client_id": client_id})
+        client_row = next((row for row in clients if row.get("club_id") == club_id), None)
+        if client_row is None or not parse_bool(client_row.get("consent_face")):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Face check-in requires consent_face")
+
     checkin_status: CheckinStatus = payload.status
     booking_status_map: dict[CheckinStatus, str] = {
         "arrived": "arrived",

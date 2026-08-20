@@ -33,10 +33,9 @@ def write_analytics_snapshot(sheet: SheetWrapper, *, club_id: str, target_date: 
     existing = sheet.find("analytics_daily", {"date": target_date, "club_id": club_id})
     written = False
     if existing:
-        sheet.update_by_id(
+        sheet.update_matching(
             "analytics_daily",
-            "date",
-            target_date,
+            {"date": target_date, "club_id": club_id},
             row,
             actor="system",
             audit_entity="analytics_daily",
