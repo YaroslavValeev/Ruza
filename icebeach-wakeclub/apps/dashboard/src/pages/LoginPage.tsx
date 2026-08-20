@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { getDefaultRouteForRole, useAuth } from "../auth/session";
@@ -11,10 +11,20 @@ export function LoginPage(): JSX.Element {
   const [staffUserId, setStaffUserId] = useState("");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
+  const [resolvedStaffId, setResolvedStaffId] = useState("");
+  const [resolvedName, setResolvedName] = useState<string | null>(null);
   const [debugCode, setDebugCode] = useState<string | null>(null);
+  const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const codeInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (step === "verify") {
+      codeInputRef.current?.focus();
+    }
+  }, [step]);
 
   const onRequestCode = async (event: FormEvent) => {
     event.preventDefault();
@@ -23,7 +33,14 @@ export function LoginPage(): JSX.Element {
     try {
       const response = await requestCode(staffUserId.trim(), phone.trim());
       setDebugCode(response.debug_code ?? null);
-      setMessage(`Код подготовлен. Канал доставки: ${response.delivery_channel}.`);
+      setExpiresIn(response.expires_in_seconds);
+      setResolvedStaffId(response.staff_user_id || staffUserId.trim());
+      setResolvedName(response.full_name ?? null);
+      setMessage(
+        response.full_name
+          ? `Код для ${response.full_name}. Действует ${response.expires_in_seconds} сек.`
+          : `Код подготовлен. Действует ${response.expires_in_seconds} сек.`,
+      );
       setStep("verify");
     } catch (err) {
       setError((err as Error).message);
@@ -37,7 +54,7 @@ export function LoginPage(): JSX.Element {
     setError(null);
     setLoading(true);
     try {
-      const session = await verifyCode(staffUserId.trim(), code.trim());
+      const session = await verifyCode(resolvedStaffId || staffUserId.trim(), code.trim(), phone.trim());
       navigate(getDefaultRouteForRole(session.role), { replace: true });
     } catch (err) {
       setError((err as Error).message);
@@ -47,74 +64,112 @@ export function LoginPage(): JSX.Element {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
-      <form className="w-full max-w-sm rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-xl" onSubmit={step === "request" ? onRequestCode : onVerifyCode}>
-        <h1 className="mb-1 text-xl font-semibold">Вход в Dashboard</h1>
-        <p className="mb-4 text-sm text-slate-400">
-          Сначала подтвердите `staff_user_id` и телефон, затем введите одноразовый код.
-        </p>
+    <div className="flex min-h-screen items-center justify-center p-6 text-slate-100">
+      <form
+        className="game-panel w-full max-w-md space-y-4"
+        onSubmit={step === "request" ? onRequestCode : onVerifyCode}
+      >
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Ice Beach Club</p>
+          <h1 className="game-heading mt-1">Вход в смену</h1>
+          <p className="game-subheading mt-2">
+            Введите телефон сотрудника. Код подтверждения действует несколько минут.
+          </p>
+        </div>
 
-        <label className="mb-2 block text-sm">staff_user_id</label>
-        <input
-          value={staffUserId}
-          onChange={(e) => setStaffUserId(e.target.value)}
-          className="mb-4 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 outline-none focus:border-blue-500"
-          placeholder="staff_001"
-          required
-          disabled={step === "verify"}
-        />
+        <div>
+          <label htmlFor="login-phone" className="mb-2 block text-sm font-bold text-cyan-100/70">
+            Телефон
+          </label>
+          <input
+            id="login-phone"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="game-input"
+            placeholder="+7 999 000 00 01"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            required
+            disabled={step === "verify"}
+          />
+        </div>
 
-        <label className="mb-2 block text-sm">Телефон</label>
-        <input
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="mb-4 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 outline-none focus:border-blue-500"
-          placeholder="+79990000001"
-          required
-          disabled={step === "verify"}
-        />
+        <details className="game-card">
+          <summary className="cursor-pointer text-sm font-bold text-cyan-100/80">Если телефоны совпадают — укажите ID</summary>
+          <label htmlFor="login-staff-id" className="mb-2 mt-3 block text-sm font-bold text-cyan-100/70">
+            ID сотрудника
+          </label>
+          <input
+            id="login-staff-id"
+            value={staffUserId}
+            onChange={(e) => setStaffUserId(e.target.value)}
+            className="game-input"
+            placeholder="staff_001"
+            autoComplete="username"
+            disabled={step === "verify"}
+          />
+        </details>
 
         {step === "verify" ? (
           <>
-            <label className="mb-2 block text-sm">Одноразовый код</label>
+            {resolvedName ? <p className="text-sm text-cyan-100/80">Сотрудник: {resolvedName}</p> : null}
+            <label htmlFor="login-code" className="mb-2 block text-sm font-bold text-cyan-100/70">
+              Одноразовый код
+            </label>
             <input
+              id="login-code"
+              ref={codeInputRef}
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="mb-4 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 outline-none focus:border-blue-500"
+              className="game-input"
               placeholder="123456"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={8}
               required
             />
+            {expiresIn ? <p className="text-xs text-slate-400">Код действует {expiresIn} секунд.</p> : null}
           </>
         ) : null}
 
-        {message ? <p className="mb-4 rounded bg-emerald-900/40 p-2 text-sm text-emerald-200">{message}</p> : null}
-        {debugCode ? <p className="mb-4 rounded bg-amber-900/40 p-2 text-sm text-amber-200">DEV code: {debugCode}</p> : null}
-        {error ? <p className="mb-4 rounded bg-red-900/50 p-2 text-sm text-red-200">{error}</p> : null}
+        {message ? (
+          <p role="status" className="rounded-2xl bg-emerald-900/40 p-3 text-sm text-emerald-200">
+            {message}
+          </p>
+        ) : null}
+        {debugCode ? (
+          <p role="status" className="rounded-2xl bg-amber-900/40 p-3 text-sm text-amber-200">
+            DEV-код: {debugCode}
+          </p>
+        ) : null}
+        {error ? (
+          <p role="alert" className="rounded-2xl bg-red-900/50 p-3 text-sm text-red-200">
+            {error}
+          </p>
+        ) : null}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded bg-blue-600 px-3 py-2 font-medium hover:bg-blue-500 disabled:opacity-70"
-        >
+        <button type="submit" disabled={loading} className="game-button w-full">
           {loading ? "Ждём..." : step === "request" ? "Получить код" : "Войти"}
         </button>
 
         {step === "verify" ? (
           <button
             type="button"
-            className="mt-3 w-full rounded border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            className="game-button-secondary w-full"
             onClick={() => {
               setStep("request");
               setCode("");
               setDebugCode(null);
               setMessage(null);
               setError(null);
+              setResolvedName(null);
             }}
           >
-            Изменить staff_user_id / телефон
+            Изменить телефон
           </button>
         ) : null}
-        <p className="mt-4 text-xs text-slate-500">API: {getApiBaseUrl()}</p>
+        <p className="text-xs text-slate-500">Сервер: {getApiBaseUrl()}</p>
       </form>
     </div>
   );

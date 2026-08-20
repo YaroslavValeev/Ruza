@@ -15,8 +15,9 @@ def write_analytics_snapshot(sheet: SheetWrapper, *, club_id: str, target_date: 
         for row in sheet.read_tab("bookings")
         if row.get("club_id") == club_id and row.get("date") == target_date
     ]
-    total_bookings = len(bookings)
-    no_show_count = len([row for row in bookings if row.get("status") == "no_show"])
+    eligible = [row for row in bookings if row.get("status") != "cancelled"]
+    total_bookings = len(eligible)
+    no_show_count = len([row for row in eligible if row.get("status") == "no_show"])
     no_show_rate = round((no_show_count / total_bookings) * 100, 2) if total_bookings else 0.0
 
     row = {
@@ -42,7 +43,7 @@ def write_analytics_snapshot(sheet: SheetWrapper, *, club_id: str, target_date: 
         )
         written = True
     else:
-        sheet.append_row("analytics_daily", row, unique_key="date")
+        sheet.append_row("analytics_daily", row)
         written = True
 
     return {

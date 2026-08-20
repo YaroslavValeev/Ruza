@@ -11,11 +11,12 @@ from ..auth import AuthUser, get_current_user, sign_session_token
 from ..config import Settings, get_settings
 from ..dependencies import get_sheet_wrapper
 from ..models import LoginCodeRequest, LoginCodeResponse, LoginRequest, LoginVerifyRequest, SessionResponse
-from ..services.common import generate_auth_code, hash_auth_code, normalize_phone, phones_match
+from ..services.common import generate_auth_code, hash_auth_code, phones_match
 from ..services.pilot import get_pilot_boat_id
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+_VERIFY_FAILS: dict[str, list[datetime]] = {}
 
 
 def _set_session_cookie(response: Response, *, settings: Settings, token: str) -> None:
@@ -58,34 +59,62 @@ def _session_response(user: dict[str, str], *, boat_id: str | None = None) -> Se
     )
 
 
+def _is_active(user: dict[str, str]) -> bool:
+    return str(user.get("is_active", "")).lower() in {"1", "true", "yes"}
+
+
+def _resolve_staff_user(
+    sheet: SheetWrapper,
+    *,
+    staff_user_id: str | None,
+    phone: str | None,
+) -> dict[str, str]:
+    users = [row for row in sheet.read_tab("staff_users") if _is_active(row)]
+    if staff_user_id:
+        users = [row for row in users if row.get("staff_user_id") == staff_user_id]
+    if phone:
+        users = [row for row in users if phones_match(str(row.get("phone", "")), phone)]
+    if not staff_user_id and not phone:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="staff_user_id or phone is required")
+    if not users:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+    if len(users) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Several staff records match this phone. Enter staff ID.",
+        )
+    return users[0]
+
+
+def _check_verify_rate(staff_user_id: str, settings: Settings) -> None:
+    now = datetime.now(timezone.utc)
+    window = timedelta(seconds=settings.auth_code_rate_limit_window_seconds)
+    attempts = [stamp for stamp in _VERIFY_FAILS.get(staff_user_id, []) if now - stamp <= window]
+    _VERIFY_FAILS[staff_user_id] = attempts
+    max_attempts = max(settings.auth_code_rate_limit_max_attempts * 4, 10)
+    if len(attempts) >= max_attempts:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts")
+
+
+def _record_verify_fail(staff_user_id: str) -> None:
+    _VERIFY_FAILS.setdefault(staff_user_id, []).append(datetime.now(timezone.utc))
+
+
 @router.post("/request-code", response_model=LoginCodeResponse)
 def request_login_code(
     payload: LoginCodeRequest,
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
     settings: Settings = Depends(get_settings),
 ) -> LoginCodeResponse:
-    users = sheet.find("staff_users", {"staff_user_id": payload.staff_user_id})
-    user = next((u for u in users if str(u.get("is_active", "")).lower() in {"1", "true", "yes"}), None)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
-
-    expected_phone = user.get("phone", "")
-    if not phones_match(expected_phone, payload.phone):
-        sheet.write_audit(
-            action="request_login_code_failed",
-            entity="auth",
-            entity_id=payload.staff_user_id,
-            diff_json={"reason": "phone_mismatch"},
-            actor=payload.staff_user_id,
-        )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Phone does not match staff record")
+    user = _resolve_staff_user(sheet, staff_user_id=payload.staff_user_id, phone=payload.phone)
+    staff_user_id = user["staff_user_id"]
 
     now = datetime.now(timezone.utc)
     threshold = (now - timedelta(seconds=settings.auth_code_rate_limit_window_seconds)).isoformat()
     recent_codes = [
         row
         for row in sheet.read_tab("auth_codes")
-        if row.get("staff_user_id") == payload.staff_user_id and row.get("created_at", "") >= threshold
+        if row.get("staff_user_id") == staff_user_id and row.get("created_at", "") >= threshold
     ]
     if len(recent_codes) >= settings.auth_code_rate_limit_max_attempts:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login code requests")
@@ -94,9 +123,9 @@ def request_login_code(
     auth_code_id = f"auth-{uuid4()}"
     row = {
         "auth_code_id": auth_code_id,
-        "staff_user_id": payload.staff_user_id,
+        "staff_user_id": staff_user_id,
         "club_id": user.get("club_id", ""),
-        "code_hash": hash_auth_code(settings.session_secret, payload.staff_user_id, code),
+        "code_hash": hash_auth_code(settings.session_secret, staff_user_id, code),
         "created_at": now.isoformat(),
         "expires_at": (now + timedelta(seconds=settings.auth_code_ttl_seconds)).isoformat(),
         "used_at": "",
@@ -106,14 +135,16 @@ def request_login_code(
     sheet.write_audit(
         action="request_login_code",
         entity="auth",
-        entity_id=payload.staff_user_id,
+        entity_id=staff_user_id,
         diff_json={"delivery_channel": "manual", "auth_code_id": auth_code_id},
-        actor=payload.staff_user_id,
+        actor=staff_user_id,
     )
     return LoginCodeResponse(
         delivery_channel="manual",
         expires_in_seconds=settings.auth_code_ttl_seconds,
         debug_code=code if settings.debug_auth_codes_in_response else None,
+        staff_user_id=staff_user_id,
+        full_name=user.get("full_name") or None,
     )
 
 
@@ -124,16 +155,15 @@ def verify_login_code(
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
     settings: Settings = Depends(get_settings),
 ) -> SessionResponse:
-    users = sheet.find("staff_users", {"staff_user_id": payload.staff_user_id})
-    user = next((u for u in users if str(u.get("is_active", "")).lower() in {"1", "true", "yes"}), None)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+    user = _resolve_staff_user(sheet, staff_user_id=payload.staff_user_id, phone=payload.phone)
+    staff_user_id = user["staff_user_id"]
+    _check_verify_rate(staff_user_id, settings)
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    expected_hash = hash_auth_code(settings.session_secret, payload.staff_user_id, payload.code)
+    expected_hash = hash_auth_code(settings.session_secret, staff_user_id, payload.code)
     matching_row = None
     for row in reversed(sheet.read_tab("auth_codes")):
-        if row.get("staff_user_id") != payload.staff_user_id:
+        if row.get("staff_user_id") != staff_user_id:
             continue
         if row.get("used_at"):
             continue
@@ -144,21 +174,23 @@ def verify_login_code(
             break
 
     if matching_row is None:
+        _record_verify_fail(staff_user_id)
         sheet.write_audit(
             action="verify_login_code_failed",
             entity="auth",
-            entity_id=payload.staff_user_id,
+            entity_id=staff_user_id,
             diff_json={"reason": "invalid_or_expired_code"},
-            actor=payload.staff_user_id,
+            actor=staff_user_id,
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired code")
 
+    _VERIFY_FAILS.pop(staff_user_id, None)
     sheet.update_by_id(
         "auth_codes",
         "auth_code_id",
         matching_row["auth_code_id"],
         {"used_at": now_iso},
-        actor=payload.staff_user_id,
+        actor=staff_user_id,
         audit_entity="auth_code",
     )
 
@@ -168,9 +200,9 @@ def verify_login_code(
     sheet.write_audit(
         action="login_success",
         entity="auth",
-        entity_id=payload.staff_user_id,
+        entity_id=staff_user_id,
         diff_json={"boat_id": boat_id or ""},
-        actor=payload.staff_user_id,
+        actor=staff_user_id,
     )
     return _session_response(user, boat_id=boat_id)
 
@@ -212,9 +244,11 @@ def legacy_login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Legacy login is disabled. Use request-code/verify-code flow.",
         )
+    if settings.environment == "production":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Legacy login is disabled in production")
 
     users = sheet.find("staff_users", {"staff_user_id": payload.staff_user_id})
-    user = next((u for u in users if str(u.get("is_active", "")).lower() in {"1", "true", "yes"}), None)
+    user = next((item for item in users if _is_active(item)), None)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
 
@@ -222,7 +256,3 @@ def legacy_login(
     token = sign_session_token(settings, _session_payload(user, boat_id=boat_id))
     _set_session_cookie(response, settings=settings, token=token)
     return _session_response(user, boat_id=boat_id)
-
-
-
-

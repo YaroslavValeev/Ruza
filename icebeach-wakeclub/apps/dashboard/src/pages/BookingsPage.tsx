@@ -170,9 +170,11 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
   const [statusFilter, setStatusFilter] = useState<BookingViewFilter>("all");
   const [rideFilter, setRideFilter] = useState<RideType | "all">("all");
   const [wetsuitOnly, setWetsuitOnly] = useState(false);
-  const [compactList, setCompactList] = useState(false);
+  const [compactList, setCompactList] = useState(true);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [clientsQuery, setClientsQuery] = useState("");
   const [clients, setClients] = useState<ClientItem[]>([]);
+  const [checkinTargetId, setCheckinTargetId] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -229,10 +231,17 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
   }, [session.token, date]);
 
   useEffect(() => {
-    getClients(clientsQuery, session.token)
-      .then(setClients)
-      .catch((err: Error) => setToast({ type: "error", message: err.message }));
-  }, [clientsQuery, session.token]);
+    if (clientsQuery.trim().length < 2) {
+      setClients((current) => (selectedClientId ? current.filter((item) => item.client_id === selectedClientId) : []));
+      return undefined;
+    }
+    const timer = window.setTimeout(() => {
+      getClients(clientsQuery, session.token)
+        .then(setClients)
+        .catch((err: Error) => setToast({ type: "error", message: err.message }));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [clientsQuery, selectedClientId, session.token]);
 
   const availableSlots = useMemo(
     () => availability.filter((slot) => slot.available > 0 && slot.status === "active"),
@@ -338,14 +347,42 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
     }
   };
 
+  const checkinCandidates = useMemo(() => {
+    const key = checkinPhone.replace(/\D/g, "").slice(-10);
+    if (key.length < 10) return [];
+    return bookings.filter((booking) => {
+      const bookingKey = (booking.client_phone || "").replace(/\D/g, "").slice(-10);
+      return bookingKey === key && !["cancelled", "done", "no_show"].includes(booking.status);
+    });
+  }, [bookings, checkinPhone]);
+
+  const selectedCheckin = checkinCandidates.find((item) => item.booking_id === checkinTargetId) || checkinCandidates[0] || null;
+
   const handleCheckin = async (status: "arrived" | "ready") => {
     if (!checkinPhone.trim()) {
       setToast({ type: "error", message: "Введите телефон для check-in" });
       return;
     }
+    if (!selectedCheckin) {
+      setToast({ type: "error", message: "На эту дату нет активной брони с таким телефоном" });
+      return;
+    }
+    if (status === "ready" && selectedCheckin.status !== "arrived") {
+      setToast({ type: "error", message: "Сначала отметьте приезд, затем «Готов»" });
+      return;
+    }
     setLoading(true);
     try {
-      await createCheckin({ method: "phone", phone: checkinPhone.trim(), date, status }, session.token);
+      await createCheckin(
+        {
+          method: "phone",
+          phone: checkinPhone.trim(),
+          date,
+          status,
+          booking_id: selectedCheckin.booking_id,
+        },
+        session.token,
+      );
       setToast({ type: "success", message: status === "arrived" ? "Приезд отмечен" : "Готов к старту" });
       await loadDayData(date);
     } catch (err) {
@@ -391,24 +428,76 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
 
       {!readOnly ? (
         <section className="game-panel space-y-3">
-          <h2 className="text-lg font-black text-white">Check-in по телефону</h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-lg font-black text-white">Check-in по телефону</h2>
+              <p className="mt-1 text-sm text-cyan-100/70">Сначала подтверждаем найденную бронь, затем «Готов».</p>
+            </div>
+            <input
+              type="date"
+              value={date}
+              min={currentSeason.start}
+              max={currentSeason.end}
+              onChange={(e) => setDate(e.target.value)}
+              className="game-input sm:max-w-[180px]"
+              aria-label="Дата смены"
+            />
+          </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <input
               className="game-input flex-1"
               placeholder="+79990000011"
               value={checkinPhone}
-              onChange={(event) => setCheckinPhone(event.target.value)}
+              type="tel"
+              inputMode="tel"
+              onChange={(event) => {
+                setCheckinPhone(event.target.value);
+                setCheckinTargetId("");
+              }}
             />
             <button type="button" className="game-button-secondary" disabled={loading} onClick={() => void handleCheckin("arrived")}>
               Приехал
             </button>
-            <button type="button" className="game-button" disabled={loading} onClick={() => void handleCheckin("ready")}>
+            <button
+              type="button"
+              className="game-button"
+              disabled={loading || selectedCheckin?.status !== "arrived"}
+              onClick={() => void handleCheckin("ready")}
+            >
               Готов
             </button>
           </div>
+          {checkinPhone.trim() ? (
+            <div className="space-y-2">
+              {checkinCandidates.length === 0 ? (
+                <p className="text-sm text-amber-200">Активная бронь на {date} с этим телефоном не найдена.</p>
+              ) : (
+                checkinCandidates.map((item) => (
+                  <button
+                    key={item.booking_id}
+                    type="button"
+                    onClick={() => setCheckinTargetId(item.booking_id)}
+                    className={`game-card w-full text-left ${selectedCheckin?.booking_id === item.booking_id ? "border-cyan-300/70" : ""}`}
+                  >
+                    <div className="font-black text-white">{item.client_name || item.client_id}</div>
+                    <div className="text-sm text-cyan-100/70">
+                      {item.time} • {item.boat_id} • {getStatusLabel(item.status)}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          ) : null}
         </section>
       ) : null}
 
+      {!readOnly ? (
+        <button type="button" className="game-button-secondary w-full sm:w-auto" onClick={() => setComposerOpen((value) => !value)}>
+          {composerOpen ? "Скрыть новую бронь" : "Новая бронь"}
+        </button>
+      ) : null}
+
+      {composerOpen && !readOnly ? (
       <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
         {!readOnly ? (
         <>
@@ -658,6 +747,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
         </>
         ) : null}
       </div>
+      ) : null}
 
       <section className="game-panel space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

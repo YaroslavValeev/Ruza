@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { getPilotToday, updateBookingStatus } from "../api/client";
-import { BookingStatus, PilotQueueItem, RideType, StaffSession } from "../types";
+import { getBoats, getPilotToday, updateBookingStatus } from "../api/client";
+import { BoatItem, BookingStatus, PilotQueueItem, RideType, StaffSession } from "../types";
 
 type PilotPageProps = {
   session: StaffSession;
 };
 
-const PILOT_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
+const PILOT_ONLY_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
+  ready: ["in_progress"],
+  in_progress: ["done"],
+};
+
+const OPERATOR_PILOT_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
   confirmed: ["arrived"],
   arrived: ["ready"],
   ready: ["in_progress"],
@@ -110,10 +115,25 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
   const [dateTo, setDateTo] = useState(() => getToday());
   const [items, setItems] = useState<PilotQueueItem[]>([]);
   const [statusFilter, setStatusFilter] = useState<PilotStatusFilter>("all");
+  const [boats, setBoats] = useState<BoatItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
   const effectiveBoatId = useMemo(() => (session.role === "pilot" ? session.boat_id ?? "" : boatId.trim()), [boatId, session.boat_id, session.role]);
+  const actionMap = session.role === "pilot" ? PILOT_ONLY_ACTIONS : OPERATOR_PILOT_ACTIONS;
+
+  useEffect(() => {
+    if (session.role === "pilot") {
+      return;
+    }
+    void getBoats(session.token)
+      .then((items) => {
+        setBoats(items);
+        if (!boatId && items[0]) {
+          setBoatId(items[0].boat_id);
+        }
+      })
+      .catch((err: Error) => setError(err.message));
+  }, [session.role, session.token]);
 
   useEffect(() => {
     if (period === "week") {
@@ -236,6 +256,14 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
             <label className="mb-2 block text-sm font-bold text-cyan-100/70">Лодка</label>
             {session.role === "pilot" ? (
               <div className="game-input flex items-center">{session.boat_id || "Лодка не привязана к профилю пилота"}</div>
+            ) : boats.length ? (
+              <select value={boatId} onChange={(e) => setBoatId(e.target.value)} className="game-input">
+                {boats.map((boat) => (
+                  <option key={boat.boat_id} value={boat.boat_id}>
+                    {boat.boat_name} ({boat.boat_id})
+                  </option>
+                ))}
+              </select>
             ) : (
               <input value={boatId} onChange={(e) => setBoatId(e.target.value)} placeholder="boat_id" className="game-input" />
             )}
@@ -288,6 +316,11 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                   <div className="text-lg font-black text-white">{activeRide.client_name}</div>
                   <div className="text-sm text-cyan-100/70">{activeRide.time} • {RIDE_TYPE_LABELS[(activeRide.ride_type || "wakeboard") as RideType]}</div>
                   <span className={getStatusTone(activeRide.status)}>{STATUS_LABELS[activeRide.status] || activeRide.status}</span>
+                  {(actionMap[activeRide.status] ?? [])[0] ? (
+                    <button type="button" className="game-button w-full" onClick={() => void onStatusChange(activeRide.booking_id, (actionMap[activeRide.status] ?? [])[0])}>
+                      {getPrimaryActionText((actionMap[activeRide.status] ?? [])[0])}
+                    </button>
+                  ) : null}
                 </>
               ) : (
                 <div className="text-sm text-slate-300">Сейчас нет активного заезда.</div>
@@ -300,6 +333,11 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                   <div className="text-lg font-black text-white">{nextRide.client_name}</div>
                   <div className="text-sm text-cyan-100/70">{nextRide.time} • {RIDE_TYPE_LABELS[(nextRide.ride_type || "wakeboard") as RideType]}</div>
                   <span className={getStatusTone(nextRide.status)}>{STATUS_LABELS[nextRide.status] || nextRide.status}</span>
+                  {(actionMap[nextRide.status] ?? [])[0] ? (
+                    <button type="button" className="game-button w-full" onClick={() => void onStatusChange(nextRide.booking_id, (actionMap[nextRide.status] ?? [])[0])}>
+                      {getPrimaryActionText((actionMap[nextRide.status] ?? [])[0])}
+                    </button>
+                  ) : null}
                 </>
               ) : (
                 <div className="text-sm text-slate-300">Следующий заезд пока не сформирован.</div>
@@ -320,7 +358,7 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
 
       <section className="grid gap-4 xl:grid-cols-2">
         {filteredItems.map((item) => {
-          const nextActions = PILOT_ACTIONS[item.status] ?? [];
+          const nextActions = actionMap[item.status] ?? [];
           const nextPrimaryAction = nextActions[0];
           const progressStep = getProgressStep(item.status);
           return (

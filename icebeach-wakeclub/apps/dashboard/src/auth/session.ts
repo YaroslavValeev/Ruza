@@ -12,7 +12,7 @@ type AuthContextValue = {
   status: AuthStatus;
   issue: AuthIssue;
   requestCode: (staffUserId: string, phone: string) => Promise<LoginCodeResponse>;
-  verifyCode: (staffUserId: string, code: string) => Promise<StaffSession>;
+  verifyCode: (staffUserId: string, code: string, phone?: string) => Promise<StaffSession>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
   clearIssue: () => void;
@@ -79,8 +79,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
   }, []);
 
   const verifyCode = useCallback(
-    async (staffUserId: string, code: string) => {
-      const response = normalizeSession(await verifyLoginCode(staffUserId, code));
+    async (staffUserId: string, code: string, phone?: string) => {
+      const response = normalizeSession(await verifyLoginCode(staffUserId, code, phone));
       let nextSession = response;
 
       try {

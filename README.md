@@ -34,6 +34,28 @@ cd ..\..\..
 .\scripts\status-local.ps1
 ```
 
+## Локальный demo без Google Sheets
+
+**[WSL2]**
+```bash
+pip install -r icebeach-wakeclub/apps/api/requirements.txt
+cd icebeach-wakeclub/apps/dashboard && npm install && npm run dev
+```
+
+В другом терминале из корня репо:
+
+```bash
+PYTHONPATH="$PWD/icebeach-wakeclub" python3 scripts/demo_local.py
+```
+
+**[PowerShell]**
+```powershell
+$env:PYTHONPATH=(Resolve-Path .\icebeach-wakeclub).Path
+python scripts\demo_local.py
+```
+
+Вход: телефон `+79990000001` (оператор) или `+79990000000` (admin). Код показывается на экране.
+
 - API: http://127.0.0.1:8000/health
 - Dashboard: http://127.0.0.1:5173
 

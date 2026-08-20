@@ -14,6 +14,7 @@ import {
   LeadItem,
   LoginCodeResponse,
   MarketingFunnel,
+  BoatItem,
   PilotQueueItem,
   PreflightSummary,
   SmokeSummary,
@@ -167,16 +168,16 @@ export function requestLoginCode(staff_user_id: string, phone: string): Promise<
   return fetchApi<LoginCodeResponse>("/auth/request-code", {
     method: "POST",
     notifyAuthFailure: false,
-    body: JSON.stringify({ staff_user_id, phone }),
+    body: JSON.stringify({ staff_user_id: staff_user_id || undefined, phone }),
     headers: { "Content-Type": "application/json" },
   });
 }
 
-export function verifyLoginCode(staff_user_id: string, code: string): Promise<StaffSession> {
+export function verifyLoginCode(staff_user_id: string, code: string, phone?: string): Promise<StaffSession> {
   return fetchApi<StaffSession>("/auth/verify-code", {
     method: "POST",
     notifyAuthFailure: false,
-    body: JSON.stringify({ staff_user_id, code }),
+    body: JSON.stringify({ staff_user_id: staff_user_id || undefined, phone: phone || undefined, code }),
     headers: { "Content-Type": "application/json" },
   });
 }
@@ -304,6 +305,10 @@ export function runAnalyticsSnapshot(token: string | undefined, date: string): P
     method: "POST",
     token,
   });
+}
+
+export function getBoats(token?: string): Promise<BoatItem[]> {
+  return fetchApi<BoatItem[]>("/boats", { token });
 }
 
 export function getLeads(token?: string): Promise<LeadItem[]> {
