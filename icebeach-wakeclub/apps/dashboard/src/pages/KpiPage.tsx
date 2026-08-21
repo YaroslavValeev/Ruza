@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getKpiSummary, getPreflightSummary, runAnalyticsSnapshot, runSmokeCheck } from "../api/client";
+import { formatLocalIsoDate } from "../lib/dates";
 import {
   KpiPeriod,
   KpiSummary,
@@ -60,7 +61,7 @@ const SMOKE_LEVEL_STYLES: Record<SmokeLevel, string> = {
 };
 
 function getToday(): string {
-  return new Date().toISOString().slice(0, 10);
+  return formatLocalIsoDate();
 }
 
 function getSeasonBounds(dateText: string): { start: string; end: string } {

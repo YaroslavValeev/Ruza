@@ -51,6 +51,8 @@
 - Marketing: создание лида и смена статуса для admin/operator
 - Бейджи `ready` / `in_progress` заметнее на экране смены
 - CI dashboard: `npm ci`; pre-commit ищет `python3`, затем `python`
+- Demo-запуск без Google: `scripts/start-demo.ps1` / `scripts/start-demo.sh`
+- Локальная дата смены (не UTC), кнопки demo-ролей на логине, `scripts/smoke_demo.py`
 
 ## 4. Что сознательно отложено владельцем
 

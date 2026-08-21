@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getBoats, getPilotToday, updateBookingStatus } from "../api/client";
+import { formatLocalIsoDate } from "../lib/dates";
 import { BoatItem, BookingStatus, PilotQueueItem, RideType, StaffSession } from "../types";
 
 type PilotPageProps = {
@@ -49,7 +50,7 @@ type PilotPeriod = "day" | "week" | "season" | "custom";
 type PilotStatusFilter = "all" | "waiting" | "ready" | "on_water" | "done" | "problem";
 
 function getToday(): string {
-  return new Date().toISOString().slice(0, 10);
+  return formatLocalIsoDate();
 }
 
 function getWeekBounds(dateText: string): { from: string; to: string } {
@@ -61,8 +62,8 @@ function getWeekBounds(dateText: string): { from: string; to: string } {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   return {
-    from: monday.toISOString().slice(0, 10),
-    to: sunday.toISOString().slice(0, 10),
+    from: formatLocalIsoDate(monday),
+    to: formatLocalIsoDate(sunday),
   };
 }
 
@@ -75,6 +76,7 @@ function getSeasonBounds(dateText: string): { from: string; to: string } {
 }
 
 function getStatusTone(status: BookingStatus): string {
+  if (status === "ready" || status === "in_progress") return "game-badge-live";
   if (status === "done") return "game-badge-success";
   if (status === "late" || status === "no_show" || status === "cancelled") return "game-badge-warn";
   return "game-badge-info";

@@ -77,6 +77,37 @@ export function LoginPage(): JSX.Element {
           </p>
         </div>
 
+        {import.meta.env.DEV ? (
+          <div className="game-card space-y-2 text-sm text-cyan-100/80">
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/60">Локальный demo</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { phone: "+79990000000", label: "Админ" },
+                { phone: "+79990000001", label: "Оператор" },
+                { phone: "+79990000002", label: "Пилот" },
+              ].map((account) => (
+                <button
+                  key={account.phone}
+                  type="button"
+                  className="game-button-secondary px-3 text-xs"
+                  onClick={() => {
+                    setPhone(account.phone);
+                    setStaffUserId("");
+                    setStep("request");
+                    setCode("");
+                    setDebugCode(null);
+                    setError(null);
+                    setMessage(null);
+                  }}
+                >
+                  {account.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-400">Нажмите роль, затем «Получить код». DEV-код появится на этой форме.</p>
+          </div>
+        ) : null}
+
         <div>
           <label htmlFor="login-phone" className="mb-2 block text-sm font-bold text-cyan-100/70">
             Телефон

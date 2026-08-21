@@ -36,28 +36,30 @@ cd ..\..\..
 
 ## Локальный demo без Google Sheets
 
+**[PowerShell]**
+```powershell
+pip install -r icebeach-wakeclub\apps\api\requirements.txt
+.\scripts\start-demo.ps1
+$env:PYTHONPATH=(Resolve-Path .\icebeach-wakeclub).Path
+python scripts\smoke_demo.py
+```
+
 **[WSL2]**
 ```bash
 pip install -r icebeach-wakeclub/apps/api/requirements.txt
-cd icebeach-wakeclub/apps/dashboard && npm install && npm run dev
+chmod +x scripts/start-demo.sh scripts/check.sh
+./scripts/start-demo.sh
 ```
 
-В другом терминале из корня репо:
-
+В другом терминале:
 ```bash
-PYTHONPATH="$PWD/icebeach-wakeclub" python3 scripts/demo_local.py
+PYTHONPATH="$PWD/icebeach-wakeclub" python3 scripts/smoke_demo.py
 ```
 
-**[PowerShell]**
-```powershell
-$env:PYTHONPATH=(Resolve-Path .\icebeach-wakeclub).Path
-python scripts\demo_local.py
-```
-
-Вход: телефон `+79990000001` (оператор) или `+79990000000` (admin). Код показывается на экране.
+Открыть http://127.0.0.1:5173 — кнопки Админ / Оператор / Пилот, затем «Получить код». DEV-код на форме.
 
 - API: http://127.0.0.1:8000/health
-- Dashboard: http://127.0.0.1:5173
+- Стоп Windows: `.\scripts\stop-local.ps1`
 
 ## Docker
 
@@ -73,10 +75,13 @@ Copy-Item .env.docker.example .env.docker
 ## Тесты
 
 **[PowerShell]**
-
 ```powershell
-$env:PYTHONPATH="f:\Проекты MyWave\NEW2026\Ruza\icebeach-wakeclub"
-python -m pytest icebeach-wakeclub\apps\api\tests -v
+.\scripts\check.ps1
+```
+
+**[WSL2]**
+```bash
+./scripts/check.sh
 ```
 
 ## Структура monorepo

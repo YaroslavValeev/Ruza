@@ -9,6 +9,7 @@ import {
   getClients,
   updateBookingStatus,
 } from "../api/client";
+import { formatLocalIsoDate } from "../lib/dates";
 import {
   AvailabilityItem,
   BookingItem,
@@ -88,7 +89,7 @@ function getSeasonBounds(year: number): { start: string; end: string } {
 function getDefaultBookingDate(today = new Date()): string {
   const year = today.getFullYear();
   const { start, end } = getSeasonBounds(year);
-  const current = today.toISOString().slice(0, 10);
+  const current = formatLocalIsoDate(today);
 
   if (current < start) {
     return start;
