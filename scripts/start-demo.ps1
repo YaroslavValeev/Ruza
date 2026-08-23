@@ -57,17 +57,21 @@ if (-not (Test-Path (Join-Path $dashboardDir 'node_modules'))) {
   Pop-Location
 }
 
-$env:PYTHONPATH = $icebeach
+$env:PYTHONPATH = "$icebeach"
 Set-Content -Path $apiOut -Value '' -Encoding utf8
 Set-Content -Path $apiErr -Value '' -Encoding utf8
 
 $demoScript = Join-Path $repoRoot 'scripts\demo_local.py'
-$apiProc = Start-Process -FilePath $python -ArgumentList @($demoScript) -PassThru -WindowStyle Hidden -RedirectStandardOutput $apiOut -RedirectStandardError $apiErr
+$quotedScript = '"' + $demoScript + '"'
+$apiProc = Start-Process -FilePath $python -ArgumentList @('-u', $quotedScript) -WorkingDirectory "$repoRoot" -PassThru -WindowStyle Hidden -RedirectStandardOutput $apiOut -RedirectStandardError $apiErr
 Set-Content -Path $apiPidFile -Value $apiProc.Id -Encoding ascii
 
 $healthOk = $false
 for ($attempt = 1; $attempt -le 25; $attempt += 1) {
   Start-Sleep -Seconds 1
+  if ($apiProc.HasExited) {
+    break
+  }
   try {
     $body = Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:8000/health' | Select-Object -ExpandProperty Content
     if ($body -match 'ok') {
@@ -78,7 +82,11 @@ for ($attempt = 1; $attempt -le 25; $attempt += 1) {
 }
 
 if (-not $healthOk) {
-  Write-Error "Demo API failed to become healthy. Check $apiErr"
+  $errTail = ''
+  if (Test-Path $apiErr) { $errTail = (Get-Content -Path $apiErr -ErrorAction SilentlyContinue | Select-Object -Last 30) -join "`n" }
+  $outTail = ''
+  if (Test-Path $apiOut) { $outTail = (Get-Content -Path $apiOut -ErrorAction SilentlyContinue | Select-Object -Last 30) -join "`n" }
+  Write-Error "Demo API failed. Python=$python Script=$demoScript Exited=$($apiProc.HasExited)`nERR:`n$errTail`nOUT:`n$outTail"
 }
 
 $pwshExe = if (Test-Path 'C:\Program Files\PowerShell\7\pwsh.exe') {
