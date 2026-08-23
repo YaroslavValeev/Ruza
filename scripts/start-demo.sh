@@ -44,4 +44,4 @@ echo "Ctrl+C — остановить demo"
 echo
 
 cd "${ROOT}/icebeach-wakeclub/apps/dashboard"
-npm run dev -- --host 127.0.0.1 --port 5173
+npm run dev -- --host 0.0.0.0 --port 5173

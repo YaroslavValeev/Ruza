@@ -22,24 +22,28 @@ import {
 } from "../types";
 import { emitAuthFailure } from "../auth/auth-events";
 
-const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
 
 function isLoopbackHost(hostname: string): boolean {
   return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
 }
 
 function resolveApiBaseUrl(): string {
+  const browserOrigin = window.location.origin.replace(/\/$/, "");
+  const configuredRaw = RAW_API_BASE_URL || (import.meta.env.DEV ? browserOrigin : "http://127.0.0.1:8000");
+
   try {
-    const configured = new URL(RAW_API_BASE_URL, window.location.origin);
+    const configured = new URL(configuredRaw, window.location.origin);
     const browserHost = window.location.hostname;
 
+    // Preview/LAN: page is not loopback, so talk to the same origin (Vite proxies /auth, /bookings, ...).
     if (browserHost && !isLoopbackHost(browserHost) && isLoopbackHost(configured.hostname)) {
-      configured.hostname = browserHost;
+      return browserOrigin;
     }
 
     return configured.toString().replace(/\/$/, "");
   } catch {
-    return RAW_API_BASE_URL.replace(/\/$/, "");
+    return browserOrigin;
   }
 }
 
