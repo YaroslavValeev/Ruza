@@ -58,12 +58,12 @@ if (-not (Test-Path (Join-Path $dashboardDir 'node_modules'))) {
 }
 
 $env:PYTHONPATH = $icebeach
-Set-Content -Path $apiOut -Value '' -Encoding UTF8
-Set-Content -Path $apiErr -Value '' -Encoding UTF8
+Set-Content -Path $apiOut -Value '' -Encoding utf8
+Set-Content -Path $apiErr -Value '' -Encoding utf8
 
 $demoScript = Join-Path $repoRoot 'scripts\demo_local.py'
-$apiProc = Start-Process -FilePath $python -ArgumentList $demoScript -PassThru -WindowStyle Hidden -RedirectStandardOutput $apiOut -RedirectStandardError $apiErr
-Set-Content -Path $apiPidFile -Value $apiProc.Id -Encoding ASCII
+$apiProc = Start-Process -FilePath $python -ArgumentList @($demoScript) -PassThru -WindowStyle Hidden -RedirectStandardOutput $apiOut -RedirectStandardError $apiErr
+Set-Content -Path $apiPidFile -Value $apiProc.Id -Encoding ascii
 
 $healthOk = $false
 for ($attempt = 1; $attempt -le 25; $attempt += 1) {
@@ -81,12 +81,13 @@ if (-not $healthOk) {
   Write-Error "Demo API failed to become healthy. Check $apiErr"
 }
 
-$pwsh = if (Test-Path 'C:\Program Files\PowerShell\7\pwsh.exe') {
+$pwshExe = if (Test-Path 'C:\Program Files\PowerShell\7\pwsh.exe') {
   'C:\Program Files\PowerShell\7\pwsh.exe'
 } else {
   'powershell.exe'
 }
-$dashProc = Start-Process -FilePath $pwsh -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "Set-Location '$dashboardDir'; npm run dev -- --host $dashboardHostArg --port 5173" -PassThru -WindowStyle Hidden -RedirectStandardOutput $dashOut -RedirectStandardError $dashErr
+$dashCommand = "Set-Location -LiteralPath '$dashboardDir'; npm run dev -- --host $dashboardHostArg --port 5173"
+$dashProc = Start-Process -FilePath $pwshExe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $dashCommand) -PassThru -WindowStyle Hidden -RedirectStandardOutput $dashOut -RedirectStandardError $dashErr
 Start-Sleep -Seconds 5
 if ($dashProc.HasExited) {
   Write-Error "Dashboard failed to start. Check $dashErr"
@@ -95,8 +96,8 @@ if ($dashProc.HasExited) {
 Write-Output 'Demo without Google Sheets'
 Write-Output 'Dashboard: http://127.0.0.1:5173'
 Write-Output 'API:       http://127.0.0.1:8000/health'
-Write-Output 'Вход: кнопки Админ / Оператор / Пилот на форме, затем Получить код'
-Write-Output 'Стоп: .\scripts\stop-local.ps1'
+Write-Output 'Login: Admin / Operator / Pilot buttons, then request code'
+Write-Output 'Stop: .\scripts\stop-local.ps1'
 Write-Output "API PID: $($apiProc.Id)"
 Write-Output "Dashboard PID: $($dashProc.Id)"
 if ($Lan) {
