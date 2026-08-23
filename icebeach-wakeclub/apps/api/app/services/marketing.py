@@ -19,9 +19,11 @@ def get_marketing_funnel(
         and period_from <= row.get("created_at", "")[:10] <= period_to
     ]
     leads_count = len(leads)
-    contacted_count = len([row for row in leads if row.get("status") == "contacted"])
     booked_count = len([row for row in leads if row.get("status") == "booked"])
     lost_count = len([row for row in leads if row.get("status") == "lost"])
+    contacted_count = len(
+        [row for row in leads if row.get("status") in {"contacted", "booked"}]
+    )
 
     conversion = round((booked_count / leads_count) * 100, 2) if leads_count else 0.0
 

@@ -194,6 +194,63 @@ class SheetWrapper:
 
         return new_row
 
+    def update_matching(
+        self,
+        tab_name: str,
+        filters: dict[str, Any],
+        patch: dict[str, Any],
+        *,
+        actor: str = "system",
+        audit_entity: str | None = None,
+    ) -> dict[str, str]:
+        values = self._fetch_values(tab_name)
+        if not values:
+            raise ValueError(f"Tab '{tab_name}' is empty or missing header row")
+
+        headers = values[0]
+        validate_required_columns(tab_name, headers)
+
+        matches: list[tuple[int, dict[str, str]]] = []
+        for i, row in enumerate(values[1:], start=2):
+            normalized = row + [""] * (len(headers) - len(row))
+            mapped = dict(zip(headers, normalized, strict=False))
+            if all(str(mapped.get(key, "")) == str(value) for key, value in filters.items()):
+                matches.append((i, mapped))
+
+        if not matches:
+            raise ValueError(f"Row not found in '{tab_name}' matching {filters}")
+        if len(matches) > 1:
+            raise ValueError(f"Duplicate rows found in '{tab_name}' matching {filters}")
+
+        row_idx, old_row = matches[0]
+        new_row = dict(old_row)
+        for key, val in patch.items():
+            if key in headers:
+                new_row[key] = self._serialize_cell(val)
+
+        row_values = [new_row.get(col, "") for col in headers]
+        end_col = self._column_letter(len(headers))
+        self._execute_with_retries(
+            lambda: self.service.spreadsheets().values().update(
+                spreadsheetId=self.spreadsheet_id,
+                range=f"{tab_name}!A{row_idx}:{end_col}{row_idx}",
+                valueInputOption="RAW",
+                body={"values": [row_values]},
+            )
+        )
+        self._tab_cache.pop(tab_name, None)
+
+        diff = {k: {"old": old_row.get(k, ""), "new": new_row.get(k, "")} for k in patch if k in headers}
+        entity_id = str(next(iter(filters.values()), ""))
+        self.write_audit(
+            action="update",
+            entity=audit_entity or tab_name.rstrip("s"),
+            entity_id=entity_id,
+            diff_json=diff,
+            actor=actor,
+        )
+        return new_row
+
     def write_audit(
         self,
         action: str,

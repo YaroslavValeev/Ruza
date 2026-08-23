@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getKpiSummary, getPreflightSummary, runAnalyticsSnapshot, runSmokeCheck } from "../api/client";
+import { formatLocalIsoDate } from "../lib/dates";
 import {
   KpiPeriod,
   KpiSummary,
@@ -60,7 +61,7 @@ const SMOKE_LEVEL_STYLES: Record<SmokeLevel, string> = {
 };
 
 function getToday(): string {
-  return new Date().toISOString().slice(0, 10);
+  return formatLocalIsoDate();
 }
 
 function getSeasonBounds(dateText: string): { start: string; end: string } {
@@ -111,11 +112,17 @@ export function KpiPage({ session }: KpiPageProps): JSX.Element {
   const anchorDateLabel = period === "week" ? "Опорная дата недели" : period === "month" ? "Опорная дата месяца" : period === "season" ? "Опорная дата сезона" : "Опорная дата";
   const seasonBounds = getSeasonBounds(anchorDate);
   const leadRide = useMemo(() => {
-    if (!kpi?.ride_breakdown?.length) return null;
+    if (!kpi?.ride_breakdown?.some((item) => item.sessions_count > 0)) return null;
     return [...kpi.ride_breakdown].sort((a, b) => b.revenue_estimate - a.revenue_estimate)[0] ?? null;
   }, [kpi]);
   const readinessLabel = preflight ? (preflight.blockers > 0 ? "Есть блокеры" : preflight.warnings > 0 ? "Есть предупреждения" : "Готово к смене") : "Проверка не запускалась";
-  const readinessTone = preflight ? (preflight.blockers > 0 ? "game-badge-warn" : preflight.warnings > 0 ? "game-badge-info" : "game-badge-success") : "game-chip text-cyan-100";
+  const readinessTone = preflight
+    ? preflight.blockers > 0
+      ? "rounded-full border border-red-400/40 bg-red-950/50 px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-red-100"
+      : preflight.warnings > 0
+        ? "game-badge-info"
+        : "game-badge-success"
+    : "game-chip text-cyan-100";
 
   const loadKpi = async () => {
     setError(null);
@@ -248,7 +255,7 @@ export function KpiPage({ session }: KpiPageProps): JSX.Element {
               <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Оперативная сводка</div>
               <h2 className="mt-1 text-xl font-black text-white">Состояние сменного контура</h2>
             </div>
-            <span className={readinessTone}>{readinessLabel}</span>
+            <span className={readinessTone}>{preflight && preflight.blockers > 0 ? "NO-GO" : readinessLabel}</span>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

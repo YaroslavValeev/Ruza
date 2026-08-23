@@ -5,7 +5,6 @@ from datetime import date, timedelta
 from packages.sheets import SheetWrapper
 
 from ..models import KpiPeriod, RideType
-from .bookings import ACTIVE_BOOKING_STATUSES
 
 
 def _pct(actual: float | int, target: int | None) -> float | None:
@@ -108,7 +107,7 @@ def get_kpi_summary(
         for row in sheet.read_tab("bookings")
         if row.get("club_id") == club_id
         and start_text <= row.get("date", "") <= end_text
-        and row.get("status") in ACTIVE_BOOKING_STATUSES | {"done"}
+        and row.get("status") == "done"
     ]
 
     schedule_rows = [

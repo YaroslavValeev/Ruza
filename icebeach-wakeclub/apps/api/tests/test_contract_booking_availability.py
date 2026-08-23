@@ -51,7 +51,9 @@ def test_availability_contract() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert isinstance(payload, list)
+    assert len(payload) == 1
     assert payload[0]["boat_id"] == "boat_1"
+    assert payload[0]["time"] == "10:00"
     assert payload[0]["capacity"] == 1
     assert payload[0]["available"] == 1
 

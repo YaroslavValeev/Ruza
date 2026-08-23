@@ -73,35 +73,36 @@ def get_availability_for_date(sheet: SheetWrapper, date_text: str, club_id: str)
 
     slots: dict[tuple[str, str], dict[str, Any]] = {}
     time_grid = _generate_time_grid()
+    active_boat_ids = {boat.get("boat_id", "") for boat in boats if boat.get("boat_id")}
+    boat_capacity = {boat.get("boat_id", ""): int(boat.get("capacity_default") or 1) for boat in boats}
 
-    for boat in boats:
-        boat_id = boat.get("boat_id", "")
-        if not boat_id:
-            continue
-        capacity = int(boat.get("capacity_default") or 1)
-        for time_value in time_grid:
-            key = (boat_id, time_value)
-            slots[key] = {
+    if schedule_rows:
+        for row in schedule_rows:
+            time_value = _normalize_time_text(row.get("time"))
+            boat_id = row.get("boat_id", "")
+            if not time_value or not boat_id or boat_id not in active_boat_ids:
+                continue
+            slots[(boat_id, time_value)] = {
                 "date": date_text,
                 "time": time_value,
                 "boat_id": boat_id,
-                "capacity": capacity,
+                "capacity": int(row.get("capacity") or boat_capacity.get(boat_id, 1)),
                 "status": "active",
             }
-
-    for row in schedule_rows:
-        time_value = _normalize_time_text(row.get("time"))
-        key = (row.get("boat_id", ""), time_value)
-        if not all(key):
-            continue
-        existing = slots.get(key)
-        slots[key] = {
-            "date": date_text,
-            "time": time_value,
-            "boat_id": row.get("boat_id", ""),
-            "capacity": int(row.get("capacity") or (existing or {}).get("capacity", 0) or 0),
-            "status": "active",
-        }
+    else:
+        for boat in boats:
+            boat_id = boat.get("boat_id", "")
+            if not boat_id:
+                continue
+            capacity = boat_capacity.get(boat_id, 1)
+            for time_value in time_grid:
+                slots[(boat_id, time_value)] = {
+                    "date": date_text,
+                    "time": time_value,
+                    "boat_id": boat_id,
+                    "capacity": capacity,
+                    "status": "active",
+                }
 
     for row in override_rows:
         time_value = _normalize_time_text(row.get("time"))
