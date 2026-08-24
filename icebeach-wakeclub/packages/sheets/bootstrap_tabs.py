@@ -16,8 +16,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(_REPO_ROOT / ".env")
 load_dotenv(_REPO_ROOT / ".env.docker")
 
-# MVP tabs that must exist for smoke + mobile owner flow.
-BOOTSTRAP_TABS = ("checkins", "kpi_targets")
+# Operational tabs that may be introduced after the base workbook was created.
+BOOTSTRAP_TABS = ("checkins", "kpi_targets", "leads")
 
 KPI_SEED_ROW = {
     "target_id": "tgt-2026-season",

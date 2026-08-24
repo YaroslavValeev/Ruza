@@ -7,7 +7,14 @@ Missing or misnamed sheet tab: checkins
 Missing or misnamed sheet tab: kpi_targets
 ```
 
-добавьте в вашу таблицу (`SPREADSHEET_ID` из `.env`) **две новые вкладки** (имена точно как ниже).
+Добавьте в вашу таблицу (`SPREADSHEET_ID` из `.env`) операционные вкладки через
+идемпотентный bootstrap. Команда создаёт только отсутствующие вкладки и не
+перезаписывает существующие строки:
+
+```powershell
+$env:PYTHONPATH=(Resolve-Path .\icebeach-wakeclub).Path
+python -m packages.sheets.bootstrap_tabs
+```
 
 ---
 

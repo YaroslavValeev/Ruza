@@ -372,6 +372,8 @@ class LeadItem(BaseModel):
     utm_campaign: str = ""
     created_at: str
     notes: str = ""
+    external_source: str = ""
+    external_record_id: str = ""
 
 
 class LeadCreateRequest(BaseModel):
@@ -385,6 +387,15 @@ class LeadCreateRequest(BaseModel):
 
 class LeadStatusUpdateRequest(BaseModel):
     status: LeadStatus
+
+
+class IntakeSyncResponse(BaseModel):
+    source_tab: str
+    scanned: int
+    created: int
+    skipped_existing: int
+    skipped_invalid: int
+    errors: list[str]
 
 
 class MarketingFunnelResponse(BaseModel):

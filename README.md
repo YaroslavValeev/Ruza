@@ -1,6 +1,7 @@
 # Ruza — Ice Beach Wake Club Automation
 
-Цифровая экосистема клуба «Айс пляж» (Руза): Google Sheets как единственный источник истины, FastAPI backend, React dashboard.
+Цифровая экосистема клуба «Айс пляж» (Руза): каноническая таблица MyWave для
+входящих заявок, операционная RuzaTab для смены, FastAPI backend и React dashboard.
 
 ## Стек
 
@@ -8,6 +9,15 @@
 - **Frontend:** React 18, Vite 5, Tailwind CSS
 - **Auth:** RBAC по `staff_users` в Sheets, cookie session + SMS-код
 - **Deploy:** Docker → Timeweb App Platform (staging)
+
+## Source of Truth
+
+- Входящие заявки сайта `mywavewake.ru` и Telegram: каноническая таблица MyWave,
+  вкладка `Ruza` (`INTAKE_SPREADSHEET_ID`).
+- Операции клуба: RuzaTab (`SPREADSHEET_ID`), включая `clients`, `leads`,
+  `bookings`, `checkins`, `audit_log` и KPI.
+- `intake_sync` переносит заявку в `leads` идемпотентно. Бронь создаёт оператор
+  только после проверки слота и цены.
 
 ## Быстрый старт (локально)
 

@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from packages.sheets import SheetWrapper
 
 from ..models import KpiPeriod, RideType
+from .operating_calendar import build_operating_slots
 
 
 def _pct(actual: float | int, target: int | None) -> float | None:
@@ -79,14 +80,13 @@ def _get_period_bounds(period: KpiPeriod, *, today: date, date_from: str | None,
     raise ValueError(f"Unsupported KPI period: {period}")
 
 
-def _build_schedule_capacity_map(schedule_rows: list[dict[str, str]]) -> dict[int, int]:
-    capacity_map: dict[int, int] = {weekday: 0 for weekday in range(7)}
-    for row in schedule_rows:
-        weekday = row.get("weekday", "")
-        if weekday == "":
-            continue
-        capacity_map[int(weekday)] += int(row.get("capacity") or 0)
-    return capacity_map
+def _build_schedule_capacity_map(
+    boats: list[dict[str, str]], schedule_rows: list[dict[str, str]]
+) -> dict[int, int]:
+    return {
+        weekday: sum(int(slot["capacity"]) for slot in build_operating_slots(boats, schedule_rows, weekday=weekday))
+        for weekday in range(7)
+    }
 
 
 def get_kpi_summary(
@@ -115,7 +115,12 @@ def get_kpi_summary(
         for row in sheet.read_tab("schedule")
         if row.get("club_id") == club_id and str(row.get("is_active", "")).lower() in {"1", "true", "yes"}
     ]
-    schedule_capacity_map = _build_schedule_capacity_map(schedule_rows)
+    boats = [
+        row
+        for row in sheet.read_tab("boats")
+        if row.get("club_id") == club_id and str(row.get("is_active", "")).lower() in {"1", "true", "yes"}
+    ]
+    schedule_capacity_map = _build_schedule_capacity_map(boats, schedule_rows)
 
     sessions_count = len(bookings)
     revenue_estimate = sum(int(row.get("total_price") or 0) for row in bookings)

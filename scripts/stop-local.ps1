@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\icebeach-wakeclub')
 $apiDir = Join-Path $repoRoot 'apps\api'
 $apiSupervisorPidFile = Join-Path $apiDir '.runlogs\api-supervisor.pid'
+$dashboardPidFile = Join-Path $repoRoot 'apps\dashboard\.runlogs\dashboard.pid'
 
 function Stop-ProcessByPidFile([string]$PathToPidFile, [string]$Label) {
   if (-not (Test-Path $PathToPidFile)) { return }
@@ -34,6 +35,7 @@ function Stop-PortIfBusy([int]$Port) {
 }
 
 Stop-ProcessByPidFile -PathToPidFile $apiSupervisorPidFile -Label 'API watchdog'
+Stop-ProcessByPidFile -PathToPidFile $dashboardPidFile -Label 'Dashboard launcher'
 Start-Sleep -Seconds 1
 Stop-PortIfBusy 8000
 Stop-PortIfBusy 5173

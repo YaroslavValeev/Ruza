@@ -26,6 +26,8 @@ MockSheetWrapper = InMemorySheetWrapper
 def make_test_settings() -> Settings:
     return Settings(
         spreadsheet_id="test-sheet",
+        intake_spreadsheet_id="test-intake-sheet",
+        intake_tab_name="Ruza",
         service_account_json_path=str(Path(__file__).resolve()),
         service_account_info=None,
         session_secret="test-secret",
@@ -46,5 +48,9 @@ def make_test_settings() -> Settings:
         agents_staff_user_id="system-agent",
         telegram_bot_token=None,
         telegram_owner_chat_id=None,
+        otp_delivery_webhook_url=None,
+        otp_delivery_webhook_token=None,
+        otp_delivery_timeout_seconds=8.0,
+        allow_manual_otp_delivery=True,
         public_club_id="ice_beach_ruza",
     )

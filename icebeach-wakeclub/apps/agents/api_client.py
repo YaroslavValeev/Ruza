@@ -28,7 +28,7 @@ def call_agents_api(
 
     request = urllib.request.Request(url, method=method, headers={"X-Agents-Secret": settings.secret})
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(request, timeout=settings.api_timeout_seconds) as response:
             body = response.read().decode("utf-8")
             return json.loads(body) if body else {}
     except urllib.error.HTTPError as exc:
@@ -42,7 +42,7 @@ def call_health(settings: AgentsSettings) -> dict[str, Any]:
     url = f"{settings.api_base}/health"
     request = urllib.request.Request(url, method="GET")
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
+        with urllib.request.urlopen(request, timeout=min(settings.api_timeout_seconds, 15)) as response:
             return json.loads(response.read().decode("utf-8"))
     except Exception as exc:  # noqa: BLE001
         raise AgentsApiError(f"Health check failed: {exc}") from exc

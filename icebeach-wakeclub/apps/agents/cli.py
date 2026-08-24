@@ -7,6 +7,7 @@ import sys
 from .runners import (
     run_daily_brief,
     run_late_marker,
+    run_intake_sync,
     run_ops_alert,
     run_preflight_guard,
     run_shift_snapshot,
@@ -19,6 +20,7 @@ AGENTS = {
     "shift_snapshot": lambda args: run_shift_snapshot(),
     "ops_alert": lambda args: run_ops_alert(),
     "daily_brief": lambda args: run_daily_brief(mode=args.mode),
+    "intake_sync": lambda args: run_intake_sync(),
 }
 
 

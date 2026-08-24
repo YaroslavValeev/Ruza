@@ -12,7 +12,7 @@ from ..config import Settings, get_settings
 from ..dependencies import get_sheet_wrapper
 from ..models import LoginCodeRequest, LoginCodeResponse, LoginRequest, LoginVerifyRequest, SessionResponse
 from ..services.common import generate_auth_code, hash_auth_code, parse_utc_instant, phones_match
-from ..services.otp_delivery import deliver_login_code
+from ..services.otp_delivery import OtpDeliveryError, deliver_login_code
 from ..services.pilot import get_pilot_boat_id
 
 
@@ -121,7 +121,6 @@ def request_login_code(
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login code requests")
 
     code = generate_auth_code()
-    delivery_channel = deliver_login_code(code=code, telegram_id=str(user.get("telegram_id") or ""))
     auth_code_id = f"auth-{uuid4()}"
     row = {
         "auth_code_id": auth_code_id,
@@ -131,9 +130,45 @@ def request_login_code(
         "created_at": now.isoformat(),
         "expires_at": (now + timedelta(seconds=settings.auth_code_ttl_seconds)).isoformat(),
         "used_at": "",
-        "delivery_channel": delivery_channel,
+        "delivery_channel": "pending",
     }
     sheet.append_row("auth_codes", row, unique_key="auth_code_id")
+    try:
+        delivery_channel = deliver_login_code(
+            code=code,
+            phone=str(user.get("phone") or payload.phone or ""),
+            telegram_id=str(user.get("telegram_id") or ""),
+            settings=settings,
+        )
+    except OtpDeliveryError as exc:
+        sheet.update_by_id(
+            "auth_codes",
+            "auth_code_id",
+            auth_code_id,
+            {"used_at": now.isoformat(), "delivery_channel": "failed"},
+            actor=staff_user_id,
+            audit_entity="auth_code",
+        )
+        sheet.write_audit(
+            action="request_login_code_failed",
+            entity="auth",
+            entity_id=staff_user_id,
+            diff_json={"reason": "delivery_failed", "auth_code_id": auth_code_id},
+            actor=staff_user_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Не удалось доставить код входа. Повторите попытку или обратитесь к администратору.",
+        ) from exc
+
+    sheet.update_by_id(
+        "auth_codes",
+        "auth_code_id",
+        auth_code_id,
+        {"delivery_channel": delivery_channel},
+        actor=staff_user_id,
+        audit_entity="auth_code",
+    )
     sheet.write_audit(
         action="request_login_code",
         entity="auth",

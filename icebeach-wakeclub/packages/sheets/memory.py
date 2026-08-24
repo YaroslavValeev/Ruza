@@ -84,7 +84,7 @@ def default_minimal_tabs() -> dict[str, list[dict[str, str]]]:
                 "schedule_id": "sch_1",
                 "club_id": CLUB_ID,
                 "weekday": "0",
-                "time": "10:00",
+                "time": "07:00",
                 "boat_id": "boat_1",
                 "capacity": "1",
                 "is_active": "true",
@@ -118,20 +118,18 @@ def demo_tabs(*, today: date | None = None) -> dict[str, list[dict[str, str]]]:
     today = today or date.today()
     schedule: list[dict[str, str]] = []
     for day in range(7):
-        for hour, minute in ((10, 0), (10, 30), (11, 0), (14, 0), (15, 0), (16, 0)):
-            time_value = f"{hour:02d}:{minute:02d}"
-            schedule.append(
-                {
-                    "schedule_id": f"sch_{day}_{time_value.replace(':', '')}",
-                    "club_id": CLUB_ID,
-                    "weekday": str(day),
-                    "time": time_value,
-                    "boat_id": "boat_1",
-                    "capacity": "1",
-                    "is_active": "true",
-                    "notes": "",
-                }
-            )
+        schedule.append(
+            {
+                "schedule_id": f"sch_{day}",
+                "club_id": CLUB_ID,
+                "weekday": str(day),
+                "time": "07:00",
+                "boat_id": "boat_1",
+                "capacity": "1",
+                "is_active": "true",
+                "notes": "",
+            }
+        )
     tabs["schedule"] = schedule
     tabs["leads"] = [
         {

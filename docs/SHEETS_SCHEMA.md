@@ -70,6 +70,9 @@
 
 ## 2) Расписание и слоты
 ### `schedule`
+- одна активная строка включает лодку на выбранный день недели
+- `time` задаёт время открытия; API генерирует 30-минутные старты до 22:00
+- стандартная строка `07:00` даёт 30 слотов: от `07:00` до `21:30`
 - schedule_id (string, unique)
 - club_id
 - weekday (0-6)
@@ -157,6 +160,8 @@
 - utm_campaign
 - status (new|contacted|booked|lost)
 - created_at
+- external_source (`mywave_canonical_ruza` для синхронизированных заявок)
+- external_record_id (`request_id` из канонической таблицы)
 - notes
 
 ### `campaigns`

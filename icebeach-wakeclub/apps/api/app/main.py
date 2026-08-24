@@ -15,6 +15,7 @@ from .routes.boats import router as boats_router
 from .routes.clients import router as clients_router
 from .routes.health import router as health_router
 from .routes.internal_agents import router as internal_agents_router
+from .routes.intake import router as intake_router
 from .routes.kpi import router as kpi_router
 from .routes.leads import router as leads_router
 from .routes.marketing import router as marketing_router
@@ -103,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(utm_router)
     app.include_router(shift_router)
     app.include_router(internal_agents_router)
+    app.include_router(intake_router)
     app.include_router(public_router)
     app.include_router(approvals_router)
     return app

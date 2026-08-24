@@ -22,7 +22,8 @@ if ($env:AGENTS_SECRET) {
   $date = (Get-Date).ToString('yyyy-MM-dd')
   foreach ($pair in @(
     @{ code = 'agents.preflight'; method = 'GET'; uri = "$ApiBase/internal/agents/preflight?date=$date" },
-    @{ code = 'agents.brief'; method = 'GET'; uri = "$ApiBase/internal/agents/daily-brief?date=$date&mode=morning" }
+    @{ code = 'agents.brief'; method = 'GET'; uri = "$ApiBase/internal/agents/daily-brief?date=$date&mode=morning" },
+    @{ code = 'agents.intake_sync'; method = 'POST'; uri = "$ApiBase/internal/agents/intake-sync" }
   )) {
     try {
       $resp = Invoke-RestMethod -Method $pair.method -Uri $pair.uri -Headers $headers

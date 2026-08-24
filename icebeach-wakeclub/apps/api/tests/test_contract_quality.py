@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import threading
+import time
+
 from fastapi.testclient import TestClient
 
 from apps.api.app.dependencies import get_sheet_wrapper
@@ -7,6 +10,35 @@ from apps.api.app.config import get_settings
 from apps.api.app.main import app
 
 from conftest import MockSheetWrapper, make_test_settings
+
+
+def test_sheet_wrapper_serializes_shared_http_client() -> None:
+    from packages.sheets.sheet_wrapper import SheetWrapper
+
+    wrapper = SheetWrapper.__new__(SheetWrapper)
+    wrapper._http_lock = threading.RLock()  # noqa: SLF001
+    active = 0
+    max_active = 0
+    state_lock = threading.Lock()
+
+    class Request:
+        def execute(self) -> dict[str, bool]:
+            nonlocal active, max_active
+            with state_lock:
+                active += 1
+                max_active = max(max_active, active)
+            time.sleep(0.03)
+            with state_lock:
+                active -= 1
+            return {"ok": True}
+
+    threads = [threading.Thread(target=lambda: wrapper._execute_with_retries(Request)) for _ in range(4)]  # noqa: SLF001
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert max_active == 1
 
 
 def _make_client(mock_sheet: MockSheetWrapper) -> TestClient:
@@ -119,7 +151,7 @@ def test_kpi_counts_done_sessions_only() -> None:
     filled = client.get("/kpi/summary?period=day&date_from=2026-06-01").json()
     assert filled["sessions_count"] == 1
     assert filled["revenue_estimate"] == 12000
-    assert filled["utilization_pct"] == 100.0
+    assert filled["utilization_pct"] == 3.33
     app.dependency_overrides.clear()
 
 

@@ -5,10 +5,10 @@ from fastapi import APIRouter, Depends, Query
 from packages.sheets import SheetWrapper
 
 from ..config import Settings, get_settings
-from ..dependencies import get_sheet_wrapper
-from ..models import AvailabilityItem, LeadCreateRequest, PublicBookingRequest, PublicBookingRequestResponse
+from ..dependencies import get_intake_sheet_wrapper, get_sheet_wrapper
+from ..models import AvailabilityItem, PublicBookingRequest, PublicBookingRequestResponse
 from ..services.availability import get_availability_for_date
-from ..services.leads import create_lead
+from ..services.intake import create_canonical_booking_request, lead_id_for_external, sync_intake_leads
 
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -26,27 +26,24 @@ def public_availability(
 @router.post("/booking-request", response_model=PublicBookingRequestResponse)
 def public_booking_request(
     payload: PublicBookingRequest,
-    sheet: SheetWrapper = Depends(get_sheet_wrapper),
+    source_sheet: SheetWrapper = Depends(get_intake_sheet_wrapper),
+    target_sheet: SheetWrapper = Depends(get_sheet_wrapper),
     settings: Settings = Depends(get_settings),
 ) -> PublicBookingRequestResponse:
-    notes = (
-        f"Запрос слота: {payload.date.isoformat()} {payload.time}, "
-        f"тип {payload.ride_type}. {payload.notes}".strip()
+    request_id = create_canonical_booking_request(
+        source_sheet,
+        payload,
+        source_tab=settings.intake_tab_name,
     )
-    lead = create_lead(
-        sheet,
-        LeadCreateRequest(
-            full_name=payload.full_name,
-            phone=payload.phone,
-            source="public_widget",
-            utm_source="public_book",
-            notes=notes,
-        ),
-        actor_staff_user_id="public-widget",
+    sync_intake_leads(
+        source_sheet,
+        target_sheet,
+        source_tab=settings.intake_tab_name,
         club_id=settings.public_club_id,
+        actor="public-widget",
     )
     return PublicBookingRequestResponse(
-        lead_id=lead["lead_id"],
+        lead_id=lead_id_for_external(request_id),
         status="new",
         message="Заявка принята. Оператор свяжется для подтверждения записи.",
     )

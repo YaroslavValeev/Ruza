@@ -26,6 +26,8 @@ def _lead_to_item(row: dict[str, str]) -> dict[str, str]:
         "utm_campaign": row.get("utm_campaign", ""),
         "created_at": row.get("created_at", ""),
         "notes": row.get("notes", ""),
+        "external_source": row.get("external_source", ""),
+        "external_record_id": row.get("external_record_id", ""),
     }
 
 
@@ -54,9 +56,17 @@ def create_lead(
         "status": "new",
         "created_at": _utc_now_iso(),
         "notes": payload.notes,
+        "external_source": "",
+        "external_record_id": "",
     }
     sheet.append_row("leads", row, unique_key="lead_id")
-    sheet.write_audit(action="create", entity="lead", entity_id=lead_id, diff_json=row, actor=actor_staff_user_id)
+    sheet.write_audit(
+        action="create",
+        entity="lead",
+        entity_id=lead_id,
+        diff_json={key: value for key, value in row.items() if key != "phone"},
+        actor=actor_staff_user_id,
+    )
     return _lead_to_item(row)
 
 

@@ -15,6 +15,7 @@ $apiSupervisorLog = Join-Path $apiLogs 'api-supervisor.log'
 $apiSupervisorPidFile = Join-Path $apiLogs 'api-supervisor.pid'
 $dashOut = Join-Path $dashboardLogs 'dashboard.out.log'
 $dashErr = Join-Path $dashboardLogs 'dashboard.err.log'
+$dashPidFile = Join-Path $dashboardLogs 'dashboard.pid'
 $bindHost = if ($Lan) { '0.0.0.0' } else { '127.0.0.1' }
 $displayHost = '127.0.0.1'
 $dashboardHostArg = if ($Lan) { '0.0.0.0' } else { '127.0.0.1' }
@@ -70,19 +71,32 @@ function Stop-PortIfBusy([int]$Port) {
   }
 }
 
+function Clear-LogFile([string]$PathToLog) {
+  for ($attempt = 1; $attempt -le 20; $attempt += 1) {
+    try {
+      Set-Content -Path $PathToLog -Value '' -Encoding UTF8 -ErrorAction Stop
+      return
+    } catch {
+      if ($attempt -eq 20) { throw }
+      Start-Sleep -Milliseconds 250
+    }
+  }
+}
+
 New-Item -ItemType Directory -Force -Path $apiLogs | Out-Null
 New-Item -ItemType Directory -Force -Path $dashboardLogs | Out-Null
 
 Stop-ProcessByPidFile -PathToPidFile $apiSupervisorPidFile -Label 'API watchdog'
+Stop-ProcessByPidFile -PathToPidFile $dashPidFile -Label 'Dashboard launcher'
 Stop-PortIfBusy 8000
 Stop-PortIfBusy 5173
-Start-Sleep -Seconds 1
+Start-Sleep -Seconds 2
 
-Set-Content -Path $apiOut -Value '' -Encoding UTF8
-Set-Content -Path $apiErr -Value '' -Encoding UTF8
-Set-Content -Path $apiSupervisorLog -Value '' -Encoding UTF8
-Set-Content -Path $dashOut -Value '' -Encoding UTF8
-Set-Content -Path $dashErr -Value '' -Encoding UTF8
+Clear-LogFile $apiOut
+Clear-LogFile $apiErr
+Clear-LogFile $apiSupervisorLog
+Clear-LogFile $dashOut
+Clear-LogFile $dashErr
 
 $watchdogCommand = "& '$apiWatchdogScript' -ApiDir '$apiDir' -OutLog '$apiOut' -ErrLog '$apiErr' -SupervisorLog '$apiSupervisorLog' -PidFile '$apiSupervisorPidFile' -Port 8000 -BindHost '$bindHost'"
 $apiWatchdogProc = Start-Process -FilePath 'C:\Program Files\PowerShell\7\pwsh.exe' -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $watchdogCommand -PassThru -WindowStyle Hidden
@@ -104,6 +118,7 @@ if (-not $healthOk) {
 }
 
 $dashProc = Start-Process -FilePath 'C:\Program Files\PowerShell\7\pwsh.exe' -ArgumentList '-Command', "Set-Location '$dashboardDir'; npm run dev -- --host $dashboardHostArg --port 5173" -PassThru -WindowStyle Hidden -RedirectStandardOutput $dashOut -RedirectStandardError $dashErr
+Set-Content -Path $dashPidFile -Value $dashProc.Id -Encoding ASCII
 Start-Sleep -Seconds 6
 if ($dashProc.HasExited) {
   Write-Error "Dashboard failed to start. Check $dashErr"

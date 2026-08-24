@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet('preflight_guard', 'late_marker', 'shift_snapshot', 'ops_alert', 'daily_brief')]
+  [ValidateSet('preflight_guard', 'late_marker', 'shift_snapshot', 'ops_alert', 'daily_brief', 'intake_sync')]
   [string]$Agent,
   [ValidateSet('morning', 'evening')]
   [string]$Mode = 'morning'

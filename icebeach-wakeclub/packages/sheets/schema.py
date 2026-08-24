@@ -82,7 +82,20 @@ TAB_SCHEMAS: dict[str, TabSchema] = {
     ),
     "leads": TabSchema(
         "leads",
-        ("lead_id", "club_id", "full_name", "phone", "source", "status", "created_at"),
+        (
+            "lead_id",
+            "club_id",
+            "full_name",
+            "phone",
+            "source",
+            "status",
+            "created_at",
+            "external_source",
+            "external_record_id",
+            "utm_source",
+            "utm_campaign",
+            "notes",
+        ),
     ),
     "campaigns": TabSchema(
         "campaigns",

@@ -20,6 +20,7 @@ CRITICAL_TABS = (
     "bookings",
     "checkins",
     "kpi_targets",
+    "leads",
     "analytics_daily",
     "auth_codes",
     "audit_log",

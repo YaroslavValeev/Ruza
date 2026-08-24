@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from .api_client import AgentsApiError, call_agents_api, call_health
 from .config import AgentsSettings, get_agents_settings
@@ -23,7 +23,7 @@ def run_preflight_guard(settings: AgentsSettings | None = None) -> dict[str, obj
 
 def run_late_marker(settings: AgentsSettings | None = None) -> dict[str, object]:
     settings = settings or get_agents_settings()
-    hour = date.today().hour  # noqa: DTZ011 — local shift hours
+    hour = datetime.now().hour  # noqa: DTZ005 — club process runs in Europe/Moscow
     if hour < 8 or hour > 22:
         return {"agent": "late_marker", "skipped": True, "reason": "outside shift hours"}
     today = date.today().isoformat()
@@ -67,3 +67,13 @@ def run_daily_brief(settings: AgentsSettings | None = None, *, mode: str = "morn
     payload = call_agents_api(settings, "GET", "/internal/agents/daily-brief", query=f"date={today}&mode={mode}")
     notify_all(settings, str(payload.get("title", "Daily Brief")), str(payload.get("text", "")))
     return {"agent": "daily_brief", "mode": mode, **payload}
+
+
+def run_intake_sync(settings: AgentsSettings | None = None) -> dict[str, object]:
+    settings = settings or get_agents_settings()
+    call_health(settings)
+    payload = call_agents_api(settings, "POST", "/internal/agents/intake-sync")
+    errors = payload.get("errors", [])
+    if errors:
+        notify_all(settings, "Intake Sync: ошибка", f"Не синхронизированы строки: {len(errors)}")
+    return {"agent": "intake_sync", **payload}

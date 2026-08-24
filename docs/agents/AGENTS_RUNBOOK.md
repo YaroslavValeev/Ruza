@@ -12,6 +12,7 @@ cd "F:\Проекты MyWave\NEW2026\Ruza"
 .\scripts\run-agent.ps1 -Agent ops_alert
 .\scripts\run-agent.ps1 -Agent daily_brief -Mode morning
 .\scripts\run-agent.ps1 -Agent daily_brief -Mode evening
+.\scripts\run-agent.ps1 -Agent intake_sync
 ```
 
 ## Проверка
@@ -30,6 +31,8 @@ Get-Content logs\agents.log -Tail 30
 | `TELEGRAM_BOT_TOKEN` | optional |
 | `TELEGRAM_OWNER_CHAT_ID` | optional |
 | `PUBLIC_CLUB_ID` | клуб для `/public/*` |
+| `INTAKE_SPREADSHEET_ID` | каноническая таблица входящих заявок |
+| `INTAKE_TAB_NAME` | вкладка источника, по умолчанию `Ruza` |
 
 ## Агенты
 
@@ -52,6 +55,12 @@ Get-Content logs\agents.log -Tail 30
 
 ### QueueCoach
 - UI-only: карточка «Следующий заезд» на `/m/pilot` и `/pilot`
+
+### IntakeSync
+- `POST /internal/agents/intake-sync`
+- Переносит новые строки `Ruza` в операционную вкладку `leads`
+- Повторный запуск безопасен: `external_source + external_record_id` не дублируются
+- Рекомендуемый production-интервал: каждые 5 минут
 
 ## Rollback
 
