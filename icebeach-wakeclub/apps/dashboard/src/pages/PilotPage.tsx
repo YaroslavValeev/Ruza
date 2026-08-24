@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { getPilotToday, updateBookingStatus } from "../api/client";
-import { BookingStatus, PilotQueueItem, RideType, StaffSession } from "../types";
+import { getBoats, getPilotToday, updateBookingStatus } from "../api/client";
+import { BoatItem, BookingStatus, PilotQueueItem, RideType, StaffSession } from "../types";
 import {
   ACTION_LABELS,
   PILOT_ACTIONS,
@@ -70,6 +70,7 @@ function matchesPilotFilter(item: PilotQueueItem, filter: PilotStatusFilter): bo
 
 export function PilotPage({ session }: PilotPageProps): JSX.Element {
   const [boatId, setBoatId] = useState(session.boat_id ?? "");
+  const [boats, setBoats] = useState<BoatItem[]>([]);
   const [period, setPeriod] = useState<PilotPeriod>("day");
   const [date, setDate] = useState(() => getToday());
   const [dateFrom, setDateFrom] = useState(() => getToday());
@@ -80,6 +81,24 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
   const [loading, setLoading] = useState(false);
 
   const effectiveBoatId = useMemo(() => (session.role === "pilot" ? session.boat_id ?? "" : boatId.trim()), [boatId, session.boat_id, session.role]);
+
+  useEffect(() => {
+    if (session.role === "pilot") return;
+    let cancelled = false;
+    void getBoats(session.token)
+      .then((availableBoats) => {
+        if (cancelled) return;
+        const activeBoats = availableBoats.filter((boat) => boat.is_active);
+        setBoats(activeBoats);
+        if (!boatId && activeBoats.length > 0) setBoatId(activeBoats[0].boat_id);
+      })
+      .catch((requestError: Error) => {
+        if (!cancelled) setError(requestError.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [boatId, session.role, session.token]);
 
   useEffect(() => {
     if (period === "week") {
@@ -203,7 +222,14 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
             {session.role === "pilot" ? (
               <div className="game-input flex items-center">{session.boat_id || "Лодка не привязана к профилю пилота"}</div>
             ) : (
-              <input value={boatId} onChange={(e) => setBoatId(e.target.value)} placeholder="boat_id" className="game-input" />
+              <select value={boatId} onChange={(e) => setBoatId(e.target.value)} className="game-input">
+                {boats.length === 0 ? <option value="">Нет активных лодок</option> : null}
+                {boats.map((boat) => (
+                  <option key={boat.boat_id} value={boat.boat_id}>
+                    {boat.boat_name || boat.boat_id}
+                  </option>
+                ))}
+              </select>
             )}
           </div>
 

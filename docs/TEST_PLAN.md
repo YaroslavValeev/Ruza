@@ -16,6 +16,12 @@
 | `test_booking_rbac_pilot_forbidden` | pilot не создаёт брони |
 | `test_checkin_by_phone` | check-in по телефону |
 | `test_checkin_mark_late` | mark-late endpoint |
+| `test_auth_phone_only_login` | вход только по телефону |
+| `test_booking_wetsuit_and_ride_type_persist` | ride_type + гидрокостюм |
+| `test_checkin_ready_requires_arrived` | нельзя прыгнуть в ready |
+| `test_kpi_counts_done_sessions_only` | KPI = завершённые сессии |
+| `test_marketing_funnel_contacted_includes_booked` | воронка contacted включает booked |
+| `test_boats_list_and_pilot_cannot_change_foreign_boat` | лодки + RBAC пилота |
 
 Запуск:
 

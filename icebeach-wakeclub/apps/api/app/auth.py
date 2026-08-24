@@ -7,7 +7,11 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
+from packages.sheets import SheetWrapper
+
 from .config import Settings, get_settings
+from .dependencies import get_sheet_wrapper
+from .services.common import parse_bool
 
 
 security = HTTPBearer(auto_error=False)
@@ -34,6 +38,7 @@ def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     settings: Settings = Depends(get_settings),
+    sheet: SheetWrapper = Depends(get_sheet_wrapper),
 ) -> AuthUser:
     token = request.cookies.get(settings.session_cookie_name)
     if not token and credentials:
@@ -54,12 +59,17 @@ def get_current_user(
     if not all(payload.get(field) for field in required_fields):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
 
+    records = sheet.find("staff_users", {"staff_user_id": payload["staff_user_id"]})
+    live = next((row for row in records if parse_bool(row.get("is_active"))), None)
+    if live is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+
     return AuthUser(
-        staff_user_id=payload["staff_user_id"],
-        role=payload["role"],
-        full_name=payload["full_name"],
-        club_id=payload["club_id"],
-        phone=payload.get("phone", ""),
+        staff_user_id=live["staff_user_id"],
+        role=live.get("role") or payload["role"],
+        full_name=live.get("full_name") or payload["full_name"],
+        club_id=live.get("club_id") or payload["club_id"],
+        phone=live.get("phone") or payload.get("phone", ""),
     )
 
 

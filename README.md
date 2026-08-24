@@ -2,68 +2,86 @@
 
 Цифровая экосистема клуба «Айс пляж» (Руза): Google Sheets как единственный источник истины, FastAPI backend, React dashboard.
 
-## Режим работы
-
-**Сейчас: Docker на компьютере** (разработка и проверка до удовлетворения).  
-**Потом: сервер** — см. [docs/SERVER_COMMANDS.md](docs/SERVER_COMMANDS.md).
-
----
-
-## Docker — основной способ (рекомендуется)
-
-**[PowerShell]**
-
-```powershell
-cd "F:\Проекты MyWave\NEW2026\Ruza"
-
-# Нужны: .env + service-account.json в корне репо
-
-# DEV: hot reload API + Vite dashboard
-.\scripts\docker-up.ps1 -Dev
-
-# Проверка
-.\scripts\docker-status.ps1 -Dev
-.\scripts\smoke-local.ps1
-
-# Остановка
-.\scripts\docker-down.ps1 -Dev
-```
-
-| URL | Сервис |
-|-----|--------|
-| http://127.0.0.1:8000/health | API |
-| http://127.0.0.1:5173 | Dashboard |
-
-Подробно: **[docs/DOCKER_LOCAL.md](docs/DOCKER_LOCAL.md)**
-
----
-
-## Альтернатива: без Docker (start-local.ps1)
-
-**[PowerShell]**
-
-```powershell
-pip install -r icebeach-wakeclub\apps\api\requirements.txt
-cd icebeach-wakeclub\apps\dashboard; npm install; cd ..\..\..
-.\scripts\start-local.ps1
-```
-
----
-
 ## Стек
 
 - **Backend:** Python 3.11, FastAPI, Google Sheets API
 - **Frontend:** React 18, Vite 5, Tailwind CSS
 - **Auth:** RBAC по `staff_users` в Sheets, cookie session + SMS-код
-- **Deploy:** локально Docker → позже VPS / Timeweb
+- **Deploy:** Docker → Timeweb App Platform (staging)
 
-## Тесты
+## Быстрый старт (локально)
 
 **[PowerShell]**
 
 ```powershell
-$env:PYTHONPATH="f:\Проекты MyWave\NEW2026\Ruza\icebeach-wakeclub"
-python -m pytest icebeach-wakeclub\apps\api\tests -v
+cd "f:\Проекты MyWave\NEW2026\Ruza"
+
+# 1. Секреты (не коммитить)
+Copy-Item icebeach-wakeclub\apps\api\.env.example icebeach-wakeclub\apps\api\.env
+# Заполнить SPREADSHEET_ID, GOOGLE_SERVICE_ACCOUNT_JSON, SESSION_SECRET
+
+# 2. Backend deps
+pip install -r icebeach-wakeclub\apps\api\requirements.txt
+
+# 3. Frontend deps
+cd icebeach-wakeclub\apps\dashboard
+npm install
+cd ..\..\..
+
+# 4. Запуск
+.\scripts\install-hooks.ps1
+.\scripts\start-local.ps1
+.\scripts\status-local.ps1
+```
+
+## Локальный demo без Google Sheets
+
+**[PowerShell]**
+```powershell
+pip install -r icebeach-wakeclub\apps\api\requirements.txt
+.\scripts\start-demo.ps1
+$env:PYTHONPATH=(Resolve-Path .\icebeach-wakeclub).Path
+python scripts\smoke_demo.py
+```
+
+**[WSL2]**
+```bash
+pip install -r icebeach-wakeclub/apps/api/requirements.txt
+chmod +x scripts/start-demo.sh scripts/check.sh
+./scripts/start-demo.sh
+```
+
+В другом терминале:
+```bash
+PYTHONPATH="$PWD/icebeach-wakeclub" python3 scripts/smoke_demo.py
+```
+
+Открыть http://127.0.0.1:5173 — кнопки Админ / Оператор / Пилот, затем «Получить код». DEV-код на форме.
+
+- API: http://127.0.0.1:8000/health
+- Стоп Windows: `.\scripts\stop-local.ps1`
+
+## Docker
+
+**[PowerShell]**
+
+```powershell
+Copy-Item .env.docker.example .env.docker
+# заполнить переменные
+.\scripts\docker-up.ps1
+.\scripts\smoke-local.ps1
+```
+
+## Тесты
+
+**[PowerShell]**
+```powershell
+.\scripts\check.ps1
+```
+
+**[WSL2]**
+```bash
+./scripts/check.sh
 ```
 
 ## Структура monorepo
@@ -96,8 +114,7 @@ Ruza/
 
 - **[docs/MYWAVE_NORTH_STAR.md](docs/MYWAVE_NORTH_STAR.md)** — путеводная звезда команды (стратегия MyWave → приоритеты Ruza)
 - [docs/SHEETS_SCHEMA.md](docs/SHEETS_SCHEMA.md) — контракт табов
-- **[docs/DOCKER_LOCAL.md](docs/DOCKER_LOCAL.md)** — Docker-first разработка
-- **[docs/SERVER_COMMANDS.md](docs/SERVER_COMMANDS.md)** — когда будете готовы к VPS
+- **[docs/SERVER_COMMANDS.md](docs/SERVER_COMMANDS.md)** — команды для VPS / Timeweb / Docker
 - [docs/STAGING_DEPLOY.md](docs/STAGING_DEPLOY.md) — staging runbook
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/TEST_PLAN.md](docs/TEST_PLAN.md)

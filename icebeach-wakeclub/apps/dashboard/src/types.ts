@@ -21,6 +21,8 @@ export type LoginCodeResponse = {
   delivery_channel: string;
   expires_in_seconds: number;
   debug_code?: string | null;
+  staff_user_id?: string | null;
+  full_name?: string | null;
 };
 
 export type KpiRideBreakdownItem = {
@@ -165,6 +167,14 @@ export type ClientCreateRequest = {
 
 export type HealthStatus = {
   status: string;
+};
+
+export type BoatItem = {
+  boat_id: string;
+  boat_name: string;
+  capacity_default: number;
+  pilot_user_id?: string;
+  is_active: boolean;
 };
 
 export type CheckinItem = {

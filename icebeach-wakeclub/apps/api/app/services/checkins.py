@@ -59,10 +59,7 @@ def _find_booking_for_checkin(
 def _client_consent_flags(sheet: SheetWrapper, club_id: str, client_id: str) -> tuple[bool, bool]:
     for row in sheet.read_tab("clients"):
         if row.get("club_id") == club_id and row.get("client_id") == client_id:
-            return (
-                parse_bool(row.get("consent_face")),
-                parse_bool(row.get("consent_voice")),
-            )
+            return parse_bool(row.get("consent_face")), parse_bool(row.get("consent_voice"))
     return False, False
 
 
@@ -127,8 +124,28 @@ def create_checkin(
     booking_id = booking.get("booking_id", "")
     client_id = booking.get("client_id", "")
 
+    if payload.method == "face":
+        clients = sheet.find("clients", {"client_id": client_id})
+        client_row = next((row for row in clients if row.get("club_id") == club_id), None)
+        if client_row is None or not parse_bool(client_row.get("consent_face")):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Face check-in requires consent_face")
+
     checkin_status: CheckinStatus = payload.status
-    booking_status = "arrived" if checkin_status == "arrived" else "ready" if checkin_status == "ready" else "late"
+    booking_status_map: dict[CheckinStatus, str] = {
+        "arrived": "arrived",
+        "ready": "ready",
+        "late": "late",
+        "cancelled": "cancelled",
+    }
+    booking_status = booking_status_map[checkin_status]
+
+    update_booking_status(
+        sheet,
+        booking_id=booking_id,
+        status_value=booking_status,  # type: ignore[arg-type]
+        actor_staff_user_id=actor_staff_user_id,
+        club_id=club_id,
+    )
 
     checkin_id = f"chk-{uuid4()}"
     row = {
@@ -148,14 +165,6 @@ def create_checkin(
         entity_id=checkin_id,
         diff_json=row,
         actor=actor_staff_user_id,
-    )
-
-    update_booking_status(
-        sheet,
-        booking_id=booking_id,
-        status_value=booking_status,  # type: ignore[arg-type]
-        actor_staff_user_id=actor_staff_user_id,
-        club_id=club_id,
     )
 
     return _checkin_to_item(sheet, club_id, row)

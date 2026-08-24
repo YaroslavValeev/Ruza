@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 StaffRole = Literal["admin", "operator", "pilot", "coach", "marketing_read"]
@@ -21,19 +21,44 @@ class LoginRequest(BaseModel):
 
 
 class LoginCodeRequest(BaseModel):
-    staff_user_id: str = Field(min_length=1)
+    staff_user_id: str | None = None
     phone: str = Field(min_length=5)
+
+    @field_validator("staff_user_id", mode="before")
+    @classmethod
+    def empty_staff_id(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
 
 class LoginCodeResponse(BaseModel):
     delivery_channel: str
     expires_in_seconds: int
     debug_code: str | None = None
+    staff_user_id: str | None = None
+    full_name: str | None = None
 
 
 class LoginVerifyRequest(BaseModel):
-    staff_user_id: str = Field(min_length=1)
+    staff_user_id: str | None = None
+    phone: str | None = None
     code: str = Field(min_length=4, max_length=8)
+
+    @field_validator("staff_user_id", "phone", mode="before")
+    @classmethod
+    def empty_optional(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    @model_validator(mode="after")
+    def require_identity(self) -> "LoginVerifyRequest":
+        if not self.staff_user_id and not self.phone:
+            raise ValueError("staff_user_id or phone is required")
+        return self
 
 
 class SessionResponse(BaseModel):
@@ -43,6 +68,14 @@ class SessionResponse(BaseModel):
     club_id: str
     phone: str = ""
     boat_id: str | None = None
+
+
+class BoatItem(BaseModel):
+    boat_id: str
+    boat_name: str
+    capacity_default: int
+    pilot_user_id: str = ""
+    is_active: bool = True
 
 
 class AvailabilityItem(BaseModel):

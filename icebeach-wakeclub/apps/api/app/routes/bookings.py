@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from packages.sheets import SheetWrapper
 
@@ -8,6 +8,10 @@ from ..auth import AuthUser, require_roles
 from ..dependencies import get_sheet_wrapper
 from ..models import BookingCreateRequest, BookingCreateResponse, BookingItem, BookingStatusUpdateRequest
 from ..services.bookings import create_booking, list_bookings, update_booking_status
+from ..services.pilot import get_pilot_boat_id
+
+
+PILOT_ALLOWED_STATUSES = {"in_progress", "done"}
 
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -53,6 +57,17 @@ def patch_booking_status(
     user: AuthUser = Depends(require_roles("admin", "operator", "pilot")),
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
 ) -> BookingItem:
+    if user.role == "pilot":
+        if payload.status not in PILOT_ALLOWED_STATUSES:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Pilot can only start and finish rides",
+            )
+        assigned_boat = get_pilot_boat_id(sheet, staff_user_id=user.staff_user_id, club_id=user.club_id)
+        booking_rows = sheet.find("bookings", {"booking_id": booking_id})
+        booking_row = next((item for item in booking_rows if item.get("club_id") == user.club_id), None)
+        if not assigned_boat or not booking_row or booking_row.get("boat_id") != assigned_boat:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Pilot can only update assigned boat")
     return BookingItem(
         **update_booking_status(
             sheet,

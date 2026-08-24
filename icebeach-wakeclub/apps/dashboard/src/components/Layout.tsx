@@ -55,7 +55,6 @@ export function Layout({ children }: { children: React.ReactNode }): JSX.Element
                   <span className="game-chip text-cyan-100">Режим: Управление сменой</span>
                   <span className="game-chip text-orange-100">Сезон 01.06 - 01.10</span>
                   <span className="game-chip text-cyan-100">07:00 - 22:00</span>
-                  <span className="game-chip text-fuchsia-100">Сборка {BUILD_STAMP}</span>
                 </div>
               </div>
 
@@ -65,7 +64,7 @@ export function Layout({ children }: { children: React.ReactNode }): JSX.Element
             </div>
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <nav className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-3">
+              <nav className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
                 {navItems.map((item) => (
                   <NavLink
                     key={item.to}
