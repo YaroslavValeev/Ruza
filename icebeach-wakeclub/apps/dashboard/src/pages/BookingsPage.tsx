@@ -10,6 +10,7 @@ import {
   updateBookingStatus,
 } from "../api/client";
 import { formatLocalIsoDate } from "../lib/dates";
+import { displayGenderForClient } from "../lib/gender";
 import {
   AvailabilityItem,
   BookingItem,
@@ -115,10 +116,8 @@ function getSeasonHint(dateText: string): string | null {
   return `Дата вне сезона. Клуб работает с ${start} по ${end}, ежедневно ${OPERATING_HOURS_LABEL}.`;
 }
 
-function getWetsuitGenderLabel(gender?: WetsuitGender | null): string {
-  if (gender === "male") return "Муж";
-  if (gender === "female") return "Жен";
-  return "—";
+function getWetsuitGenderLabel(fullName: string, gender?: WetsuitGender | null): string {
+  return displayGenderForClient(fullName, gender);
 }
 
 function getRideTypeLabel(rideType?: RideType | null): string {
@@ -786,7 +785,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
         <div className="grid gap-3 xl:grid-cols-[1.4fr_1fr_auto]">
           <div className="game-card space-y-3">
             <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Фильтр статуса</div>
-            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               <button type="button" onClick={() => setStatusFilter("all")} className={`game-tab ${statusFilter === "all" ? "game-tab-active" : ""}`}>Все</button>
               {(["confirmed", "arrived", "ready", "in_progress", "done", "late", "cancelled", "no_show"] as BookingStatus[]).map((status) => (
                 <button key={status} type="button" onClick={() => setStatusFilter(status)} className={`game-tab ${statusFilter === status ? "game-tab-active" : ""}`}>
@@ -798,7 +797,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
 
           <div className="game-card space-y-3">
             <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Фильтр дисциплины</div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <button type="button" onClick={() => setRideFilter("all")} className={`game-tab ${rideFilter === "all" ? "game-tab-active" : ""}`}>Все дисциплины</button>
               {RIDE_TYPES.map((item) => (
                 <button key={item.value} type="button" onClick={() => setRideFilter(item.value)} className={`game-tab ${rideFilter === item.value ? "game-tab-active" : ""}`}>
@@ -833,7 +832,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
                   <div className="mt-1 text-xl font-black text-white">{booking.client_name || booking.client_id}</div>
                   <div className="text-sm text-cyan-100/70">{booking.client_phone}</div>
                 </div>
-                <span className={getStatusBadge(booking.status)}>{getStatusLabel(booking.status)}</span>
+                <span className={`${getStatusBadge(booking.status)} max-w-[11rem] sm:max-w-[14rem]`}>{getStatusLabel(booking.status)}</span>
               </div>
 
               <div className={`grid gap-2 ${compactList ? "sm:grid-cols-2" : "sm:grid-cols-4"}`}>
@@ -847,7 +846,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
                 </div>
                 <div className="game-stat p-3">
                   <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Пол / размер</div>
-                  <div className="mt-1 text-sm font-black text-white">{getWetsuitGenderLabel(booking.wetsuit_gender)} {booking.wetsuit_size || ""}</div>
+                  <div className="mt-1 text-sm font-black text-white">{getWetsuitGenderLabel(booking.client_name || "", booking.wetsuit_gender)}{booking.wetsuit_size ? ` ${booking.wetsuit_size}` : ""}</div>
                 </div>
                 <div className="game-stat p-3">
                   <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Цена</div>

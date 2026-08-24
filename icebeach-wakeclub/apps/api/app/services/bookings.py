@@ -10,6 +10,7 @@ from packages.sheets import SheetWrapper
 from ..models import BookingCreateRequest, BookingStatus
 from .availability import get_availability_for_date
 from .common import parse_bool
+from .gender import infer_gender_from_full_name
 
 FINAL_BOOKING_STATUSES = {"done", "cancelled", "no_show"}
 ACTIVE_BOOKING_STATUSES = {"confirmed", "arrived", "ready", "in_progress", "late"}
@@ -111,7 +112,7 @@ def _booking_to_item(row: dict[str, str], clients: dict[str, dict[str, str]]) ->
         "ride_type": row.get("ride_type") or ride_type or "wakeboard",
         "wetsuit_required": parse_bool(row.get("wetsuit_required")) or wetsuit_required,
         "wetsuit_size": row.get("wetsuit_size") or wetsuit_size,
-        "wetsuit_gender": row.get("wetsuit_gender") or wetsuit_gender,
+        "wetsuit_gender": row.get("wetsuit_gender") or wetsuit_gender or infer_gender_from_full_name(client.get("full_name", "")),
         "total_price": int(row.get("total_price") or 0),
         "notes": notes,
     }
