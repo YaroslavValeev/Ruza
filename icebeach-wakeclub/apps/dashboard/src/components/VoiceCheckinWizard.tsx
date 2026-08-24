@@ -13,6 +13,27 @@ type VoiceCheckinWizardProps = {
 
 type WizardStep = "greeting" | "ask_phone" | "confirm" | "done" | "abort";
 
+type SpeechRecognitionResultEvent = {
+  results: ArrayLike<ArrayLike<{ transcript: string }>>;
+};
+
+type SpeechRecognitionInstance = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
+type SpeechRecognitionWindow = Window & {
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+};
+
 export function VoiceCheckinWizard({ date, token, onSuccess, onError }: VoiceCheckinWizardProps): JSX.Element {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<WizardStep>("greeting");
@@ -110,8 +131,8 @@ export function VoiceCheckinWizard({ date, token, onSuccess, onError }: VoiceChe
       setPrompt("Браузер не поддерживает распознавание речи. Введите телефон вручную ниже.");
       return;
     }
-    const SpeechRecognitionCtor = (window as unknown as { SpeechRecognition?: new () => SpeechRecognition; webkitSpeechRecognition?: new () => SpeechRecognition }).SpeechRecognition
-      || (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognition }).webkitSpeechRecognition;
+    const speechWindow = window as SpeechRecognitionWindow;
+    const SpeechRecognitionCtor = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (!SpeechRecognitionCtor) {
       return;
     }
@@ -120,7 +141,7 @@ export function VoiceCheckinWizard({ date, token, onSuccess, onError }: VoiceChe
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     setListening(true);
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: SpeechRecognitionResultEvent) => {
       const transcript = event.results[0]?.[0]?.transcript ?? "";
       if (step === "ask_phone") {
         void handlePhoneInput(transcript);
