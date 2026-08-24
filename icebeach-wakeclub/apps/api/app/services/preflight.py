@@ -18,6 +18,8 @@ CRITICAL_TABS = (
     "schedule",
     "slot_overrides",
     "bookings",
+    "checkins",
+    "kpi_targets",
     "analytics_daily",
     "auth_codes",
     "audit_log",

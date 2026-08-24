@@ -8,6 +8,7 @@ import {
   ClientItem,
   CheckinCreateRequest,
   CheckinItem,
+  ClientStats,
   HealthStatus,
   KpiPeriod,
   KpiSummary,
@@ -16,6 +17,9 @@ import {
   MarketingFunnel,
   PilotQueueItem,
   PreflightSummary,
+  PublicBookingRequest,
+  PublicBookingRequestResponse,
+  ShiftToday,
   SmokeSummary,
   StaffSession,
 } from "../types";
@@ -28,6 +32,12 @@ function isLoopbackHost(hostname: string): boolean {
 }
 
 function resolveApiBaseUrl(): string {
+  const raw = RAW_API_BASE_URL.trim();
+
+  if (raw.startsWith("/")) {
+    return `${window.location.origin}${raw}`.replace(/\/$/, "");
+  }
+
   try {
     const configured = new URL(RAW_API_BASE_URL, window.location.origin);
     const browserHost = window.location.hostname;
@@ -242,6 +252,27 @@ export function createClient(payload: ClientCreateRequest, token?: string): Prom
 
 export function getBookings(date: string, token?: string): Promise<BookingItem[]> {
   return fetchApi<BookingItem[]>(`/bookings?date=${encodeURIComponent(date)}`, { token });
+}
+
+export function getShiftToday(date: string, token?: string): Promise<ShiftToday> {
+  return fetchApi<ShiftToday>(`/shift/today?date=${encodeURIComponent(date)}`, { token });
+}
+
+export function getClientStats(clientId: string, token?: string): Promise<ClientStats> {
+  return fetchApi<ClientStats>(`/clients/${encodeURIComponent(clientId)}/stats`, { token });
+}
+
+export function getPublicAvailability(date: string): Promise<AvailabilityItem[]> {
+  return fetchApi<AvailabilityItem[]>(`/public/availability?date=${encodeURIComponent(date)}`, { notifyAuthFailure: false });
+}
+
+export function submitPublicBookingRequest(payload: PublicBookingRequest): Promise<PublicBookingRequestResponse> {
+  return fetchApi<PublicBookingRequestResponse>("/public/booking-request", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    notifyAuthFailure: false,
+  });
 }
 
 export function getPilotToday(

@@ -6,19 +6,23 @@ from fastapi.responses import JSONResponse
 from googleapiclient.errors import HttpError
 
 from .config import get_settings
+from .routes.analytics import router as analytics_router
+from .routes.approvals import router as approvals_router
 from .routes.auth import router as auth_router
 from .routes.availability import router as availability_router
 from .routes.bookings import router as bookings_router
+from .routes.checkins import router as checkins_router
 from .routes.clients import router as clients_router
 from .routes.health import router as health_router
+from .routes.internal_agents import router as internal_agents_router
 from .routes.kpi import router as kpi_router
-from .routes.pilot import router as pilot_router
-from .routes.preflight import router as preflight_router
-from .routes.smoke import router as smoke_router
-from .routes.checkins import router as checkins_router
-from .routes.analytics import router as analytics_router
 from .routes.leads import router as leads_router
 from .routes.marketing import router as marketing_router
+from .routes.pilot import router as pilot_router
+from .routes.preflight import router as preflight_router
+from .routes.public import router as public_router
+from .routes.shift import router as shift_router
+from .routes.smoke import router as smoke_router
 from .routes.utm import router as utm_router
 
 
@@ -88,3 +92,7 @@ app.include_router(analytics_router)
 app.include_router(leads_router)
 app.include_router(marketing_router)
 app.include_router(utm_router)
+app.include_router(shift_router)
+app.include_router(internal_agents_router)
+app.include_router(public_router)
+app.include_router(approvals_router)

@@ -2,50 +2,22 @@ import { useEffect, useMemo, useState } from "react";
 
 import { getPilotToday, updateBookingStatus } from "../api/client";
 import { BookingStatus, PilotQueueItem, RideType, StaffSession } from "../types";
+import {
+  ACTION_LABELS,
+  PILOT_ACTIONS,
+  RIDE_TYPE_LABELS,
+  STATUS_LABELS,
+  getPrimaryActionText,
+  getStatusTone,
+  getToday,
+} from "../mobile/pilot-utils";
 
 type PilotPageProps = {
   session: StaffSession;
 };
 
-const PILOT_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
-  confirmed: ["arrived"],
-  arrived: ["ready"],
-  ready: ["in_progress"],
-  late: ["arrived", "no_show"],
-  in_progress: ["done"],
-};
-
-const STATUS_LABELS: Partial<Record<BookingStatus, string>> = {
-  confirmed: "Подтверждена",
-  arrived: "Приехал",
-  ready: "Готов к старту",
-  in_progress: "На воде",
-  done: "Завершена",
-  late: "Опаздывает",
-  no_show: "Не пришел",
-  cancelled: "Отменена",
-};
-
-const ACTION_LABELS: Partial<Record<BookingStatus, string>> = {
-  arrived: "Принять клиента",
-  ready: "Подготовить",
-  in_progress: "На воду",
-  done: "Завершить заезд",
-  no_show: "Не пришел",
-};
-
-const RIDE_TYPE_LABELS: Record<RideType, string> = {
-  wakeboard: "Вейкборд",
-  surf: "Серф",
-  skim: "Ским",
-};
-
 type PilotPeriod = "day" | "week" | "season" | "custom";
 type PilotStatusFilter = "all" | "waiting" | "ready" | "on_water" | "done" | "problem";
-
-function getToday(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function getWeekBounds(dateText: string): { from: string; to: string } {
   const current = new Date(`${dateText}T00:00:00`);
@@ -67,12 +39,6 @@ function getSeasonBounds(dateText: string): { from: string; to: string } {
     from: `${year}-06-01`,
     to: `${year}-10-01`,
   };
-}
-
-function getStatusTone(status: BookingStatus): string {
-  if (status === "done") return "game-badge-success";
-  if (status === "late" || status === "no_show" || status === "cancelled") return "game-badge-warn";
-  return "game-badge-info";
 }
 
 function getProgressStep(status: BookingStatus): number {
@@ -388,22 +354,5 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
       </section>
     </section>
   );
-}
-
-function getPrimaryActionText(status: BookingStatus): string {
-  switch (status) {
-    case "arrived":
-      return "Шаг 1. Принять спортсмена";
-    case "ready":
-      return "Шаг 2. Подготовить к старту";
-    case "in_progress":
-      return "Шаг 3. Вывести на воду";
-    case "done":
-      return "Шаг 4. Завершить заезд";
-    case "no_show":
-      return "Спортсмен не пришел";
-    default:
-      return ACTION_LABELS[status] || status;
-  }
 }
 

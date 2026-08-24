@@ -202,6 +202,96 @@ class CheckinItem(BaseModel):
     status: CheckinStatus
     ts: str
     operator_user_id: str | None = None
+    consent_face: bool = False
+    consent_voice: bool = False
+
+
+class ShiftSummary(BaseModel):
+    total_bookings: int
+    checkins_count: int
+    confirmed: int
+    arrived: int
+    ready: int
+    in_progress: int
+    done: int
+    late: int
+    no_show: int
+    cancelled: int
+
+
+class ShiftTodayResponse(BaseModel):
+    date: date
+    bookings: list[BookingItem]
+    checkins: list[CheckinItem]
+    summary: ShiftSummary
+
+
+class DailyBriefKpiSlice(BaseModel):
+    sessions_count: int
+    utilization_pct: float
+    revenue_estimate: int
+
+
+class DailyBriefUpcomingItem(BaseModel):
+    time: str
+    client_name: str
+    status: str
+    ride_type: str
+
+
+class DailyBriefResponse(BaseModel):
+    mode: str
+    date: date
+    club_id: str
+    title: str
+    text: str
+    summary: ShiftSummary
+    kpi: DailyBriefKpiSlice
+    upcoming: list[DailyBriefUpcomingItem]
+
+
+class ClientStatsItem(BaseModel):
+    client_id: str
+    full_name: str
+    phone: str
+    consent_face: bool = False
+    consent_voice: bool = False
+    sessions_count: int
+    revenue_estimate: int
+    visits_count: int
+    last_visit_date: str = ""
+
+
+class PublicBookingRequest(BaseModel):
+    full_name: str = Field(min_length=1)
+    phone: str = Field(min_length=5)
+    date: date
+    time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    ride_type: RideType = "wakeboard"
+    notes: str = ""
+
+
+class PublicBookingRequestResponse(BaseModel):
+    lead_id: str
+    status: str
+    message: str
+
+
+class ApprovalRequestCreate(BaseModel):
+    action: str = Field(min_length=1)
+    entity: str = Field(min_length=1)
+    entity_id: str = Field(min_length=1)
+    reason: str = ""
+
+
+class ApprovalRequestItem(BaseModel):
+    approval_id: str
+    action: str
+    entity: str
+    entity_id: str
+    status: Literal["pending", "approved", "rejected"]
+    reason: str = ""
+    created_at: str
 
 
 class MarkLateResponse(BaseModel):

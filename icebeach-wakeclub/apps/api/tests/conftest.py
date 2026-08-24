@@ -177,4 +177,9 @@ def make_test_settings() -> Settings:
         api_host="127.0.0.1",
         api_port=8000,
         environment="test",
+        agents_secret="test-agents-secret",
+        agents_staff_user_id="system-agent",
+        telegram_bot_token=None,
+        telegram_owner_chat_id=None,
+        public_club_id="ice_beach_ruza",
     )

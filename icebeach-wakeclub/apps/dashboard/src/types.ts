@@ -176,6 +176,8 @@ export type CheckinItem = {
   status: "arrived" | "ready" | "late" | "cancelled";
   ts: string;
   operator_user_id?: string | null;
+  consent_face?: boolean;
+  consent_voice?: boolean;
 };
 
 export type CheckinCreateRequest = {
@@ -210,5 +212,52 @@ export type MarketingFunnel = {
   lost_count: number;
   conversion_to_booked_pct: number;
   cac_estimate?: number | null;
+};
+
+export type ShiftSummary = {
+  total_bookings: number;
+  checkins_count: number;
+  confirmed: number;
+  arrived: number;
+  ready: number;
+  in_progress: number;
+  done: number;
+  late: number;
+  no_show: number;
+  cancelled: number;
+};
+
+export type ShiftToday = {
+  date: string;
+  bookings: BookingItem[];
+  checkins: CheckinItem[];
+  summary: ShiftSummary;
+};
+
+export type ClientStats = {
+  client_id: string;
+  full_name: string;
+  phone: string;
+  consent_face: boolean;
+  consent_voice: boolean;
+  sessions_count: number;
+  revenue_estimate: number;
+  visits_count: number;
+  last_visit_date: string;
+};
+
+export type PublicBookingRequest = {
+  full_name: string;
+  phone: string;
+  date: string;
+  time: string;
+  ride_type?: RideType;
+  notes?: string;
+};
+
+export type PublicBookingRequestResponse = {
+  lead_id: string;
+  status: string;
+  message: string;
 };
 

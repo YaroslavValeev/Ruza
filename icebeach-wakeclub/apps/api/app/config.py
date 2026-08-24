@@ -36,6 +36,11 @@ class Settings:
     api_host: str
     api_port: int
     environment: str
+    agents_secret: str | None
+    agents_staff_user_id: str
+    telegram_bot_token: str | None
+    telegram_owner_chat_id: str | None
+    public_club_id: str
 
 
 def _truthy_env(name: str, default: str = "false") -> bool:
@@ -100,4 +105,9 @@ def get_settings() -> Settings:
         api_host=os.getenv("API_HOST", "127.0.0.1"),
         api_port=int(os.getenv("API_PORT", "8000")),
         environment=os.getenv("APP_ENV", "local").strip() or "local",
+        agents_secret=os.getenv("AGENTS_SECRET", "").strip() or None,
+        agents_staff_user_id=os.getenv("AGENTS_STAFF_USER_ID", "system-agent").strip() or "system-agent",
+        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or None,
+        telegram_owner_chat_id=os.getenv("TELEGRAM_OWNER_CHAT_ID", "").strip() or None,
+        public_club_id=os.getenv("PUBLIC_CLUB_ID", "ice_beach_ruza").strip() or "ice_beach_ruza",
     )

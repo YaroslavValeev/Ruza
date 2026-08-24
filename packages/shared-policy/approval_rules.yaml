@@ -1,0 +1,47 @@
+# Критичные действия — требуют approve owner (Telegram или UI)
+version: "1.0"
+
+require_approve:
+  - action: code_write
+    description: Запись в кодовую базу / patch
+  - action: git_commit
+    description: Git commit
+  - action: git_push
+    description: Git push
+  - action: deploy
+    description: Deploy / release / prod
+  - action: file_write_outside_sandbox
+    description: Запись файлов вне sandbox/tmp
+  - action: external_api
+    description: Внешние API actions
+  - action: telegram_broadcast
+    description: Сообщения от бота в боевые каналы
+  - action: pii_write
+    description: Операции с персональными данными (массовые)
+  - action: financial
+    description: Денежные / юридические действия
+  - action: booking_cancel
+    description: Отмена брони
+  - action: refund
+    description: Возврат средств
+  - action: pricing_change
+    description: Изменение pricing в Sheets
+  - action: mass_sms
+    description: Массовая SMS рассылка
+
+no_approve:
+  - action: checkin
+    description: Check-in по телефону / manual
+  - action: pilot_status
+    description: FSM статусов пилота
+  - action: mark_late
+    description: Автоматический late marker
+  - action: analytics_snapshot
+    description: Запись analytics_daily
+  - action: read_only
+    description: Любые read-only запросы
+
+channels:
+  approve_mvp: telegram
+  notify_mvp: telegram
+  fallback: file_log

@@ -11,7 +11,7 @@ from ..auth import AuthUser, get_current_user, sign_session_token
 from ..config import Settings, get_settings
 from ..dependencies import get_sheet_wrapper
 from ..models import LoginCodeRequest, LoginCodeResponse, LoginRequest, LoginVerifyRequest, SessionResponse
-from ..services.common import generate_auth_code, hash_auth_code, normalize_phone, phones_match
+from ..services.common import generate_auth_code, hash_auth_code, normalize_phone, parse_utc_instant, phones_match
 from ..services.pilot import get_pilot_boat_id
 
 
@@ -129,15 +129,21 @@ def verify_login_code(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
 
-    now_iso = datetime.now(timezone.utc).isoformat()
-    expected_hash = hash_auth_code(settings.session_secret, payload.staff_user_id, payload.code)
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    code_digits = "".join(ch for ch in payload.code if ch.isdigit())
+    if len(code_digits) != 6:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Code must be 6 digits")
+
+    expected_hash = hash_auth_code(settings.session_secret, payload.staff_user_id, code_digits)
     matching_row = None
     for row in reversed(sheet.read_tab("auth_codes")):
         if row.get("staff_user_id") != payload.staff_user_id:
             continue
         if row.get("used_at"):
             continue
-        if row.get("expires_at", "") < now_iso:
+        expires_at = parse_utc_instant(str(row.get("expires_at", "")))
+        if expires_at is not None and expires_at <= now:
             continue
         if row.get("code_hash") == expected_hash:
             matching_row = row

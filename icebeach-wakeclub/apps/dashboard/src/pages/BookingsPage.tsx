@@ -6,14 +6,17 @@ import {
   createClient,
   getAvailability,
   getBookings,
+  getClientStats,
   getClients,
   updateBookingStatus,
 } from "../api/client";
+import { ConsentBadges } from "../components/ConsentBadges";
 import {
   AvailabilityItem,
   BookingItem,
   BookingStatus,
   ClientItem,
+  ClientStats,
   RideType,
   StaffSession,
   WetsuitGender,
@@ -178,6 +181,8 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const [checkinPhone, setCheckinPhone] = useState("");
+  const [checkinClient, setCheckinClient] = useState<ClientItem | null>(null);
+  const [clientStats, setClientStats] = useState<ClientStats | null>(null);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   const dayRequestIdRef = useRef(0);
 
@@ -233,6 +238,29 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
       .then(setClients)
       .catch((err: Error) => setToast({ type: "error", message: err.message }));
   }, [clientsQuery, session.token]);
+
+  useEffect(() => {
+    if (!checkinPhone.trim()) {
+      setCheckinClient(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      getClients(checkinPhone.trim(), session.token)
+        .then((rows) => setCheckinClient(rows[0] ?? null))
+        .catch(() => setCheckinClient(null));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [checkinPhone, session.token]);
+
+  useEffect(() => {
+    if (!selectedClientId) {
+      setClientStats(null);
+      return;
+    }
+    getClientStats(selectedClientId, session.token)
+      .then(setClientStats)
+      .catch(() => setClientStats(null));
+  }, [selectedClientId, session.token]);
 
   const availableSlots = useMemo(
     () => availability.filter((slot) => slot.available > 0 && slot.status === "active"),
@@ -406,6 +434,12 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
               Готов
             </button>
           </div>
+          {checkinClient ? (
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
+              <span>{checkinClient.full_name}</span>
+              <ConsentBadges consentFace={checkinClient.consent_face} consentVoice={checkinClient.consent_voice} compact />
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -448,6 +482,9 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
                       <div>
                         <div className="text-lg font-black text-white">{client.full_name}</div>
                         <div className="mt-1 text-sm text-cyan-100/70">{client.phone}</div>
+                        <div className="mt-2">
+                          <ConsentBadges consentFace={client.consent_face} consentVoice={client.consent_voice} compact />
+                        </div>
                       </div>
                       {active ? <span className="game-badge-success">Выбран</span> : <span className="game-badge-info">Выбрать</span>}
                     </div>
@@ -456,6 +493,27 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
               })
             )}
           </div>
+
+          {clientStats ? (
+            <div className="game-card grid gap-2 sm:grid-cols-4 text-sm">
+              <div>
+                <div className="text-xs uppercase text-slate-400">LTV визиты</div>
+                <div className="text-lg font-black text-white">{clientStats.visits_count}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase text-slate-400">Завершённые</div>
+                <div className="text-lg font-black text-white">{clientStats.sessions_count}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase text-slate-400">Выручка</div>
+                <div className="text-lg font-black text-white">{clientStats.revenue_estimate.toLocaleString("ru-RU")} ₽</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase text-slate-400">Последний визит</div>
+                <div className="text-lg font-black text-white">{clientStats.last_visit_date || "—"}</div>
+              </div>
+            </div>
+          ) : null}
 
           <form className="game-card space-y-3" onSubmit={onCreateClient}>
             <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Быстрое создание</div>
