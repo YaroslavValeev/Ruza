@@ -108,6 +108,28 @@ function withTimeout(timeoutMs: number): { signal: AbortSignal; cancel: () => vo
   };
 }
 
+const SESSION_TOKEN_KEY = "icebeach_session_token";
+
+export function getStoredSessionToken(): string | undefined {
+  try {
+    return window.sessionStorage.getItem(SESSION_TOKEN_KEY) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function storeSessionToken(token?: string): void {
+  try {
+    if (!token) {
+      window.sessionStorage.removeItem(SESSION_TOKEN_KEY);
+      return;
+    }
+    window.sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+  } catch {
+    return;
+  }
+}
+
 async function fetchApi<T>(path: string, options: FetchApiOptions = {}): Promise<T> {
   const { token, notifyAuthFailure = true, headers, timeoutMs = 15000, ...requestInit } = options;
   const mergedHeaders = new Headers(headers);
@@ -115,8 +137,9 @@ async function fetchApi<T>(path: string, options: FetchApiOptions = {}): Promise
     mergedHeaders.set("Content-Type", "application/json");
   }
 
-  if (token) {
-    mergedHeaders.set("Authorization", `Bearer ${token}`);
+  const bearer = token || getStoredSessionToken();
+  if (bearer) {
+    mergedHeaders.set("Authorization", `Bearer ${bearer}`);
   }
 
   const method = (requestInit.method || "GET").toUpperCase();
@@ -187,7 +210,7 @@ export function verifyLoginCode(staff_user_id: string, code: string, phone?: str
 }
 
 export function getCurrentSession(): Promise<StaffSession> {
-  return fetchApi<StaffSession>("/auth/me");
+  return fetchApi<StaffSession>("/auth/me", { token: getStoredSessionToken(), notifyAuthFailure: false });
 }
 
 export async function logout(): Promise<void> {
@@ -198,6 +221,8 @@ export async function logout(): Promise<void> {
     });
   } catch {
     return;
+  } finally {
+    storeSessionToken(undefined);
   }
 }
 

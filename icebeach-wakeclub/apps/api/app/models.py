@@ -22,15 +22,21 @@ class LoginRequest(BaseModel):
 
 class LoginCodeRequest(BaseModel):
     staff_user_id: str | None = None
-    phone: str = Field(min_length=5)
+    phone: str | None = None
 
-    @field_validator("staff_user_id", mode="before")
+    @field_validator("staff_user_id", "phone", mode="before")
     @classmethod
-    def empty_staff_id(cls, value: object) -> str | None:
+    def empty_optional(cls, value: object) -> str | None:
         if value is None:
             return None
         text = str(value).strip()
         return text or None
+
+    @model_validator(mode="after")
+    def require_identity(self) -> "LoginCodeRequest":
+        if not self.staff_user_id and not self.phone:
+            raise ValueError("staff_user_id or phone is required")
+        return self
 
 
 class LoginCodeResponse(BaseModel):
@@ -68,6 +74,7 @@ class SessionResponse(BaseModel):
     club_id: str
     phone: str = ""
     boat_id: str | None = None
+    token: str | None = None
 
 
 class BoatItem(BaseModel):

@@ -133,6 +133,10 @@ def demo_tabs(*, today: date | None = None) -> dict[str, list[dict[str, str]]]:
                 }
             )
     tabs["schedule"] = schedule
+    tabs["staff_users"] = [
+        *tabs["staff_users"],
+        _staff("y.valeev@gmail.com", "admin", "Ярослав Валеев", "+79160117179"),
+    ]
     tabs["leads"] = [
         {
             "lead_id": "lead_demo_1",

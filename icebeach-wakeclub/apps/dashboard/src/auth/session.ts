@@ -1,6 +1,6 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { getCurrentSession, isApiError, logout, requestLoginCode, verifyLoginCode } from "../api/client";
+import { getCurrentSession, isApiError, logout, requestLoginCode, storeSessionToken, verifyLoginCode } from "../api/client";
 import { LoginCodeResponse, StaffRole, StaffSession } from "../types";
 import { subscribeAuthFailure } from "./auth-events";
 
@@ -21,9 +21,13 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function normalizeSession(session: StaffSession): StaffSession {
+  const token = session.token?.trim() || undefined;
+  if (token) {
+    storeSessionToken(token);
+  }
   return {
     ...session,
-    token: session.token?.trim() || undefined,
+    token,
   };
 }
 
@@ -84,7 +88,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
       let nextSession = response;
 
       try {
-        nextSession = normalizeSession(await getCurrentSession());
+        const current = normalizeSession(await getCurrentSession());
+        nextSession = {
+          ...current,
+          token: response.token || current.token,
+        };
+        if (nextSession.token) {
+          storeSessionToken(nextSession.token);
+        }
       } catch {
         nextSession = response;
       }
@@ -96,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
   );
 
   const signOut = useCallback(async () => {
+    storeSessionToken(undefined);
     setSession(null);
     setStatus("anonymous");
     setIssue(null);

@@ -49,7 +49,7 @@ def _session_payload(user: dict[str, str], *, boat_id: str | None = None) -> dic
     return payload
 
 
-def _session_response(user: dict[str, str], *, boat_id: str | None = None) -> SessionResponse:
+def _session_response(user: dict[str, str], *, boat_id: str | None = None, token: str | None = None) -> SessionResponse:
     return SessionResponse(
         staff_user_id=user["staff_user_id"],
         role=user["role"],
@@ -57,6 +57,7 @@ def _session_response(user: dict[str, str], *, boat_id: str | None = None) -> Se
         club_id=user.get("club_id", ""),
         phone=user.get("phone", ""),
         boat_id=boat_id,
+        token=token,
     )
 
 
@@ -71,11 +72,21 @@ def _resolve_staff_user(
     phone: str | None,
 ) -> dict[str, str]:
     users = [row for row in sheet.read_tab("staff_users") if _is_active(row)]
-    if staff_user_id:
-        users = [row for row in users if row.get("staff_user_id") == staff_user_id]
-    if phone:
-        users = [row for row in users if phones_match(str(row.get("phone", "")), phone)]
-    if not staff_user_id and not phone:
+    identity_id = (staff_user_id or "").strip()
+    identity_phone = (phone or "").strip()
+    if identity_phone and "@" in identity_phone:
+        identity_id = identity_id or identity_phone
+        identity_phone = ""
+
+    if identity_id:
+        users = [
+            row
+            for row in users
+            if row.get("staff_user_id") == identity_id or str(row.get("staff_user_id", "")).lower() == identity_id.lower()
+        ]
+    if identity_phone:
+        users = [row for row in users if phones_match(str(row.get("phone", "")), identity_phone)]
+    if not identity_id and not identity_phone:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="staff_user_id or phone is required")
     if not users:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
@@ -206,15 +217,29 @@ def verify_login_code(
         diff_json={"boat_id": boat_id or ""},
         actor=staff_user_id,
     )
-    return _session_response(user, boat_id=boat_id)
+    return _session_response(user, boat_id=boat_id, token=token)
 
 
 @router.get("/me", response_model=SessionResponse)
 def me(
     user: AuthUser = Depends(get_current_user),
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
+    settings: Settings = Depends(get_settings),
 ) -> SessionResponse:
     boat_id = get_pilot_boat_id(sheet, staff_user_id=user.staff_user_id, club_id=user.club_id)
+    token = sign_session_token(
+        settings,
+        _session_payload(
+            {
+                "staff_user_id": user.staff_user_id,
+                "role": user.role,
+                "full_name": user.full_name,
+                "club_id": user.club_id,
+                "phone": user.phone,
+            },
+            boat_id=boat_id,
+        ),
+    )
     return SessionResponse(
         staff_user_id=user.staff_user_id,
         role=user.role,
@@ -222,6 +247,7 @@ def me(
         club_id=user.club_id,
         phone=user.phone,
         boat_id=boat_id,
+        token=token,
     )
 
 
@@ -257,4 +283,4 @@ def legacy_login(
     boat_id = get_pilot_boat_id(sheet, staff_user_id=user["staff_user_id"], club_id=user.get("club_id", ""))
     token = sign_session_token(settings, _session_payload(user, boat_id=boat_id))
     _set_session_cookie(response, settings=settings, token=token)
-    return _session_response(user, boat_id=boat_id)
+    return _session_response(user, boat_id=boat_id, token=token)

@@ -40,9 +40,11 @@ def get_current_user(
     settings: Settings = Depends(get_settings),
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
 ) -> AuthUser:
-    token = request.cookies.get(settings.session_cookie_name)
-    if not token and credentials:
+    token = None
+    if credentials:
         token = credentials.credentials
+    if not token:
+        token = request.cookies.get(settings.session_cookie_name)
 
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing session token")

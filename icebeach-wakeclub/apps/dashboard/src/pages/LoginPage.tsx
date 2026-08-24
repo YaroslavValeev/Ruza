@@ -82,17 +82,18 @@ export function LoginPage(): JSX.Element {
             <p className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/60">Локальный demo</p>
             <div className="flex flex-wrap gap-2">
               {[
-                { phone: "+79990000000", label: "Админ" },
-                { phone: "+79990000001", label: "Оператор" },
-                { phone: "+79990000002", label: "Пилот" },
+                { phone: "+79160117179", staffUserId: "y.valeev@gmail.com", label: "Ярослав" },
+                { phone: "+79990000000", staffUserId: "", label: "Админ" },
+                { phone: "+79990000001", staffUserId: "", label: "Оператор" },
+                { phone: "+79990000002", staffUserId: "", label: "Пилот" },
               ].map((account) => (
                 <button
-                  key={account.phone}
+                  key={account.label}
                   type="button"
                   className="game-button-secondary px-3 text-xs"
                   onClick={() => {
                     setPhone(account.phone);
-                    setStaffUserId("");
+                    setStaffUserId(account.staffUserId);
                     setStep("request");
                     setCode("");
                     setDebugCode(null);
@@ -104,7 +105,9 @@ export function LoginPage(): JSX.Element {
                 </button>
               ))}
             </div>
-            <p className="text-xs text-slate-400">Нажмите роль, затем «Получить код». DEV-код появится на этой форме.</p>
+            <p className="text-xs text-slate-400">
+              Demo без Google. Ваш номер +79160117179 — админ. Почту в поле телефона писать не нужно.
+            </p>
           </div>
         ) : null}
 

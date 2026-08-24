@@ -172,6 +172,27 @@ def test_voice_fsm_happy_path() -> None:
     assert "подтверждён" in reply.lower() or "подтвержден" in reply.lower()
 
 
+def test_owner_phone_and_email_login() -> None:
+    mock_sheet = MockSheetWrapper(demo_tabs(today=date(2026, 6, 1)))
+    client = _make_client(mock_sheet)
+    by_phone = client.post("/auth/request-code", json={"phone": "+79160117179"})
+    assert by_phone.status_code == 200
+    assert by_phone.json()["staff_user_id"] == "y.valeev@gmail.com"
+    by_email = client.post("/auth/request-code", json={"phone": "y.valeev@gmail.com"})
+    assert by_email.status_code == 200
+    verify = client.post(
+        "/auth/verify-code",
+        json={"phone": "+79160117179", "code": by_phone.json()["debug_code"]},
+    )
+    assert verify.status_code == 200
+    body = verify.json()
+    assert body["role"] == "admin"
+    assert body["token"]
+    me = client.get("/auth/me", headers={"Authorization": f"Bearer {body['token']}"})
+    assert me.status_code == 200
+    app.dependency_overrides.clear()
+
+
 def test_operator_cannot_cancel_in_progress() -> None:
     mock_sheet = MockSheetWrapper()
     operator = _make_client(mock_sheet)
