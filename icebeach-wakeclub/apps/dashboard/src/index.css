@@ -99,9 +99,12 @@ a {
   }
 
   .game-button {
-    @apply min-h-12 rounded-2xl px-4 py-3 text-center text-sm font-black uppercase tracking-[0.08em] text-white transition;
+    @apply box-border min-h-12 min-w-0 rounded-2xl px-3 py-2 text-center text-xs font-black uppercase leading-tight tracking-normal text-white transition sm:px-4 sm:text-sm;
     background: linear-gradient(180deg, #3fa9ff 0%, #1768ff 100%);
     box-shadow: 0 14px 28px rgba(23, 104, 255, 0.24), inset 0 1px 0 rgba(255,255,255,0.28);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
   }
 
   .game-button:hover {
@@ -116,22 +119,30 @@ a {
   }
 
   .game-button-secondary {
-    @apply min-h-12 rounded-2xl border px-4 py-3 text-sm font-black uppercase tracking-[0.08em] text-cyan-50 transition;
+    @apply box-border min-h-11 min-w-0 rounded-2xl border px-3 py-2 text-center text-xs font-black uppercase leading-tight tracking-normal text-cyan-50 transition sm:px-4 sm:text-sm;
     background: linear-gradient(180deg, rgba(17, 34, 60, 0.96) 0%, rgba(11, 23, 42, 0.96) 100%);
     border-color: rgba(112, 188, 255, 0.24);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
   }
 
   .game-chip {
-    @apply inline-flex items-center rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.08em];
+    @apply inline-flex max-w-full min-w-0 items-center rounded-full border px-3 py-1 text-center text-xs font-black uppercase leading-tight tracking-normal;
     background: rgba(9, 21, 38, 0.94);
     border-color: rgba(112, 188, 255, 0.2);
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
   .game-tab {
-    @apply min-h-12 whitespace-nowrap rounded-2xl border px-2 py-3 text-center text-[12px] font-semibold tracking-normal transition sm:px-3 sm:text-sm sm:font-black sm:uppercase sm:tracking-[0.08em];
+    @apply box-border flex min-h-11 min-w-0 items-center justify-center rounded-2xl border px-2 py-2 text-center text-[11px] font-black uppercase leading-tight tracking-normal transition sm:px-3 sm:text-xs;
     background: rgba(7, 16, 30, 0.94);
     border-color: rgba(112, 188, 255, 0.16);
     color: rgba(233, 247, 255, 0.85);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
   }
 
   .game-tab-active {
@@ -155,28 +166,40 @@ a {
   }
 
   .game-badge-success {
-    @apply rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-emerald-100;
+    @apply inline-flex max-w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-1 text-center text-[10px] font-black uppercase leading-tight tracking-normal text-emerald-100 sm:text-xs;
     background: rgba(5, 91, 62, 0.36);
     border-color: rgba(52, 211, 153, 0.36);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
   }
 
   .game-badge-warn {
-    @apply rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-amber-100;
+    @apply inline-flex max-w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-1 text-center text-[10px] font-black uppercase leading-tight tracking-normal text-amber-100 sm:text-xs;
     background: rgba(120, 53, 15, 0.3);
     border-color: rgba(251, 191, 36, 0.34);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
   }
 
   .game-badge-info {
-    @apply rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-cyan-100;
+    @apply inline-flex max-w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-1 text-center text-[10px] font-black uppercase leading-tight tracking-normal text-cyan-100 sm:text-xs;
     background: rgba(12, 55, 91, 0.32);
     border-color: rgba(89, 227, 255, 0.24);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
   }
 
   .game-badge-live {
-    @apply rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-orange-50;
+    @apply inline-flex max-w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-1 text-center text-[10px] font-black uppercase leading-tight tracking-normal text-orange-50 sm:text-xs;
     background: rgba(194, 65, 12, 0.48);
     border-color: rgba(251, 146, 60, 0.75);
     box-shadow: 0 0 16px rgba(249, 115, 22, 0.35);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
   }
 }
 
