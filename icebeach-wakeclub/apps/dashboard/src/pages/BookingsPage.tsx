@@ -4,6 +4,7 @@ import {
   createBooking,
   createCheckin,
   createClient,
+  createPayment,
   getAvailability,
   getBookings,
   getClientStats,
@@ -18,6 +19,7 @@ import {
   ClientItem,
   ClientStats,
   RideType,
+  PaymentMethod,
   StaffSession,
   WetsuitGender,
   WetsuitSize,
@@ -72,6 +74,20 @@ const WETSUIT_GENDERS: Array<{ value: WetsuitGender; label: string }> = [
 ];
 const DEFAULT_WETSUIT_SIZE: WetsuitSize = "M";
 const DEFAULT_WETSUIT_GENDER: WetsuitGender = "male";
+const PAYMENT_METHODS: Array<{ value: PaymentMethod; label: string }> = [
+  { value: "cash", label: "Наличные" },
+  { value: "card_terminal", label: "Терминал" },
+  { value: "sbp", label: "СБП" },
+  { value: "online", label: "Онлайн" },
+];
+const PAYMENT_STATUS_LABELS: Record<BookingItem["payment_status"], string> = {
+  unpaid: "Не оплачено",
+  partially_paid: "Частично оплачено",
+  paid: "Оплачено",
+  overpaid: "Переплата",
+  partially_refunded: "Частичный возврат",
+  refunded: "Возвращено",
+};
 const SEASON_START = { month: 6, day: 1 };
 const SEASON_END = { month: 10, day: 1 };
 const OPERATING_HOURS_LABEL = "07:00-22:00";
@@ -179,6 +195,9 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [loading, setLoading] = useState(false);
+  const [paymentBookingId, setPaymentBookingId] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("sbp");
   const [toast, setToast] = useState<Toast>(null);
   const [checkinPhone, setCheckinPhone] = useState("");
   const [checkinClient, setCheckinClient] = useState<ClientItem | null>(null);
@@ -358,6 +377,37 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
     try {
       await updateBookingStatus(bookingId, status, session.token);
       setToast({ type: "success", message: `Статус обновлён: ${getStatusLabel(status)}` });
+      await loadDayData(date);
+    } catch (err) {
+      setToast({ type: "error", message: (err as Error).message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onPayment = async (booking: BookingItem) => {
+    const amountRubles = Number(paymentAmount);
+    if (!Number.isFinite(amountRubles) || amountRubles <= 0) {
+      setToast({ type: "error", message: "Введите сумму оплаты больше нуля" });
+      return;
+    }
+    const amountMinor = Math.round(amountRubles * 100);
+    if (amountMinor > booking.balance_due_minor) {
+      setToast({ type: "error", message: "Сумма больше остатка по брони" });
+      return;
+    }
+    setLoading(true);
+    setToast(null);
+    try {
+      await createPayment(session.token, {
+        booking_id: booking.booking_id,
+        amount_minor: amountMinor,
+        method: paymentMethod,
+        idempotency_key: `${booking.booking_id}-${Date.now()}-${crypto.randomUUID()}`,
+      });
+      setToast({ type: "success", message: `Оплата ${amountRubles.toLocaleString("ru-RU")} ₽ зафиксирована` });
+      setPaymentBookingId("");
+      setPaymentAmount("");
       await loadDayData(date);
     } catch (err) {
       setToast({ type: "error", message: (err as Error).message });
@@ -812,6 +862,49 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
                   <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Цена</div>
                   <div className="mt-1 text-sm font-black text-white">{booking.total_price} ₽</div>
                 </div>
+              </div>
+
+              <div className="game-card space-y-3 border-emerald-300/20">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/60">Оплата</div>
+                    <div className="mt-1 text-sm font-black text-white">{PAYMENT_STATUS_LABELS[booking.payment_status]}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-cyan-100/60">Получено / остаток</div>
+                    <div className="text-sm font-black text-white">
+                      {(booking.net_paid_minor / 100).toLocaleString("ru-RU")} ₽ / {(booking.balance_due_minor / 100).toLocaleString("ru-RU")} ₽
+                    </div>
+                  </div>
+                </div>
+                {!readOnly && booking.balance_due_minor > 0 && !["cancelled", "no_show"].includes(booking.status) ? (
+                  paymentBookingId === booking.booking_id ? (
+                    <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                      <input
+                        inputMode="decimal"
+                        value={paymentAmount}
+                        onChange={(event) => setPaymentAmount(event.target.value)}
+                        className="game-input"
+                        aria-label="Сумма оплаты в рублях"
+                      />
+                      <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)} className="game-input">
+                        {PAYMENT_METHODS.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
+                      </select>
+                      <button type="button" disabled={loading} onClick={() => void onPayment(booking)} className="game-button px-4">Принять</button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentBookingId(booking.booking_id);
+                        setPaymentAmount(String(booking.balance_due_minor / 100));
+                      }}
+                      className="game-button-secondary w-full"
+                    >
+                      Принять оплату
+                    </button>
+                  )
+                ) : null}
               </div>
 
               {booking.notes ? <div className="rounded-2xl border border-cyan-200/10 bg-slate-950/70 px-3 py-3 text-sm text-slate-300">{booking.notes}</div> : null}

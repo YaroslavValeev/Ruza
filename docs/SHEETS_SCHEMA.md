@@ -104,14 +104,52 @@
 - boat_id
 - coach_required (bool)
 - coach_user_id (staff_user_id, optional)
-- status (confirmed|checked_in|in_progress|done|cancelled|no_show)
+- status (confirmed|arrived|ready|in_progress|done|late|cancelled|no_show)
+- pricing_id
 - price_base (int)
 - price_coach (int)
 - discount (int, optional)
+- currency
 - total_price (int) — computed
 - created_by (staff_user_id or `client`)
 - created_at
 - updated_at
+- ride_type (wakeboard|surf|skim)
+- wetsuit_required (bool)
+- wetsuit_gender (male|female)
+- wetsuit_size (XS|S|M|L|XL|XXL)
+- notes
+
+### `payments`
+- payment_id (string, unique)
+- club_id
+- booking_id
+- client_id
+- kind (charge|refund)
+- status (pending|succeeded|failed|cancelled)
+- method (cash|card_terminal|sbp|online)
+- amount_minor (int, копейки)
+- currency (RUB)
+- paid_at (ISO datetime)
+- provider (manual|terminal|bank|online)
+- external_payment_id
+- idempotency_key (unique per source operation)
+- parent_payment_id (для refund)
+- occurred_at
+- recorded_by
+- created_at
+- metadata_json
+
+### `payment_closures`
+- closure_id (string, unique)
+- club_id
+- date (YYYY-MM-DD)
+- expected_net_minor
+- counted_total_minor
+- discrepancy_minor
+- status (closed)
+- closed_by
+- closed_at
 - notes
 
 ### `checkins`
@@ -162,6 +200,10 @@
 - created_at
 - external_source (`mywave_canonical_ruza` для синхронизированных заявок)
 - external_record_id (`request_id` из канонической таблицы)
+- received_at
+- sync_status (manual|synced|failed|converted)
+- sync_error
+- converted_booking_id
 - notes
 
 ### `campaigns`

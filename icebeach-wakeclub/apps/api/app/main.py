@@ -20,6 +20,7 @@ from .routes.kpi import router as kpi_router
 from .routes.leads import router as leads_router
 from .routes.marketing import router as marketing_router
 from .routes.pilot import router as pilot_router
+from .routes.payments import router as payments_router
 from .routes.preflight import router as preflight_router
 from .routes.public import router as public_router
 from .routes.shift import router as shift_router
@@ -94,6 +95,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(bookings_router)
     app.include_router(clients_router)
     app.include_router(pilot_router)
+    app.include_router(payments_router)
     app.include_router(kpi_router)
     app.include_router(preflight_router)
     app.include_router(smoke_router)

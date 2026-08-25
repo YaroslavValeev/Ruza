@@ -313,6 +313,18 @@ export function createBooking(token: string | undefined, payload: BookingCreateR
   });
 }
 
+export function createPayment(
+  token: string | undefined,
+  payload: { booking_id: string; amount_minor: number; method: import("../types").PaymentMethod; idempotency_key: string },
+): Promise<import("../types").PaymentMutationResponse> {
+  return fetchApi<import("../types").PaymentMutationResponse>("/payments", {
+    method: "POST",
+    token,
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export function updateBookingStatus(bookingId: string, status: BookingStatus, token?: string): Promise<BookingItem> {
   return fetchApi<BookingItem>(`/bookings/${encodeURIComponent(bookingId)}/status`, {
     method: "PATCH",

@@ -17,7 +17,7 @@ load_dotenv(_REPO_ROOT / ".env")
 load_dotenv(_REPO_ROOT / ".env.docker")
 
 # Operational tabs that may be introduced after the base workbook was created.
-BOOTSTRAP_TABS = ("checkins", "kpi_targets", "leads")
+BOOTSTRAP_TABS = ("checkins", "kpi_targets", "leads", "bookings", "payments", "payment_closures")
 
 KPI_SEED_ROW = {
     "target_id": "tgt-2026-season",
@@ -90,6 +90,17 @@ def _tab_has_headers(sheet: SheetWrapper, tab_name: str) -> bool:
     return bool(values and values[0])
 
 
+def _ensure_header_columns(sheet: SheetWrapper, tab_name: str, required: tuple[str, ...]) -> None:
+    values = sheet._fetch_values(tab_name)  # noqa: SLF001
+    current = list(values[0]) if values and values[0] else []
+    missing = [column for column in required if column not in current]
+    if not missing:
+        print(f"SKIP tab={tab_name} (schema current)")
+        return
+    _write_header_row(sheet, tab_name, tuple(current + missing))
+    print(f"MIGRATED tab={tab_name} added={','.join(missing)}")
+
+
 def bootstrap(*, seed_kpi: bool = True) -> int:
     spreadsheet_id, sa_path, sa_info = _resolve_credentials()
     sheet = SheetWrapper(spreadsheet_id, service_account_json_path=sa_path, service_account_info=sa_info)
@@ -104,7 +115,7 @@ def bootstrap(*, seed_kpi: bool = True) -> int:
         if not _tab_has_headers(sheet, tab_name):
             _write_header_row(sheet, tab_name, schema.required_columns)
         else:
-            print(f"SKIP tab={tab_name} (headers already present)")
+            _ensure_header_columns(sheet, tab_name, schema.required_columns)
 
     if seed_kpi:
         rows = sheet.read_tab("kpi_targets")

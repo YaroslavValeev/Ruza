@@ -85,7 +85,7 @@ export function MobileOwnerPage({ session }: MobileOwnerPageProps): JSX.Element 
       <section className="grid gap-3 sm:grid-cols-3">
         <StatCard label="Заезды" value={kpi ? String(kpi.sessions_count) : "—"} />
         <StatCard label="Загрузка" value={kpi ? `${kpi.utilization_pct.toFixed(0)}%` : "—"} />
-        <StatCard label="Выручка" value={kpi ? `${Math.round(kpi.revenue_estimate).toLocaleString("ru-RU")} ₽` : "—"} />
+        <StatCard label="Чистое поступление" value={kpi ? `${Math.round(kpi.net_revenue_minor / 100).toLocaleString("ru-RU")} ₽` : "—"} />
       </section>
 
       <div className="flex gap-2">

@@ -10,6 +10,7 @@ from packages.sheets import SheetWrapper
 from ..models import BookingCreateRequest, BookingStatus
 from .availability import get_availability_for_date
 from .common import parse_bool
+from .payments import payment_summaries_by_booking
 
 FINAL_BOOKING_STATUSES = {"done", "cancelled", "no_show"}
 ACTIVE_BOOKING_STATUSES = {"confirmed", "arrived", "ready", "in_progress", "late"}
@@ -29,7 +30,7 @@ WETSUIT_SIZE_NOTE_PREFIX = "[wetsuit_size:"
 WETSUIT_GENDER_NOTE_PREFIX = "[wetsuit_gender:"
 
 
-def _get_pricing(sheet: SheetWrapper, booking_date: str, club_id: str) -> tuple[int, int]:
+def _get_pricing(sheet: SheetWrapper, booking_date: str, club_id: str) -> dict[str, str | int]:
     candidates = [
         row
         for row in sheet.read_tab("pricing")
@@ -40,7 +41,12 @@ def _get_pricing(sheet: SheetWrapper, booking_date: str, club_id: str) -> tuple[
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No pricing configured for selected date")
 
     row = candidates[0]
-    return int(row.get("base_price") or 0), int(row.get("coach_price") or 0)
+    return {
+        "pricing_id": row.get("price_id", ""),
+        "base_price": int(row.get("base_price") or 0),
+        "coach_price": int(row.get("coach_price") or 0),
+        "currency": row.get("currency") or "RUB",
+    }
 
 
 def _calculate_total_price(base_price: int, coach_price: int, discount: int, coach_required: bool) -> int:
@@ -94,10 +100,14 @@ def _extract_booking_meta(raw_notes: str) -> tuple[str, str | None, bool, str | 
     return "\n".join(line for line in clean_lines if line.strip()), ride_type, wetsuit_required, wetsuit_size, wetsuit_gender
 
 
-def _booking_to_item(row: dict[str, str], clients: dict[str, dict[str, str]]) -> dict[str, str | int | bool]:
+def _booking_to_item(
+    row: dict[str, str],
+    clients: dict[str, dict[str, str]],
+    payment_summary: dict[str, str | int] | None = None,
+) -> dict[str, str | int | bool]:
     client = clients.get(row.get("client_id", ""), {})
     notes, ride_type, wetsuit_required, wetsuit_size, wetsuit_gender = _extract_booking_meta(row.get("notes", ""))
-    return {
+    item: dict[str, str | int | bool] = {
         "booking_id": row.get("booking_id", ""),
         "client_id": row.get("client_id", ""),
         "client_name": client.get("full_name", ""),
@@ -115,6 +125,17 @@ def _booking_to_item(row: dict[str, str], clients: dict[str, dict[str, str]]) ->
         "total_price": int(row.get("total_price") or 0),
         "notes": notes,
     }
+    if payment_summary:
+        item.update(
+            {
+                "payment_status": str(payment_summary["payment_status"]),
+                "paid_amount_minor": int(payment_summary["paid_amount_minor"]),
+                "refunded_amount_minor": int(payment_summary["refunded_amount_minor"]),
+                "net_paid_minor": int(payment_summary["net_paid_minor"]),
+                "balance_due_minor": int(payment_summary["balance_due_minor"]),
+            }
+        )
+    return item
 
 
 def create_booking(
@@ -147,7 +168,9 @@ def create_booking(
     if not target_slot or target_slot["available"] <= 0:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No capacity for selected slot")
 
-    base_price, coach_price = _get_pricing(sheet, booking_date, club_id)
+    pricing = _get_pricing(sheet, booking_date, club_id)
+    base_price = int(pricing["base_price"])
+    coach_price = int(pricing["coach_price"])
     total_price = _calculate_total_price(base_price, coach_price, payload.discount, payload.coach_required)
     now_iso = datetime.now(timezone.utc).isoformat()
     booking_row = {
@@ -160,9 +183,11 @@ def create_booking(
         "coach_required": payload.coach_required,
         "coach_user_id": payload.coach_user_id or "",
         "status": "confirmed",
+        "pricing_id": pricing["pricing_id"],
         "price_base": base_price,
         "price_coach": coach_price if payload.coach_required else 0,
         "discount": payload.discount,
+        "currency": pricing["currency"],
         "total_price": total_price,
         "created_by": actor_staff_user_id,
         "created_at": now_iso,
@@ -231,7 +256,9 @@ def list_bookings(
             if parse_bool(row.get("coach_required")) and row.get("coach_user_id") == coach_user_id
         ]
     rows.sort(key=lambda row: (row.get("time", ""), row.get("boat_id", ""), row.get("booking_id", "")))
-    return [_booking_to_item(row, clients) for row in rows]
+    payments = [row for row in sheet.read_tab("payments") if row.get("club_id") == club_id]
+    summaries = payment_summaries_by_booking(rows, payments)
+    return [_booking_to_item(row, clients, summaries.get(row.get("booking_id", ""))) for row in rows]
 
 
 def update_booking_status(
@@ -250,7 +277,13 @@ def update_booking_status(
     current_status = row.get("status", "confirmed")
     if current_status == status_value:
         clients = {client.get("client_id", ""): client for client in sheet.read_tab("clients") if client.get("club_id") == club_id}
-        return _booking_to_item(row, clients)
+        payments = [
+            payment
+            for payment in sheet.read_tab("payments")
+            if payment.get("club_id") == club_id and payment.get("booking_id") == booking_id
+        ]
+        summary = payment_summaries_by_booking([row], payments).get(booking_id)
+        return _booking_to_item(row, clients, summary)
 
     allowed = ALLOWED_STATUS_TRANSITIONS.get(current_status, set())
     if status_value not in allowed:
@@ -268,5 +301,11 @@ def update_booking_status(
         audit_entity="booking",
     )
     clients = {client.get("client_id", ""): client for client in sheet.read_tab("clients") if client.get("club_id") == club_id}
-    return _booking_to_item(patched, clients)
+    payments = [
+        payment
+        for payment in sheet.read_tab("payments")
+        if payment.get("club_id") == club_id and payment.get("booking_id") == booking_id
+    ]
+    summary = payment_summaries_by_booking([patched], payments).get(booking_id)
+    return _booking_to_item(patched, clients, summary)
 

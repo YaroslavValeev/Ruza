@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Deploy / restart API container on Linux VPS
 # Usage: bash scripts/server/deploy-api.sh
 set -euo pipefail
@@ -6,6 +7,8 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ENV_FILE="${REPO_ROOT}/.env.docker"
 IMAGE="icebeach-api:latest"
 NAME="icebeach-api"
+
+bash "${REPO_ROOT}/scripts/server/assert-clean-release-tree.sh"
 
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo "Missing ${ENV_FILE}. Copy from .env.docker.example"

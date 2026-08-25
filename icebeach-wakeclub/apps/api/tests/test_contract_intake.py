@@ -72,6 +72,10 @@ def test_authenticated_intake_sync_is_idempotent() -> None:
     lead = target.tabs["leads"][0]
     assert lead["external_source"] == "mywave_canonical_ruza"
     assert lead["external_record_id"] == "req-ruza-001"
+    assert lead["received_at"] == "2026-08-24T08:00:00Z"
+    assert lead["sync_status"] == "synced"
+    assert lead["sync_error"] == ""
+    assert lead["converted_booking_id"] == ""
     assert lead["phone"] == "79990001122"
     assert lead["utm_source"] == "mywavewake.ru"
     assert "Спортсмен: Иван Тестов" in lead["notes"]

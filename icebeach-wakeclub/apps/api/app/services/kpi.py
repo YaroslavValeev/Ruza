@@ -6,6 +6,7 @@ from packages.sheets import SheetWrapper
 
 from ..models import KpiPeriod, RideType
 from .operating_calendar import build_operating_slots
+from .payments import payment_summaries_by_booking
 
 
 def _pct(actual: float | int, target: int | None) -> float | None:
@@ -102,13 +103,30 @@ def get_kpi_summary(
     start_text = start.isoformat()
     end_text = end.isoformat()
 
-    bookings = [
+    period_bookings = [
         row
         for row in sheet.read_tab("bookings")
         if row.get("club_id") == club_id
         and start_text <= row.get("date", "") <= end_text
-        and row.get("status") == "done"
     ]
+    bookings = [row for row in period_bookings if row.get("status") == "done"]
+    booking_ids = {row.get("booking_id", "") for row in period_bookings}
+    payments = [
+        row
+        for row in sheet.read_tab("payments")
+        if row.get("club_id") == club_id
+        and row.get("booking_id") in booking_ids
+        and row.get("status") == "succeeded"
+    ]
+    payments_gross_minor = sum(
+        int(row.get("amount_minor") or 0) for row in payments if row.get("kind") == "charge"
+    )
+    refunds_total_minor = sum(
+        int(row.get("amount_minor") or 0) for row in payments if row.get("kind") == "refund"
+    )
+    active_bookings = [row for row in period_bookings if row.get("status") not in {"cancelled", "no_show"}]
+    payment_summaries = payment_summaries_by_booking(active_bookings, payments)
+    outstanding_minor = sum(int(summary["balance_due_minor"]) for summary in payment_summaries.values())
 
     schedule_rows = [
         row
@@ -181,6 +199,10 @@ def get_kpi_summary(
         "sessions_count": sessions_count,
         "utilization_pct": utilization_pct,
         "revenue_estimate": revenue_estimate,
+        "payments_gross_minor": payments_gross_minor,
+        "refunds_total_minor": refunds_total_minor,
+        "net_revenue_minor": payments_gross_minor - refunds_total_minor,
+        "outstanding_minor": outstanding_minor,
         "ride_breakdown": [ride_breakdown_index[ride_type] for ride_type in ride_types],
         "timeline": timeline,
         "plan_fact": _build_plan_fact(sheet, club_id, period, start, sessions_count, utilization_pct, revenue_estimate),

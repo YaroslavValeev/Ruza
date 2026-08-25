@@ -11,6 +11,9 @@ BookingStatus = Literal["confirmed", "arrived", "ready", "in_progress", "done", 
 WetsuitSize = Literal["XS", "S", "M", "L", "XL", "XXL"]
 WetsuitGender = Literal["male", "female"]
 RideType = Literal["wakeboard", "surf", "skim"]
+PaymentKind = Literal["charge", "refund"]
+PaymentStatus = Literal["pending", "succeeded", "failed", "cancelled"]
+PaymentMethod = Literal["cash", "card_terminal", "sbp", "online"]
 KpiPeriod = Literal["day", "week", "month", "season", "custom"]
 PreflightLevel = Literal["PASS", "WARN", "BLOCKER"]
 SmokeLevel = Literal["PASS", "FAIL"]
@@ -137,7 +140,98 @@ class BookingItem(BaseModel):
     wetsuit_size: WetsuitSize | None = None
     wetsuit_gender: WetsuitGender | None = None
     total_price: int
+    payment_status: Literal["unpaid", "partially_paid", "paid", "overpaid", "partially_refunded", "refunded"] = "unpaid"
+    paid_amount_minor: int = 0
+    refunded_amount_minor: int = 0
+    net_paid_minor: int = 0
+    balance_due_minor: int = 0
     notes: str = ""
+
+
+class PaymentCreateRequest(BaseModel):
+    booking_id: str
+    amount_minor: int = Field(gt=0)
+    method: PaymentMethod
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    provider: str = "manual"
+    external_payment_id: str = ""
+    occurred_at: str | None = None
+
+
+class PaymentRefundRequest(BaseModel):
+    amount_minor: int = Field(gt=0)
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    occurred_at: str | None = None
+
+
+class PaymentItem(BaseModel):
+    payment_id: str
+    booking_id: str
+    client_id: str
+    kind: PaymentKind
+    status: PaymentStatus
+    method: PaymentMethod
+    amount_minor: int
+    currency: str
+    provider: str
+    external_payment_id: str = ""
+    parent_payment_id: str = ""
+    paid_at: str = ""
+    occurred_at: str
+    recorded_by: str
+
+
+class BookingPaymentSummary(BaseModel):
+    booking_id: str
+    expected_amount_minor: int
+    paid_amount_minor: int
+    refunded_amount_minor: int
+    net_paid_minor: int
+    balance_due_minor: int
+    payment_status: Literal["unpaid", "partially_paid", "paid", "overpaid", "partially_refunded", "refunded"]
+
+
+class PaymentMutationResponse(BaseModel):
+    payment: PaymentItem
+    summary: BookingPaymentSummary
+
+
+class ReconciliationMethodItem(BaseModel):
+    method: PaymentMethod
+    charges_minor: int
+    refunds_minor: int
+    net_minor: int
+
+
+class DailyReconciliationResponse(BaseModel):
+    date: date
+    bookings_value_minor: int
+    completed_value_minor: int
+    charges_minor: int
+    refunds_minor: int
+    net_received_minor: int
+    outstanding_minor: int
+    methods: list[ReconciliationMethodItem]
+    closure_status: Literal["open", "closed"] = "open"
+    discrepancy_minor: int | None = None
+
+
+class ReconciliationCloseRequest(BaseModel):
+    date: date
+    counted_total_minor: int = Field(ge=0)
+    override_discrepancy: bool = False
+    notes: str = ""
+
+
+class ReconciliationClosureItem(BaseModel):
+    closure_id: str
+    date: date
+    expected_net_minor: int
+    counted_total_minor: int
+    discrepancy_minor: int
+    status: Literal["closed"]
+    closed_by: str
+    closed_at: str
 
 
 class BookingStatusUpdateRequest(BaseModel):
@@ -347,6 +441,10 @@ class KpiSummaryResponse(BaseModel):
     sessions_count: int
     utilization_pct: float
     revenue_estimate: int
+    payments_gross_minor: int = 0
+    refunds_total_minor: int = 0
+    net_revenue_minor: int = 0
+    outstanding_minor: int = 0
     ride_breakdown: list[KpiRideBreakdownItem]
     timeline: list[KpiTimelinePoint]
     plan_fact: KpiPlanFact | None = None
@@ -374,6 +472,10 @@ class LeadItem(BaseModel):
     notes: str = ""
     external_source: str = ""
     external_record_id: str = ""
+    received_at: str = ""
+    sync_status: str = ""
+    sync_error: str = ""
+    converted_booking_id: str = ""
 
 
 class LeadCreateRequest(BaseModel):

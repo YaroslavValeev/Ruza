@@ -17,6 +17,8 @@
 - `external_record_id` равен `request_id` исходной строки.
 - `lead_id` детерминирован, поэтому повторный запуск безопасен даже после
   сетевого сбоя.
+- `received_at`, `sync_status`, `sync_error`, `converted_booking_id` фиксируют
+  состояние переноса в операционную таблицу.
 
 ## Переменные
 
@@ -55,7 +57,8 @@ Production-интервал: каждые 5 минут. Успешный пус�
 | `source_cta` | `source` |
 | `utm_source` | `utm_source` |
 | `utm_campaign` | `utm_campaign` |
-| `created_at` | `created_at` |
+| `created_at` | `created_at`, `received_at` |
+| sync result | `sync_status`, `sync_error`, `converted_booking_id` |
 | operational context | `notes` |
 
 ## Rollback

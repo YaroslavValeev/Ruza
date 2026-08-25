@@ -4,6 +4,8 @@ export type WetsuitSize = "XS" | "S" | "M" | "L" | "XL" | "XXL";
 export type WetsuitGender = "male" | "female";
 export type RideType = "wakeboard" | "surf" | "skim";
 export type KpiPeriod = "day" | "week" | "month" | "season" | "custom";
+export type PaymentMethod = "cash" | "card_terminal" | "sbp" | "online";
+export type PaymentStatus = "unpaid" | "partially_paid" | "paid" | "overpaid" | "partially_refunded" | "refunded";
 export type PreflightLevel = "PASS" | "WARN" | "BLOCKER";
 export type SmokeLevel = "PASS" | "FAIL";
 
@@ -54,6 +56,10 @@ export type KpiSummary = {
   sessions_count: number;
   utilization_pct: number;
   revenue_estimate: number;
+  payments_gross_minor: number;
+  refunds_total_minor: number;
+  net_revenue_minor: number;
+  outstanding_minor: number;
   ride_breakdown: KpiRideBreakdownItem[];
   timeline: KpiTimelinePoint[];
   plan_fact?: KpiPlanFact | null;
@@ -147,7 +153,36 @@ export type BookingItem = {
   wetsuit_size?: WetsuitSize | null;
   wetsuit_gender?: WetsuitGender | null;
   total_price: number;
+  payment_status: PaymentStatus;
+  paid_amount_minor: number;
+  refunded_amount_minor: number;
+  net_paid_minor: number;
+  balance_due_minor: number;
   notes: string;
+};
+
+export type PaymentMutationResponse = {
+  payment: {
+    payment_id: string;
+    booking_id: string;
+    kind: "charge" | "refund";
+    status: "pending" | "succeeded" | "failed" | "cancelled";
+    method: PaymentMethod;
+    amount_minor: number;
+    currency: string;
+    paid_at?: string;
+    occurred_at?: string;
+    recorded_by?: string;
+  };
+  summary: {
+    booking_id: string;
+    expected_amount_minor: number;
+    paid_amount_minor: number;
+    refunded_amount_minor: number;
+    net_paid_minor: number;
+    balance_due_minor: number;
+    payment_status: PaymentStatus;
+  };
 };
 
 export type ClientItem = {
@@ -211,6 +246,12 @@ export type LeadItem = {
   utm_campaign: string;
   created_at: string;
   notes: string;
+  external_source?: string;
+  external_record_id?: string;
+  received_at?: string;
+  sync_status?: string;
+  sync_error?: string;
+  converted_booking_id?: string;
 };
 
 export type MarketingFunnel = {

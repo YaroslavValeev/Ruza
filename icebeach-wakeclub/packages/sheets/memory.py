@@ -93,6 +93,8 @@ def default_minimal_tabs() -> dict[str, list[dict[str, str]]]:
         ],
         "slot_overrides": [],
         "bookings": [],
+        "payments": [],
+        "payment_closures": [],
         "checkins": [],
         "analytics_daily": [],
         "kpi_targets": [],
@@ -142,6 +144,12 @@ def demo_tabs(*, today: date | None = None) -> dict[str, list[dict[str, str]]]:
             "utm_source": "ig",
             "utm_campaign": "summer",
             "created_at": f"{today.isoformat()}T08:00:00Z",
+            "external_source": "demo",
+            "external_record_id": "demo-lead-1",
+            "received_at": f"{today.isoformat()}T08:00:00Z",
+            "sync_status": "demo",
+            "sync_error": "",
+            "converted_booking_id": "",
             "notes": "Хочет пробный заезд",
         },
         {
@@ -154,6 +162,12 @@ def demo_tabs(*, today: date | None = None) -> dict[str, list[dict[str, str]]]:
             "utm_source": "",
             "utm_campaign": "",
             "created_at": f"{(today - timedelta(days=3)).isoformat()}T10:00:00Z",
+            "external_source": "demo",
+            "external_record_id": "demo-lead-2",
+            "received_at": f"{(today - timedelta(days=3)).isoformat()}T10:00:00Z",
+            "sync_status": "demo",
+            "sync_error": "",
+            "converted_booking_id": "",
             "notes": "",
         },
     ]
@@ -319,6 +333,7 @@ class InMemorySheetWrapper:
         diff_json: dict[str, Any],
         *,
         actor: str = "system",
+        strict: bool = False,
     ) -> None:
         self.tabs.setdefault("audit_log", []).append(
             {

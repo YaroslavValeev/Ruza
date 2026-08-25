@@ -28,6 +28,10 @@ def _lead_to_item(row: dict[str, str]) -> dict[str, str]:
         "notes": row.get("notes", ""),
         "external_source": row.get("external_source", ""),
         "external_record_id": row.get("external_record_id", ""),
+        "received_at": row.get("received_at", ""),
+        "sync_status": row.get("sync_status", ""),
+        "sync_error": row.get("sync_error", ""),
+        "converted_booking_id": row.get("converted_booking_id", ""),
     }
 
 
@@ -45,6 +49,7 @@ def create_lead(
     club_id: str,
 ) -> dict[str, str]:
     lead_id = f"lead-{uuid4()}"
+    now = _utc_now_iso()
     row = {
         "lead_id": lead_id,
         "club_id": club_id,
@@ -54,10 +59,14 @@ def create_lead(
         "utm_source": payload.utm_source,
         "utm_campaign": payload.utm_campaign,
         "status": "new",
-        "created_at": _utc_now_iso(),
+        "created_at": now,
         "notes": payload.notes,
-        "external_source": "",
-        "external_record_id": "",
+        "external_source": "manual",
+        "external_record_id": lead_id,
+        "received_at": now,
+        "sync_status": "manual",
+        "sync_error": "",
+        "converted_booking_id": "",
     }
     sheet.append_row("leads", row, unique_key="lead_id")
     sheet.write_audit(

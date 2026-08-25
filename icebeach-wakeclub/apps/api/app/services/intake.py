@@ -114,6 +114,7 @@ def sync_intake_leads(
             continue
 
         lead_id = lead_id_for_external(external_record_id)
+        received_at = source_row.get("created_at", "").strip() or _utc_now_iso()
         lead_row = {
             "lead_id": lead_id,
             "club_id": club_id,
@@ -121,9 +122,13 @@ def sync_intake_leads(
             "phone": phone,
             "source": source_row.get("source_cta", "").strip() or EXTERNAL_SOURCE,
             "status": "new",
-            "created_at": source_row.get("created_at", "").strip() or _utc_now_iso(),
+            "created_at": received_at,
             "external_source": EXTERNAL_SOURCE,
             "external_record_id": external_record_id,
+            "received_at": received_at,
+            "sync_status": "synced",
+            "sync_error": "",
+            "converted_booking_id": "",
             "utm_source": source_row.get("utm_source", "").strip(),
             "utm_campaign": source_row.get("utm_campaign", "").strip(),
             "notes": _notes_from_source(source_row),
