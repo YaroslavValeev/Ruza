@@ -4,13 +4,12 @@ import os
 import sys
 from pathlib import Path
 
-from packages.sheets.memory import InMemorySheetWrapper
-from apps.api.app.config import Settings
-
-
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from packages.sheets.memory import InMemorySheetWrapper
+from apps.api.app.config import Settings
 
 # CI/collection must not require live Google credentials.
 os.environ.setdefault("SPREADSHEET_ID", "test-sheet")

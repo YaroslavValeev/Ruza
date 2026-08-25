@@ -3,11 +3,12 @@ param(
   [string]$StaffUserId = '23232323',
   [string]$Phone = '+79160117179',
   [string]$ClientQuery = '+79160117179',
-  [string]$RideType = 'skim'
+  [string]$RideType = 'skim',
+  [int]$ApiPort = 8000
 )
 
 $ErrorActionPreference = 'Stop'
-$ApiBase = 'http://127.0.0.1:8000'
+$ApiBase = "http://127.0.0.1:$ApiPort"
 $Script:Failures = 0
 
 function Pass([string]$Code, [string]$Message) {
@@ -33,7 +34,7 @@ Write-Output ''
 
 try {
   $health = Invoke-RestMethod -Uri "$ApiBase/health"
-  Assert-True ($health.status -eq 'ok') 'health' 'API health is ok' "unexpected health payload: $($health | ConvertTo-Json -Compress)"
+  Assert-True ($health.status -eq 'ok' -and $health.app -eq 'icebeach-wakeclub-api') 'health' 'Ruza API health is ok' "unexpected health payload: $($health | ConvertTo-Json -Compress)"
 } catch {
   Fail 'health' $_.Exception.Message
   Write-Output "SUMMARY failures=$Script:Failures"

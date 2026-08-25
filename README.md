@@ -44,6 +44,17 @@ cd ..\..\..
 .\scripts\status-local.ps1
 ```
 
+Если `8000` занят другим локальным проектом, используйте тот же dashboard `5173`,
+но поднимите Ruza API на свободном порту:
+
+```powershell
+.\scripts\stop-local.ps1 -ApiPort 8000
+.\scripts\start-local.ps1 -Lan -ApiPort 8001
+.\scripts\status-local.ps1 -ApiPort 8001
+.\scripts\preflight-local.ps1 -Date "2026-06-01" -ApiPort 8001
+.\scripts\smoke-local.ps1 -Date "2026-06-01" -ApiPort 8001
+```
+
 ## Локальный demo без Google Sheets
 
 **[PowerShell]**
@@ -68,7 +79,7 @@ PYTHONPATH="$PWD/icebeach-wakeclub" python3 scripts/smoke_demo.py
 
 Открыть http://127.0.0.1:5173 — кнопки Админ / Оператор / Пилот, затем «Получить код». DEV-код на форме.
 
-- API: http://127.0.0.1:8000/health
+- API: http://127.0.0.1:8000/health или fallback http://127.0.0.1:8001/health
 - Стоп Windows: `.\scripts\stop-local.ps1`
 
 ## Docker
