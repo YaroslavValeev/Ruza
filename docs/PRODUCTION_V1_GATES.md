@@ -38,7 +38,16 @@ Production API не должен стартовать без:
 - `sync_error`
 - `converted_booking_id`
 
-Повторная доставка одной внешней заявки проверяется тестом `test_contract_intake.py`.
+Повторная доставка одной внешней заявки проверяется:
+- контрактом `test_contract_intake.py`;
+- live/local proof-командой:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\intake-e2e-local.ps1
+```
+
+PASS только если команда завершилась строкой `SUMMARY failures=0` и показала
+ровно один lead в `RuzaTab.leads` для выбранного `external_record_id`.
 
 ## 3. Payment ledger
 

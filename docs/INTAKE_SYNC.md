@@ -37,6 +37,25 @@ AGENTS_SECRET=<long random secret>
 .\scripts\run-agent.ps1 -Agent intake_sync
 ```
 
+Live/local proof без дублей:
+
+```powershell
+.\scripts\intake-e2e-local.ps1
+```
+
+Что делает проверка:
+
+- добавляет одну тестовую строку в каноническую intake-таблицу, если её ещё нет;
+- запускает `sync_intake_leads`;
+- запускает sync повторно;
+- проверяет, что в `RuzaTab.leads` существует ровно один lead с тем же
+  `external_record_id`;
+- завершает работу только при `SUMMARY failures=0`.
+
+По умолчанию используется детерминированный `request_id` вида
+`smoke-intake-e2e-YYYYMMDD`, поэтому повторный запуск в тот же день не создаёт
+дубликаты.
+
 Через API планировщика:
 
 ```text
