@@ -90,6 +90,41 @@ def test_production_settings_require_https_phone_provider(monkeypatch) -> None:
         assert "HTTPS" in str(exc)
 
     monkeypatch.setenv("OTP_DELIVERY_WEBHOOK_URL", "https://otp.example/send")
+    monkeypatch.setenv("INTAKE_SPREADSHEET_ID", "intake-sheet")
+    monkeypatch.setenv("AGENTS_SECRET", "agents-secret")
     settings = get_settings()
     assert settings.otp_delivery_webhook_url == "https://otp.example/send"
     assert settings.allow_manual_otp_delivery is False
+
+
+def test_production_settings_require_intake_and_agents_secret(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("AUTH_DEBUG_CODE_IN_RESPONSE", "false")
+    monkeypatch.setenv("ALLOW_LEGACY_STAFF_LOGIN", "false")
+    monkeypatch.setenv("ALLOW_MANUAL_OTP_DELIVERY", "false")
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "true")
+    monkeypatch.setenv("SPREADSHEET_ID", "test-sheet")
+    monkeypatch.setenv("SESSION_SECRET", "test-secret")
+    monkeypatch.setenv("GOOGLE_SERVICE_ACCOUNT_JSON", str(Path(__file__).resolve()))
+    monkeypatch.setenv("OTP_DELIVERY_WEBHOOK_URL", "https://otp.example/send")
+    monkeypatch.setenv("OTP_DELIVERY_WEBHOOK_TOKEN", "provider-secret")
+    monkeypatch.delenv("INTAKE_SPREADSHEET_ID", raising=False)
+    monkeypatch.delenv("AGENTS_SECRET", raising=False)
+
+    try:
+        get_settings()
+        raise AssertionError("expected RuntimeError for missing production intake spreadsheet")
+    except RuntimeError as exc:
+        assert "INTAKE_SPREADSHEET_ID" in str(exc)
+
+    monkeypatch.setenv("INTAKE_SPREADSHEET_ID", "intake-sheet")
+    try:
+        get_settings()
+        raise AssertionError("expected RuntimeError for missing production agents secret")
+    except RuntimeError as exc:
+        assert "AGENTS_SECRET" in str(exc)
+
+    monkeypatch.setenv("AGENTS_SECRET", "agents-secret")
+    settings = get_settings()
+    assert settings.intake_spreadsheet_id == "intake-sheet"
+    assert settings.agents_secret == "agents-secret"

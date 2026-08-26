@@ -26,6 +26,10 @@ npm run build
 
 PASS только если `preflight-local.ps1` показывает `blockers=0`.
 
+Production API не должен стартовать без:
+- `INTAKE_SPREADSHEET_ID` — каноническая таблица заявок сайта/TG;
+- `AGENTS_SECRET` — секрет для scheduled/internal agents.
+
 Обязательные intake поля в `leads`:
 - `external_source`
 - `external_record_id`
