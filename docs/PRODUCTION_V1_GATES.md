@@ -9,7 +9,9 @@ PASS только если:
 - backend tests проходят;
 - dashboard build проходит;
 - release tag указывает на тот же SHA, который прошел CI;
-- production deploy запускается только через guard `scripts/server/assert-clean-release-tree.sh`.
+- production deploy запускается только через clean-tree guard:
+  `scripts/server/assert-clean-release-tree.ps1` на Windows/local и
+  `scripts/server/assert-clean-release-tree.sh` на Linux/Timeweb.
 
 Локальная проверка:
 
@@ -20,6 +22,7 @@ $env:PYTHONPATH=(Get-Location).Path
 python -m pytest -q
 cd .\apps\dashboard
 npm run build
+powershell -ExecutionPolicy Bypass -File ..\..\..\scripts\server\assert-clean-release-tree.ps1
 ```
 
 ## 2. Sheets schema / intake
