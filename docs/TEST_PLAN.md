@@ -65,6 +65,21 @@ python -m pytest icebeach-wakeclub/apps/api/tests -v
 Проверяет: clean tree, PR SHA, GitHub CI, release tag, evidence docs, backend tests, dashboard build.
 Внешние production gates выводятся отдельно как `EXTERNAL` и не считаются локальными blockers.
 
+Production env guard:
+
+```powershell
+.\scripts\validate-production-env.ps1 -EnvFile .\.env.docker
+```
+
+На сервере:
+
+```bash
+bash scripts/server/validate-production-env.sh .env.docker
+```
+
+Проверяет: `APP_ENV=production`, secure cookie, отключенный debug/manual OTP,
+HTTPS OTP webhook, HTTPS CORS origins, наличие Google credentials и отсутствие placeholder values.
+
 ### 5. Staging gate
 
 См. `icebeach-wakeclub/docs/enterprise/23_STAGING_LAUNCH_CHECKLIST.md`:

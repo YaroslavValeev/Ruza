@@ -128,6 +128,15 @@ cp .env.docker.example .env.docker
 nano .env.docker
 ```
 
+Перед любым запуском проверьте, что в `.env.docker` нет local/debug настроек:
+
+```bash
+bash scripts/server/validate-production-env.sh .env.docker
+```
+
+`deploy-api.sh` запускает эту проверку автоматически и остановит deploy, если включен debug OTP,
+manual OTP, insecure cookie, localhost CORS или placeholder values.
+
 Заполните (пример содержимого):
 ```env
 APP_ENV=production

@@ -15,6 +15,8 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
+bash "${REPO_ROOT}/scripts/server/validate-production-env.sh" "${ENV_FILE}"
+
 cd "${REPO_ROOT}/icebeach-wakeclub"
 docker build -t "${IMAGE}" .
 

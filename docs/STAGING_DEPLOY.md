@@ -16,7 +16,9 @@ $env:ALLOW_GIT_PUSH=1; git push -u origin main
 - Dockerfile: `icebeach-wakeclub/Dockerfile`
 - Port: `8000`
 - Health: `/health`
-- Env: `apps/api/.env.production.example`
+- Env: заполнить `.env.docker` по `.env.docker.example` или перенести те же ключи из
+  `apps/api/.env.production.example` в Timeweb App Platform.
+- Env gate: `scripts/server/validate-production-env.sh .env.docker` должен пройти без blockers.
 
 ## 3. Frontend staging
 

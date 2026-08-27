@@ -11,7 +11,10 @@ PASS только если:
 - release tag указывает на тот же SHA, который прошел CI;
 - production deploy запускается только через clean-tree guard:
   `scripts/server/assert-clean-release-tree.ps1` на Windows/local и
-  `scripts/server/assert-clean-release-tree.sh` на Linux/Timeweb.
+  `scripts/server/assert-clean-release-tree.sh` на Linux/Timeweb;
+- production env проходит machine-check:
+  `scripts/validate-production-env.ps1` на Windows/local и
+  `scripts/server/validate-production-env.sh` на Linux/Timeweb.
 
 Локальная проверка:
 
@@ -34,6 +37,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\production-v1-local-audit.ps1
 Скрипт проверяет clean tree, PR SHA, CI, remote tag, evidence docs, backend tests и dashboard build.
 Внешние ворота (`Timeweb`, real OTP, live intake, restore-write, monitoring, iOS Safari, real shift)
 выводятся как `EXTERNAL` и не должны трактоваться как закрытые локально.
+
+Production env перед staging/deploy:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\validate-production-env.ps1 -EnvFile .\.env.docker
+```
+
+На Linux/Timeweb тот же gate выполняется автоматически внутри `scripts/server/deploy-api.sh`.
 
 ## 2. Sheets schema / intake
 

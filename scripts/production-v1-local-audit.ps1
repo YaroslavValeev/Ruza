@@ -129,12 +129,25 @@ try {
     'docs\PRODUCTION_V1_AUDIT.md',
     'docs\PRODUCTION_V1_GATES.md',
     'docs\INTAKE_SYNC.md',
-    'docs\STAGING_DEPLOY.md'
+    'docs\STAGING_DEPLOY.md',
+    '.env.docker.example',
+    'icebeach-wakeclub\apps\api\.env.production.example',
+    'scripts\validate-production-env.ps1',
+    'scripts\server\validate-production-env.sh'
   )) {
     if (Test-Path (Join-Path $RepoRoot $path)) {
       Pass "doc.$path" 'present'
     } else {
       Blocker "doc.$path" 'missing'
+    }
+  }
+
+  Invoke-Step 'deploy.env_guard' {
+    $deployScript = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\server\deploy-api.sh') -Raw
+    if ($deployScript -match 'validate-production-env\.sh') {
+      Pass 'deploy.env_guard' 'deploy-api.sh validates production env before docker run'
+    } else {
+      Blocker 'deploy.env_guard' 'deploy-api.sh does not call validate-production-env.sh'
     }
   }
 
