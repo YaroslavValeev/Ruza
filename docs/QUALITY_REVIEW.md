@@ -1,6 +1,6 @@
 # Quality review — стадия Ruza / Ice Beach
 
-Дата: 2026-08-20
+Дата: 2026-08-28
 Контур: **MyWave Training / Cash-cow** (`booking → check-in → pilot → KPI`)
 
 ## 1. На какой мы стадии
@@ -58,7 +58,8 @@
 
 - Source of Truth: внешний intake идёт через canonical MyWave sheet → `RuzaTab.leads`, без автосоздания брони.
 - Payment ledger: `payments` + `payment_closures`, API записи/возвратов, KPI считает `payments_gross_minor` / `net_revenue_minor`.
-- Release gates: clean-tree guard, PR #4, tag `v1.0.0-rc.4`, локальный production audit.
+- Release gates: clean-tree guard, production env guard, PR #4, tag `v1.0.0-rc.7`, локальный production audit.
+- Production env validation: Windows и Linux скрипты блокируют debug OTP, manual OTP, insecure cookie, localhost CORS и placeholder values перед deploy.
 
 ## 4. Что сознательно отложено владельцем / внешним контуром
 

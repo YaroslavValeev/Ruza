@@ -1,7 +1,7 @@
 # Ruza / Club Ops production v1 audit
 
-Audit date: 2026-08-27
-Current release candidate: `v1.0.0-rc.3`
+Audit date: 2026-08-28
+Current release candidate: `v1.0.0-rc.7`
 Current PR: `https://github.com/YaroslavValeev/Ruza/pull/4`
 
 ## Executive status
@@ -29,12 +29,13 @@ HTTPS production, real OTP provider, Timeweb staging/prod rollout, backup restor
 
 | Requirement | Status | Evidence | Remaining action |
 |---|---|---|---|
-| Сверить local / GitHub main / PR / WIP | PASS | `git status --short --branch`; PR #4 head `746c8b37ccda0071bb4f5b58c20367059acccb85`; merge state `CLEAN` | Keep PR updated until merge |
+| Сверить local / GitHub main / PR / WIP | PASS | `git status --short --branch`; PR #4 head `644ef3f37ed5598eec6d7683d7fce926c5400e06`; merge state `CLEAN` | Keep PR updated until merge |
 | Не потерять полезные изменения | PASS | All current work is committed in PR #4; working tree clean before this audit update | Re-run clean-tree guard before deploy |
 | Разделить изменения на логические PR | PARTIAL | Current production-v1 work is in one draft PR #4 | If reviewer requests smaller slices, split before merge |
-| Получить release candidate SHA | PASS | Tag `v1.0.0-rc.3` points at `746c8b37ccda0071bb4f5b58c20367059acccb85` | Create final tag after merge |
+| Получить release candidate SHA | PASS | Tag `v1.0.0-rc.7` points at `644ef3f37ed5598eec6d7683d7fce926c5400e06` | Create final tag after merge |
 | Вернуть полный test gate | PASS | GitHub checks `api-tests` and `dashboard-build` green on PR #4; local pytest/build commands are documented | Re-run after this audit commit |
 | Запретить production deploy из dirty tree | PASS | `scripts/server/assert-clean-release-tree.sh`; `scripts/server/assert-clean-release-tree.ps1`; deploy script calls Linux guard | Use guard in Timeweb deploy path |
+| Запретить production deploy с debug/local env | PASS | `scripts/validate-production-env.ps1`; `scripts/server/validate-production-env.sh`; `deploy-api.sh` calls env guard before `docker run` | Fill real `.env.docker` and run guard on Timeweb |
 | Intake from site / Telegram / public / manual into one operational intake | PARTIAL | `apps/api/app/services/intake.py`; `POST /public/booking-request`; `POST /intake/sync`; docs `INTAKE_SYNC.md` | Enable real site/TG writers and production scheduler |
 | Intake fields exist | PASS | `packages/sheets/schema.py` requires `external_source`, `external_record_id`, `received_at`, `sync_status`, `sync_error`, `converted_booking_id` in `leads` | Keep schema preflight green |
 | Duplicate external delivery does not duplicate lead | PASS | `apps/api/tests/test_contract_intake.py`; `scripts/intake-e2e-local.ps1` live/local proof | Run production proof after deployment |
@@ -82,6 +83,7 @@ From repository root:
 ```powershell
 git status --short --branch
 powershell -ExecutionPolicy Bypass -File .\scripts\server\assert-clean-release-tree.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\validate-production-env.ps1 -EnvFile .\.env.docker
 powershell -ExecutionPolicy Bypass -File .\scripts\preflight-local.ps1 -Date 2026-06-01 -ApiPort 8001
 powershell -ExecutionPolicy Bypass -File .\scripts\smoke-local.ps1 -Date 2026-06-01 -ApiPort 8001
 powershell -ExecutionPolicy Bypass -File .\scripts\intake-e2e-local.ps1
