@@ -1,0 +1,184 @@
+param(
+  [int]$PrNumber = 4,
+  [string]$ExpectedTag = 'v1.0.0-rc.4',
+  [switch]$SkipTests,
+  [switch]$SkipBuild,
+  [switch]$SkipGitHub
+)
+
+$ErrorActionPreference = 'Stop'
+$RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+$AppRoot = Join-Path $RepoRoot 'icebeach-wakeclub'
+$DashboardRoot = Join-Path $AppRoot 'apps\dashboard'
+
+$script:Blockers = 0
+$script:Warnings = 0
+$script:External = 0
+
+function Pass([string]$Code, [string]$Message) {
+  Write-Output "[PASS] $Code`: $Message"
+}
+
+function Warn([string]$Code, [string]$Message) {
+  Write-Output "[WARN] $Code`: $Message"
+  $script:Warnings += 1
+}
+
+function Blocker([string]$Code, [string]$Message) {
+  Write-Output "[BLOCKER] $Code`: $Message"
+  $script:Blockers += 1
+}
+
+function External([string]$Code, [string]$Message) {
+  Write-Output "[EXTERNAL] $Code`: $Message"
+  $script:External += 1
+}
+
+function Require-Command([string]$Name) {
+  $cmd = Get-Command $Name -ErrorAction SilentlyContinue
+  return $null -ne $cmd
+}
+
+function Invoke-Step([string]$Code, [scriptblock]$Step) {
+  try {
+    & $Step
+  } catch {
+    Blocker $Code $_.Exception.Message
+  }
+}
+
+Push-Location $RepoRoot
+try {
+  Write-Output '=== RUZA PRODUCTION V1 LOCAL AUDIT ==='
+  Write-Output "Repo: $RepoRoot"
+  Write-Output ''
+
+  $head = (git rev-parse --verify HEAD).Trim()
+  Pass 'git.head' $head
+
+  $status = git status --porcelain=v1
+  if ($status) {
+    Blocker 'git.clean' 'working tree is dirty; production deploy is forbidden from dirty state'
+    $status | ForEach-Object { Write-Output "  $_" }
+  } else {
+    Pass 'git.clean' 'working tree is clean'
+  }
+
+  $tagsAtHead = @(git tag --points-at HEAD)
+  if ($tagsAtHead -contains $ExpectedTag) {
+    Pass 'git.local_tag' "$ExpectedTag points at HEAD"
+  } else {
+    Blocker 'git.local_tag' "$ExpectedTag does not point at HEAD"
+  }
+
+  if (-not $SkipGitHub) {
+    if (Require-Command 'gh') {
+      Invoke-Step 'github.pr' {
+        $pr = gh pr view $PrNumber --json headRefOid,mergeStateStatus,isDraft,statusCheckRollup,url | ConvertFrom-Json
+        if ($pr.headRefOid -ne $head) {
+          Blocker 'github.pr_sha' "PR #$PrNumber head $($pr.headRefOid) != local HEAD $head"
+        } else {
+          Pass 'github.pr_sha' "PR #$PrNumber matches local HEAD"
+        }
+        if ($pr.mergeStateStatus -eq 'CLEAN') {
+          Pass 'github.merge_state' 'merge state CLEAN'
+        } else {
+          Blocker 'github.merge_state' "merge state $($pr.mergeStateStatus)"
+        }
+        if ($pr.isDraft) {
+          Warn 'github.pr_draft' "PR #$PrNumber is draft until external production gates are complete"
+        } else {
+          Pass 'github.pr_draft' "PR #$PrNumber is ready for review"
+        }
+        $failedChecks = @($pr.statusCheckRollup | Where-Object { $_.conclusion -ne 'SUCCESS' })
+        if ($failedChecks.Count -eq 0 -and $pr.statusCheckRollup.Count -gt 0) {
+          Pass 'github.ci' "all $($pr.statusCheckRollup.Count) checks are green"
+        } else {
+          Blocker 'github.ci' 'one or more PR checks are not green'
+          $failedChecks | ForEach-Object { Write-Output "  $($_.name): $($_.status) $($_.conclusion)" }
+        }
+        Write-Output "  PR: $($pr.url)"
+      }
+
+      Invoke-Step 'github.tag' {
+        $tag = gh api "repos/YaroslavValeev/Ruza/git/refs/tags/$ExpectedTag" | ConvertFrom-Json
+        if ($tag.object.sha -eq $head) {
+          Pass 'github.remote_tag' "$ExpectedTag points at HEAD"
+        } else {
+          Blocker 'github.remote_tag' "$ExpectedTag points at $($tag.object.sha), expected $head"
+        }
+      }
+    } else {
+      Warn 'github.cli' 'gh CLI is unavailable; PR and remote tag checks skipped'
+    }
+  } else {
+    Warn 'github.skipped' 'GitHub checks skipped by flag'
+  }
+
+  foreach ($path in @(
+    'docs\PRODUCTION_V1_AUDIT.md',
+    'docs\PRODUCTION_V1_GATES.md',
+    'docs\INTAKE_SYNC.md',
+    'docs\STAGING_DEPLOY.md'
+  )) {
+    if (Test-Path (Join-Path $RepoRoot $path)) {
+      Pass "doc.$path" 'present'
+    } else {
+      Blocker "doc.$path" 'missing'
+    }
+  }
+
+  if (-not $SkipTests) {
+    Invoke-Step 'tests.api' {
+      Push-Location $AppRoot
+      try {
+        python -m pytest -q
+        if ($LASTEXITCODE -eq 0) {
+          Pass 'tests.api' 'pytest passed'
+        } else {
+          Blocker 'tests.api' "pytest exited with $LASTEXITCODE"
+        }
+      } finally {
+        Pop-Location
+      }
+    }
+  } else {
+    Warn 'tests.api' 'skipped by flag'
+  }
+
+  if (-not $SkipBuild) {
+    Invoke-Step 'dashboard.build' {
+      Push-Location $DashboardRoot
+      try {
+        npm run build
+        if ($LASTEXITCODE -eq 0) {
+          Pass 'dashboard.build' 'npm run build passed'
+        } else {
+          Blocker 'dashboard.build' "npm run build exited with $LASTEXITCODE"
+        }
+      } finally {
+        Pop-Location
+      }
+    }
+  } else {
+    Warn 'dashboard.build' 'skipped by flag'
+  }
+
+  Write-Output ''
+  Write-Output '=== EXTERNAL PRODUCTION V1 GATES ==='
+  External 'timeweb.staging' 'deploy staging with HTTPS'
+  External 'auth.otp_provider' 'configure and prove real OTP delivery provider'
+  External 'intake.live_sources' 'prove live website and Telegram intake delivery'
+  External 'backup.restore_write' 'run restore-test with -Write against a separate staging spreadsheet'
+  External 'ops.monitoring' 'enable monitoring, alerting, and run rollback drill'
+  External 'mobile.ios_safari' 'run core scenario on iOS Safari over HTTPS'
+  External 'shift.real' 'complete one controlled real shift without P0 incident'
+
+  Write-Output ''
+  Write-Output "SUMMARY local_blockers=$script:Blockers warnings=$script:Warnings external_gates=$script:External"
+  if ($script:Blockers -gt 0) {
+    exit 1
+  }
+} finally {
+  Pop-Location
+}

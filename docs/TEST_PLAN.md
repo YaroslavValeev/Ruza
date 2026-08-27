@@ -22,6 +22,9 @@
 | `test_kpi_counts_done_sessions_only` | KPI = завершённые сессии |
 | `test_marketing_funnel_contacted_includes_booked` | воронка contacted включает booked |
 | `test_boats_list_and_pilot_cannot_change_foreign_boat` | лодки + RBAC пилота |
+| `test_intake_sync_idempotent_by_external_record_id` | intake не дублирует внешнюю заявку |
+| `test_public_booking_request_is_idempotent` | public booking request не создаёт дубль lead |
+| `test_payment_rbac_and_kpi_real_money` | KPI paid revenue берётся из payments, refund уменьшает net |
 
 Запуск:
 
@@ -50,13 +53,25 @@ python -m pytest icebeach-wakeclub/apps/api/tests -v
 
 Или API: `GET /preflight/summary?date=` (admin).
 
-### 4. Staging gate
+### 4. Production-v1 local audit
+
+Перед staging собрать локальный release evidence одной командой:
+
+**[PowerShell]**
+```powershell
+.\scripts\production-v1-local-audit.ps1
+```
+
+Проверяет: clean tree, PR SHA, GitHub CI, release tag, evidence docs, backend tests, dashboard build.
+Внешние production gates выводятся отдельно как `EXTERNAL` и не считаются локальными blockers.
+
+### 5. Staging gate
 
 См. `icebeach-wakeclub/docs/enterprise/23_STAGING_LAUNCH_CHECKLIST.md`:
 - 2× green smoke подряд
 - ручной цикл `booking → ready → in_progress → done`
 
-### 5. Frontend (CI)
+### 6. Frontend (CI)
 
 - `npm run build` — production build
 - `npx tsc --noEmit` — typecheck

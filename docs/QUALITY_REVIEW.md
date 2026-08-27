@@ -54,12 +54,21 @@
 - Demo-запуск без Google: `scripts/start-demo.ps1` / `scripts/start-demo.sh`
 - Локальная дата смены (не UTC), кнопки demo-ролей на логине, `scripts/smoke_demo.py`
 
-## 4. Что сознательно отложено владельцем
+### Волна 3 (production-v1 release candidate)
+
+- Source of Truth: внешний intake идёт через canonical MyWave sheet → `RuzaTab.leads`, без автосоздания брони.
+- Payment ledger: `payments` + `payment_closures`, API записи/возвратов, KPI считает `payments_gross_minor` / `net_revenue_minor`.
+- Release gates: clean-tree guard, PR #4, tag `v1.0.0-rc.4`, локальный production audit.
+
+## 4. Что сознательно отложено владельцем / внешним контуром
 
 - **Ротация секретов из git history** — только после завершения всех текущих работ
-- Боевой Telegram/SMS OTP (адаптер есть, токен не кладём)
+- Боевой Telegram/SMS OTP (адаптер есть, production требует HTTPS webhook/token)
 - Конкурентные записи в Sheets (single-writer)
-- Live Sheets / Timeweb staging в этом окружении
+- Timeweb staging/prod, HTTPS, monitoring/alerting и rollback drill
+- Restore-write в отдельную staging-таблицу
+- Live website/TG intake delivery proof
+- iOS Safari smoke на HTTPS URL
 - Frontend unit/a11y автотесты
 - CAC attribution и UTM public ingest
 - SponsorOS / Gear / слияние Personal_Helper–Agents–Molt
@@ -69,5 +78,6 @@
 1. pytest зелёный
 2. dashboard build зелёный
 3. demo: login → бронь → arrived → ready → in_progress → done
-4. На staging: 2× smoke + preflight без blockers
-5. После закрытия работ: ротация секретов человеком, затем `TELEGRAM_BOT_TOKEN` при необходимости
+4. `scripts/production-v1-local-audit.ps1` без local blockers
+5. На staging: 2× smoke + preflight без blockers
+6. После закрытия работ: ротация секретов человеком, затем production OTP provider

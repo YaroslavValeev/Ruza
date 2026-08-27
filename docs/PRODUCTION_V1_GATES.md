@@ -25,6 +25,16 @@ npm run build
 powershell -ExecutionPolicy Bypass -File ..\..\..\scripts\server\assert-clean-release-tree.ps1
 ```
 
+Единый локальный release audit перед staging:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\production-v1-local-audit.ps1
+```
+
+Скрипт проверяет clean tree, PR SHA, CI, remote tag, evidence docs, backend tests и dashboard build.
+Внешние ворота (`Timeweb`, real OTP, live intake, restore-write, monitoring, iOS Safari, real shift)
+выводятся как `EXTERNAL` и не должны трактоваться как закрытые локально.
+
 ## 2. Sheets schema / intake
 
 PASS только если `preflight-local.ps1` показывает `blockers=0`.

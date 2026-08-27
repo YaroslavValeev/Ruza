@@ -18,7 +18,7 @@
 2. **Оператор** — экран `/shift` «Смена сегодня»
 3. **Пилот** — mobile queue + Queue Coach
 4. **Owner** — KPI + brief + алерты
-5. **Платежи** — backlog (payment_status в Sheets)
+5. **Платежи** — payment ledger + KPI по фактическим оплатам
 6. **Маркетинг** — leads, funnel, LTV карточка
 7. **Доверие** — consent_face/voice, audit
 8. **Инфра** — Docker, smoke, agents scheduler
@@ -50,6 +50,7 @@ Approve на критичные действия — см. [`packages/shared-pol
 
 ## 5. Критерий успеха
 
+- production local audit green: `scripts/production-v1-local-audit.ps1`
 - smoke green + agents-smoke green
 - полевой тест pilot + owner на LAN
 - brief/алерты в log или Telegram
