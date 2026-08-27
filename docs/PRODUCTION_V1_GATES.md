@@ -66,7 +66,10 @@ KPI production v1 считает поступления из `payments`, а не
 - `parent_payment_id`
 - `idempotency_key`
 
-PASS только если платежи и возвраты проходят `test_contract_payments.py`.
+PASS только если платежи и возвраты проходят `test_contract_payments.py`, включая
+`test_payment_rbac_and_kpi_real_money`: неоплаченная завершённая бронь может
+увеличивать количество сессий и стоимость завершённых заездов, но не должна
+увеличивать `payments_gross_minor` и `net_revenue_minor` в KPI.
 
 ## 4. Backup / restore
 

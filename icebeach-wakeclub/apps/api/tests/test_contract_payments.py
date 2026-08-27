@@ -139,3 +139,50 @@ def test_payment_rbac_and_kpi_real_money() -> None:
     assert denied.status_code == 403
 
     app.dependency_overrides.clear()
+    operator = _client(sheet)
+    _login(operator)
+    _create_booking(operator)
+    assert operator.patch("/bookings/bkg_payment_1/status", json={"status": "arrived"}).status_code == 200
+    assert operator.patch("/bookings/bkg_payment_1/status", json={"status": "ready"}).status_code == 200
+    assert operator.patch("/bookings/bkg_payment_1/status", json={"status": "in_progress"}).status_code == 200
+    assert operator.patch("/bookings/bkg_payment_1/status", json={"status": "done"}).status_code == 200
+
+    unpaid_kpi = operator.get("/kpi/summary?period=day&date_from=2026-06-01")
+    assert unpaid_kpi.status_code == 200
+    assert unpaid_kpi.json()["sessions_count"] == 1
+    assert unpaid_kpi.json()["revenue_estimate"] == 12000
+    assert unpaid_kpi.json()["payments_gross_minor"] == 0
+    assert unpaid_kpi.json()["net_revenue_minor"] == 0
+    assert unpaid_kpi.json()["outstanding_minor"] == 1_200_000
+
+    charge = operator.post(
+        "/payments",
+        json={
+            "booking_id": "bkg_payment_1",
+            "amount_minor": 1_200_000,
+            "method": "cash",
+            "idempotency_key": "payment-test-key-3-kpi",
+        },
+    )
+    assert charge.status_code == 200
+    paid_kpi = operator.get("/kpi/summary?period=day&date_from=2026-06-01")
+    assert paid_kpi.status_code == 200
+    assert paid_kpi.json()["payments_gross_minor"] == 1_200_000
+    assert paid_kpi.json()["net_revenue_minor"] == 1_200_000
+    assert paid_kpi.json()["outstanding_minor"] == 0
+
+    operator.post("/auth/logout")
+    _login(operator, "staff_admin", "+79990000000")
+    refund = operator.post(
+        f"/payments/{charge.json()['payment']['payment_id']}/refunds",
+        json={"amount_minor": 200_000, "idempotency_key": "refund-test-key-kpi"},
+    )
+    assert refund.status_code == 200
+    refunded_kpi = operator.get("/kpi/summary?period=day&date_from=2026-06-01")
+    assert refunded_kpi.status_code == 200
+    assert refunded_kpi.json()["payments_gross_minor"] == 1_200_000
+    assert refunded_kpi.json()["refunds_total_minor"] == 200_000
+    assert refunded_kpi.json()["net_revenue_minor"] == 1_000_000
+    assert refunded_kpi.json()["outstanding_minor"] == 200_000
+
+    app.dependency_overrides.clear()
