@@ -1,6 +1,6 @@
 param(
   [int]$PrNumber = 4,
-  [string]$ExpectedTag = 'v1.0.0-rc.4',
+  [string]$ExpectedTag = '',
   [switch]$SkipTests,
   [switch]$SkipBuild,
   [switch]$SkipGitHub
@@ -65,9 +65,19 @@ try {
   }
 
   $tagsAtHead = @(git tag --points-at HEAD)
+  if (-not $ExpectedTag) {
+    $ExpectedTag = $tagsAtHead |
+      Where-Object { $_ -match '^v1\.0\.0-rc\.\d+$' } |
+      Sort-Object { [int]($_ -replace '^v1\.0\.0-rc\.', '') } -Descending |
+      Select-Object -First 1
+    if (-not $ExpectedTag) {
+      Blocker 'git.local_tag' 'no v1.0.0-rc.N tag points at HEAD'
+    }
+  }
+
   if ($tagsAtHead -contains $ExpectedTag) {
     Pass 'git.local_tag' "$ExpectedTag points at HEAD"
-  } else {
+  } elseif ($ExpectedTag) {
     Blocker 'git.local_tag' "$ExpectedTag does not point at HEAD"
   }
 
