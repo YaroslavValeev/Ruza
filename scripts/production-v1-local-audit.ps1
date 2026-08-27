@@ -133,7 +133,9 @@ try {
     '.env.docker.example',
     'icebeach-wakeclub\apps\api\.env.production.example',
     'scripts\validate-production-env.ps1',
-    'scripts\server\validate-production-env.sh'
+    'scripts\server\validate-production-env.sh',
+    'scripts\test-production-env-guards.ps1',
+    'scripts\server\test-production-env-guards.sh'
   )) {
     if (Test-Path (Join-Path $RepoRoot $path)) {
       Pass "doc.$path" 'present'
@@ -149,6 +151,17 @@ try {
     } else {
       Blocker 'deploy.env_guard' 'deploy-api.sh does not call validate-production-env.sh'
     }
+  }
+
+  Invoke-Step 'ci.env_guard' {
+    $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
+    foreach ($jobName in @('production-env-guard-linux', 'production-env-guard-windows')) {
+      if ($ci -notmatch [regex]::Escape($jobName)) {
+        Blocker 'ci.env_guard' "$jobName missing from CI"
+        return
+      }
+    }
+    Pass 'ci.env_guard' 'production env guard runs in CI on Linux and Windows'
   }
 
   if (-not $SkipTests) {

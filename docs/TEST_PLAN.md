@@ -80,6 +80,16 @@ bash scripts/server/validate-production-env.sh .env.docker
 Проверяет: `APP_ENV=production`, secure cookie, отключенный debug/manual OTP,
 HTTPS OTP webhook, HTTPS CORS origins, наличие Google credentials и отсутствие placeholder values.
 
+Поведенческая проверка guard без настоящих секретов:
+
+```powershell
+.\scripts\test-production-env-guards.ps1
+bash scripts/server/test-production-env-guards.sh
+```
+
+Эта проверка также включена в GitHub Actions jobs `production-env-guard-linux` и
+`production-env-guard-windows`.
+
 ### 5. Staging gate
 
 См. `icebeach-wakeclub/docs/enterprise/23_STAGING_LAUNCH_CHECKLIST.md`:

@@ -14,7 +14,9 @@ PASS только если:
   `scripts/server/assert-clean-release-tree.sh` на Linux/Timeweb;
 - production env проходит machine-check:
   `scripts/validate-production-env.ps1` на Windows/local и
-  `scripts/server/validate-production-env.sh` на Linux/Timeweb.
+  `scripts/server/validate-production-env.sh` на Linux/Timeweb;
+- CI проверяет, что env guard принимает production-like env и блокирует debug/local env
+  на Linux и Windows.
 
 Локальная проверка:
 
@@ -45,6 +47,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\validate-production-env.ps1 -
 ```
 
 На Linux/Timeweb тот же gate выполняется автоматически внутри `scripts/server/deploy-api.sh`.
+
+Проверка поведения guard без секретов:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test-production-env-guards.ps1
+bash scripts/server/test-production-env-guards.sh
+```
 
 ## 2. Sheets schema / intake
 

@@ -34,3 +34,18 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run build
+
+  production-env-guard-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate production env guard behavior
+        run: bash scripts/server/test-production-env-guards.sh
+
+  production-env-guard-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate production env guard behavior
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\test-production-env-guards.ps1
