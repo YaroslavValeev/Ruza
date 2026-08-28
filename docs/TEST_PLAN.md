@@ -90,6 +90,17 @@ bash scripts/server/test-production-env-guards.sh
 Эта проверка также включена в GitHub Actions jobs `production-env-guard-linux` и
 `production-env-guard-windows`.
 
+Clean release tree guard:
+
+```powershell
+.\scripts\test-clean-release-tree.ps1
+bash scripts/server/test-clean-release-tree.sh
+```
+
+Проверяет, что deploy guard принимает чистый release checkout и блокирует dirty
+working tree. Эта проверка также включена в GitHub Actions jobs
+`clean-release-tree-guard-linux` и `clean-release-tree-guard-windows`.
+
 ### 5. Staging gate
 
 См. `icebeach-wakeclub/docs/enterprise/23_STAGING_LAUNCH_CHECKLIST.md`:

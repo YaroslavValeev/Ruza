@@ -135,7 +135,9 @@ try {
     'scripts\validate-production-env.ps1',
     'scripts\server\validate-production-env.sh',
     'scripts\test-production-env-guards.ps1',
-    'scripts\server\test-production-env-guards.sh'
+    'scripts\server\test-production-env-guards.sh',
+    'scripts\test-clean-release-tree.ps1',
+    'scripts\server\test-clean-release-tree.sh'
   )) {
     if (Test-Path (Join-Path $RepoRoot $path)) {
       Pass "doc.$path" 'present'
@@ -153,6 +155,15 @@ try {
     }
   }
 
+  Invoke-Step 'deploy.clean_guard' {
+    $deployScript = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\server\deploy-api.sh') -Raw
+    if ($deployScript -match 'assert-clean-release-tree\.sh') {
+      Pass 'deploy.clean_guard' 'deploy-api.sh validates clean release tree before docker run'
+    } else {
+      Blocker 'deploy.clean_guard' 'deploy-api.sh does not call assert-clean-release-tree.sh'
+    }
+  }
+
   Invoke-Step 'ci.env_guard' {
     $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
     foreach ($jobName in @('production-env-guard-linux', 'production-env-guard-windows')) {
@@ -162,6 +173,17 @@ try {
       }
     }
     Pass 'ci.env_guard' 'production env guard runs in CI on Linux and Windows'
+  }
+
+  Invoke-Step 'ci.clean_guard' {
+    $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
+    foreach ($jobName in @('clean-release-tree-guard-linux', 'clean-release-tree-guard-windows')) {
+      if ($ci -notmatch [regex]::Escape($jobName)) {
+        Blocker 'ci.clean_guard' "$jobName missing from CI"
+        return
+      }
+    }
+    Pass 'ci.clean_guard' 'clean release tree guard runs in CI on Linux and Windows'
   }
 
   if (-not $SkipTests) {

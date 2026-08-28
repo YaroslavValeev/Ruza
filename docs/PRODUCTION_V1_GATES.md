@@ -12,6 +12,8 @@ PASS только если:
 - production deploy запускается только через clean-tree guard:
   `scripts/server/assert-clean-release-tree.ps1` на Windows/local и
   `scripts/server/assert-clean-release-tree.sh` на Linux/Timeweb;
+- CI проверяет, что clean-tree guard принимает чистый release checkout и блокирует
+  dirty working tree на Linux и Windows;
 - production env проходит machine-check:
   `scripts/validate-production-env.ps1` на Windows/local и
   `scripts/server/validate-production-env.sh` на Linux/Timeweb;
@@ -53,6 +55,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\validate-production-env.ps1 -
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\test-production-env-guards.ps1
 bash scripts/server/test-production-env-guards.sh
+powershell -ExecutionPolicy Bypass -File .\scripts\test-clean-release-tree.ps1
+bash scripts/server/test-clean-release-tree.sh
 ```
 
 ## 2. Sheets schema / intake

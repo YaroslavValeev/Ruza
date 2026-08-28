@@ -49,3 +49,18 @@ jobs:
       - name: Validate production env guard behavior
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File .\scripts\test-production-env-guards.ps1
+
+  clean-release-tree-guard-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate clean release tree guard behavior
+        run: bash scripts/server/test-clean-release-tree.sh
+
+  clean-release-tree-guard-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate clean release tree guard behavior
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\test-clean-release-tree.ps1
