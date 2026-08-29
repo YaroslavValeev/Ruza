@@ -8,12 +8,14 @@ PASS только если:
 - `git status --porcelain` пустой;
 - backend tests проходят;
 - dashboard build проходит;
+- dashboard dependency audit проходит без low-or-higher findings;
 - release tag указывает на тот же SHA, который прошел CI;
 - production deploy запускается только через clean-tree guard:
   `scripts/server/assert-clean-release-tree.ps1` на Windows/local и
   `scripts/server/assert-clean-release-tree.sh` на Linux/Timeweb;
 - CI проверяет, что clean-tree guard принимает чистый release checkout и блокирует
   dirty working tree на Linux и Windows;
+- CI проверяет dashboard dependency audit через `npm audit --audit-level=low`;
 - production env проходит machine-check:
   `scripts/validate-production-env.ps1` на Windows/local и
   `scripts/server/validate-production-env.sh` на Linux/Timeweb;
@@ -29,6 +31,7 @@ $env:PYTHONPATH=(Get-Location).Path
 python -m pytest -q
 cd .\apps\dashboard
 npm run build
+npm audit --audit-level=low
 powershell -ExecutionPolicy Bypass -File ..\..\..\scripts\server\assert-clean-release-tree.ps1
 ```
 
@@ -38,7 +41,7 @@ powershell -ExecutionPolicy Bypass -File ..\..\..\scripts\server\assert-clean-re
 powershell -ExecutionPolicy Bypass -File .\scripts\production-v1-local-audit.ps1
 ```
 
-Скрипт проверяет clean tree, PR SHA, CI, remote tag, evidence docs, backend tests и dashboard build.
+Скрипт проверяет clean tree, PR SHA, CI, remote tag, evidence docs, backend tests, dashboard build и dashboard dependency audit.
 Внешние ворота (`Timeweb`, real OTP, live intake, restore-write, monitoring, iOS Safari, real shift)
 выводятся как `EXTERNAL` и не должны трактоваться как закрытые локально.
 

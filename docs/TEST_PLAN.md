@@ -62,7 +62,7 @@ python -m pytest icebeach-wakeclub/apps/api/tests -v
 .\scripts\production-v1-local-audit.ps1
 ```
 
-Проверяет: clean tree, PR SHA, GitHub CI, release tag, evidence docs, backend tests, dashboard build.
+Проверяет: clean tree, PR SHA, GitHub CI, release tag, evidence docs, backend tests, dashboard build, dashboard dependency audit.
 Внешние production gates выводятся отдельно как `EXTERNAL` и не считаются локальными blockers.
 
 Production env guard:
@@ -101,6 +101,15 @@ bash scripts/server/test-clean-release-tree.sh
 working tree. Эта проверка также включена в GitHub Actions jobs
 `clean-release-tree-guard-linux` и `clean-release-tree-guard-windows`.
 
+Dashboard dependency audit:
+
+```powershell
+cd .\icebeach-wakeclub\apps\dashboard
+npm audit --audit-level=low
+```
+
+Эта проверка также включена в GitHub Actions job `dashboard-build`.
+
 ### 5. Staging gate
 
 См. `icebeach-wakeclub/docs/enterprise/23_STAGING_LAUNCH_CHECKLIST.md`:
@@ -111,6 +120,7 @@ working tree. Эта проверка также включена в GitHub Acti
 
 - `npm run build` — production build
 - `npx tsc --noEmit` — typecheck
+- `npm audit --audit-level=low` — dependency audit
 
 ## Quality gates
 

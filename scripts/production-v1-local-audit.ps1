@@ -186,6 +186,15 @@ try {
     Pass 'ci.clean_guard' 'clean release tree guard runs in CI on Linux and Windows'
   }
 
+  Invoke-Step 'ci.dashboard_audit' {
+    $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
+    if ($ci -match 'npm audit --audit-level=low') {
+      Pass 'ci.dashboard_audit' 'dashboard dependency audit runs in CI'
+    } else {
+      Blocker 'ci.dashboard_audit' 'dashboard dependency audit is missing from CI'
+    }
+  }
+
   if (-not $SkipTests) {
     Invoke-Step 'tests.api' {
       Push-Location $AppRoot
@@ -213,6 +222,20 @@ try {
           Pass 'dashboard.build' 'npm run build passed'
         } else {
           Blocker 'dashboard.build' "npm run build exited with $LASTEXITCODE"
+        }
+      } finally {
+        Pop-Location
+      }
+    }
+
+    Invoke-Step 'dashboard.audit' {
+      Push-Location $DashboardRoot
+      try {
+        npm audit --audit-level=low
+        if ($LASTEXITCODE -eq 0) {
+          Pass 'dashboard.audit' 'npm audit passed with no low-or-higher findings'
+        } else {
+          Blocker 'dashboard.audit' "npm audit exited with $LASTEXITCODE"
         }
       } finally {
         Pop-Location

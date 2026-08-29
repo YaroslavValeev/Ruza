@@ -60,6 +60,7 @@
 - Payment ledger: `payments` + `payment_closures`, API записи/возвратов, KPI считает `payments_gross_minor` / `net_revenue_minor`.
 - Release gates: clean-tree guard, production env guard, PR #4, tag `v1.0.0-rc.9`, локальный production audit.
 - Production env validation: Windows и Linux скрипты блокируют debug OTP, manual OTP, insecure cookie, localhost CORS и placeholder values перед deploy.
+- Frontend dependency hygiene: Vite / React Router / plugin обновлены, `npm audit --audit-level=low` даёт 0 findings и включён в local audit + CI.
 
 ## 4. Что сознательно отложено владельцем / внешним контуром
 
@@ -78,7 +79,8 @@
 
 1. pytest зелёный
 2. dashboard build зелёный
-3. demo: login → бронь → arrived → ready → in_progress → done
-4. `scripts/production-v1-local-audit.ps1` без local blockers
-5. На staging: 2× smoke + preflight без blockers
-6. После закрытия работ: ротация секретов человеком, затем production OTP provider
+3. dashboard dependency audit зелёный
+4. demo: login → бронь → arrived → ready → in_progress → done
+5. `scripts/production-v1-local-audit.ps1` без local blockers
+6. На staging: 2× smoke + preflight без blockers
+7. После закрытия работ: ротация секретов человеком, затем production OTP provider
