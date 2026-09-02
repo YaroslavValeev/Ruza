@@ -110,6 +110,19 @@ npm audit --audit-level=low
 
 Эта проверка также включена в GitHub Actions job `dashboard-build`.
 
+Staging/prod proof gate:
+
+```powershell
+.\scripts\test-staging-proof.ps1
+bash scripts/server/test-staging-proof.sh
+```
+
+Проверяет поведение `scripts/staging-proof.ps1` / `scripts/server/staging-proof.sh`:
+HTTPS required для staging/prod, local HTTP allowed only with explicit flag,
+dashboard HTML, API health, CORS credentials, authenticated preflight and no
+`debug_code` leakage during explicit OTP probe. Эта проверка включена в GitHub
+Actions jobs `staging-proof-guard-linux` и `staging-proof-guard-windows`.
+
 ### 5. Staging gate
 
 См. `icebeach-wakeclub/docs/enterprise/23_STAGING_LAUNCH_CHECKLIST.md`:

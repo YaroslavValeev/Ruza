@@ -137,7 +137,13 @@ try {
     'scripts\test-production-env-guards.ps1',
     'scripts\server\test-production-env-guards.sh',
     'scripts\test-clean-release-tree.ps1',
-    'scripts\server\test-clean-release-tree.sh'
+    'scripts\server\test-clean-release-tree.sh',
+    'scripts\staging_proof.py',
+    'scripts\staging-proof.ps1',
+    'scripts\server\staging-proof.sh',
+    'scripts\test_staging_proof.py',
+    'scripts\test-staging-proof.ps1',
+    'scripts\server\test-staging-proof.sh'
   )) {
     if (Test-Path (Join-Path $RepoRoot $path)) {
       Pass "doc.$path" 'present'
@@ -186,6 +192,17 @@ try {
     Pass 'ci.clean_guard' 'clean release tree guard runs in CI on Linux and Windows'
   }
 
+  Invoke-Step 'ci.staging_proof' {
+    $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
+    foreach ($jobName in @('staging-proof-guard-linux', 'staging-proof-guard-windows')) {
+      if ($ci -notmatch [regex]::Escape($jobName)) {
+        Blocker 'ci.staging_proof' "$jobName missing from CI"
+        return
+      }
+    }
+    Pass 'ci.staging_proof' 'staging proof behavior is tested in CI on Linux and Windows'
+  }
+
   Invoke-Step 'ci.dashboard_audit' {
     $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
     if ($ci -match 'npm audit --audit-level=low') {
@@ -196,6 +213,15 @@ try {
   }
 
   if (-not $SkipTests) {
+    Invoke-Step 'tests.staging_proof' {
+      python (Join-Path $RepoRoot 'scripts\test_staging_proof.py')
+      if ($LASTEXITCODE -eq 0) {
+        Pass 'tests.staging_proof' 'staging proof behavior test passed'
+      } else {
+        Blocker 'tests.staging_proof' "staging proof behavior test exited with $LASTEXITCODE"
+      }
+    }
+
     Invoke-Step 'tests.api' {
       Push-Location $AppRoot
       try {

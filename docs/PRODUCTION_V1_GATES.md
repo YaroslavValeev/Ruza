@@ -16,6 +16,8 @@ PASS только если:
 - CI проверяет, что clean-tree guard принимает чистый release checkout и блокирует
   dirty working tree на Linux и Windows;
 - CI проверяет dashboard dependency audit через `npm audit --audit-level=low`;
+- CI проверяет поведение staging/prod proof-gate для HTTPS, dashboard, health,
+  CORS credentials, authenticated preflight и OTP debug leakage без внешних side effects;
 - production env проходит machine-check:
   `scripts/validate-production-env.ps1` на Windows/local и
   `scripts/server/validate-production-env.sh` на Linux/Timeweb;
@@ -44,6 +46,22 @@ powershell -ExecutionPolicy Bypass -File .\scripts\production-v1-local-audit.ps1
 Скрипт проверяет clean tree, PR SHA, CI, remote tag, evidence docs, backend tests, dashboard build и dashboard dependency audit.
 Внешние ворота (`Timeweb`, real OTP, live intake, restore-write, monitoring, iOS Safari, real shift)
 выводятся как `EXTERNAL` и не должны трактоваться как закрытые локально.
+
+Staging/prod proof после публикации URL:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\staging-proof.ps1 `
+  -ApiBaseUrl "https://<api-domain>" `
+  -DashboardUrl "https://<dashboard-domain>" `
+  -Date "2026-06-01"
+```
+
+Локальная проверка поведения proof-gate без реальных внешних сервисов:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test-staging-proof.ps1
+bash scripts/server/test-staging-proof.sh
+```
 
 Production env перед staging/deploy:
 
@@ -125,6 +143,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\restore-sheets-backup.ps1 -Ba
 Пока не считать v1 завершенным без:
 - staging HTTPS;
 - production HTTPS;
+- green `scripts/staging-proof.ps1` на staging/prod URL;
 - production-ready OTP webhook;
 - backup restore-test на отдельной таблице;
 - monitoring + alerting;

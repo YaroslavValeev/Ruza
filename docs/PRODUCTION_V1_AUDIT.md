@@ -1,7 +1,7 @@
 # Ruza / Club Ops production v1 audit
 
-Audit date: 2026-08-28
-Current release candidate: `v1.0.0-rc.9`
+Audit date: 2026-09-02
+Current release candidate: `v1.0.0-rc.11`
 Current PR: `https://github.com/YaroslavValeev/Ruza/pull/4`
 
 ## Executive status
@@ -32,10 +32,11 @@ HTTPS production, real OTP provider, Timeweb staging/prod rollout, backup restor
 | Сверить local / GitHub main / PR / WIP | PASS | `scripts/production-v1-local-audit.ps1` verifies local HEAD, PR #4 head, GitHub CI and merge state | Keep PR updated until merge |
 | Не потерять полезные изменения | PASS | All current work is committed in PR #4; working tree clean before this audit update | Re-run clean-tree guard before deploy |
 | Разделить изменения на логические PR | PARTIAL | Current production-v1 work is in one draft PR #4 | If reviewer requests smaller slices, split before merge |
-| Получить release candidate SHA | PASS | Tag `v1.0.0-rc.9` must point at the same HEAD verified by `scripts/production-v1-local-audit.ps1` | Create final tag after merge |
-| Вернуть полный test gate | PASS | GitHub checks `api-tests`, `dashboard-build`, `production-env-guard-linux`, `production-env-guard-windows`, `clean-release-tree-guard-linux`, `clean-release-tree-guard-windows` green on PR #4; local pytest/build/audit commands are documented | Re-run after each commit |
+| Получить release candidate SHA | PASS | Tag `v1.0.0-rc.11` must point at the same HEAD verified by `scripts/production-v1-local-audit.ps1` | Create final tag after merge |
+| Вернуть полный test gate | PASS | GitHub checks `api-tests`, `dashboard-build`, `production-env-guard-linux`, `production-env-guard-windows`, `clean-release-tree-guard-linux`, `clean-release-tree-guard-windows`, `staging-proof-guard-linux`, `staging-proof-guard-windows` are required on PR #4; local pytest/build/audit commands are documented | Re-run after each commit |
 | Запретить production deploy из dirty tree | PASS | `scripts/server/assert-clean-release-tree.sh`; `scripts/server/assert-clean-release-tree.ps1`; `scripts/test-clean-release-tree.ps1`; `scripts/server/test-clean-release-tree.sh`; deploy script calls Linux guard before `docker run` | Use guard in Timeweb deploy path |
 | Запретить production deploy с debug/local env | PASS | `scripts/validate-production-env.ps1`; `scripts/server/validate-production-env.sh`; `scripts/test-production-env-guards.ps1`; `scripts/server/test-production-env-guards.sh`; `deploy-api.sh` calls env guard before `docker run` | Fill real `.env.docker` and run guard on Timeweb |
+| Доказать staging/prod URL до GO | PASS local / BLOCKED_EXTERNAL | `scripts/staging-proof.ps1`, `scripts/server/staging-proof.sh`, `scripts/test-staging-proof.ps1`, `scripts/server/test-staging-proof.sh` validate proof-gate behavior without external side effects | Run proof against real HTTPS staging/prod URL |
 | Intake from site / Telegram / public / manual into one operational intake | PARTIAL | `apps/api/app/services/intake.py`; `POST /public/booking-request`; `POST /intake/sync`; docs `INTAKE_SYNC.md` | Enable real site/TG writers and production scheduler |
 | Intake fields exist | PASS | `packages/sheets/schema.py` requires `external_source`, `external_record_id`, `received_at`, `sync_status`, `sync_error`, `converted_booking_id` in `leads` | Keep schema preflight green |
 | Duplicate external delivery does not duplicate lead | PASS | `apps/api/tests/test_contract_intake.py`; `scripts/intake-e2e-local.ps1` live/local proof | Run production proof after deployment |
@@ -69,6 +70,7 @@ GO if:
 NO-GO until:
 - PR #4 is reviewed, merged, and final tag is created;
 - production/staging is available over HTTPS;
+- `scripts/staging-proof.ps1` passes on staging/prod URL;
 - real OTP delivery is configured and tested;
 - intake sync runs from real site/TG sources without duplicates;
 - paid revenue reconciliation is tested on real data;
@@ -87,6 +89,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\validate-production-env.ps1 -
 powershell -ExecutionPolicy Bypass -File .\scripts\preflight-local.ps1 -Date 2026-06-01 -ApiPort 8001
 powershell -ExecutionPolicy Bypass -File .\scripts\smoke-local.ps1 -Date 2026-06-01 -ApiPort 8001
 powershell -ExecutionPolicy Bypass -File .\scripts\intake-e2e-local.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\test-staging-proof.ps1
 ```
 
 From `icebeach-wakeclub`:
