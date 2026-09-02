@@ -1,13 +1,14 @@
 param(
-  [int]$Tail = 20
+  [int]$Tail = 20,
+  [int]$ApiPort = 8000
 )
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\icebeach-wakeclub')
 $apiDir = Join-Path $repoRoot 'apps\api'
 $dashboardDir = Join-Path $repoRoot 'apps\dashboard'
-$apiOut = Join-Path $apiDir '.runlogs\api-8000.out.log'
-$apiErr = Join-Path $apiDir '.runlogs\api-8000.err.log'
+$apiOut = Join-Path $apiDir ".runlogs\api-$ApiPort.out.log"
+$apiErr = Join-Path $apiDir ".runlogs\api-$ApiPort.err.log"
 $apiSupervisorLog = Join-Path $apiDir '.runlogs\api-supervisor.log'
 $apiSupervisorPidFile = Join-Path $apiDir '.runlogs\api-supervisor.pid'
 $dashOut = Join-Path $dashboardDir '.runlogs\dashboard.out.log'
@@ -115,14 +116,14 @@ $lanIp = Get-LanIPv4
 if ($lanIp) {
   Write-Output "=== LAN ==="
   Write-Output "IP: $lanIp"
-  Write-Output "API: http://$lanIp`:8000"
+  Write-Output "API: http://$lanIp`:$ApiPort"
   Write-Output "Dashboard: http://$lanIp`:5173"
   Write-Output ''
 }
 
 Show-PidFileBlock -Label 'API Watchdog' -PathToPidFile $apiSupervisorPidFile
-Show-PortBlock -Label 'API' -Port 8000
-Show-Health -Url 'http://127.0.0.1:8000/health'
+Show-PortBlock -Label 'API' -Port $ApiPort
+Show-Health -Url "http://127.0.0.1:$ApiPort/health"
 Write-Output ''
 Show-PortBlock -Label 'Dashboard' -Port 5173
 Write-Output ''

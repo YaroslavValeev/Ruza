@@ -1,57 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getBoats, getPilotToday, updateBookingStatus } from "../api/client";
-import { formatLocalIsoDate } from "../lib/dates";
 import { BoatItem, BookingStatus, PilotQueueItem, RideType, StaffSession } from "../types";
+import {
+  ACTION_LABELS,
+  PILOT_ACTIONS,
+  RIDE_TYPE_LABELS,
+  STATUS_LABELS,
+  getPrimaryActionText,
+  getStatusTone,
+  getToday,
+} from "../mobile/pilot-utils";
 
 type PilotPageProps = {
   session: StaffSession;
 };
 
-const PILOT_ONLY_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
-  ready: ["in_progress"],
-  in_progress: ["done"],
-};
-
-const OPERATOR_PILOT_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
-  confirmed: ["arrived"],
-  arrived: ["ready"],
-  ready: ["in_progress"],
-  late: ["arrived", "no_show"],
-  in_progress: ["done"],
-};
-
-const STATUS_LABELS: Partial<Record<BookingStatus, string>> = {
-  confirmed: "Подтверждена",
-  arrived: "Приехал",
-  ready: "Готов к старту",
-  in_progress: "На воде",
-  done: "Завершена",
-  late: "Опаздывает",
-  no_show: "Не пришел",
-  cancelled: "Отменена",
-};
-
-const ACTION_LABELS: Partial<Record<BookingStatus, string>> = {
-  arrived: "Принять клиента",
-  ready: "Подготовить",
-  in_progress: "На воду",
-  done: "Завершить заезд",
-  no_show: "Не пришел",
-};
-
-const RIDE_TYPE_LABELS: Record<RideType, string> = {
-  wakeboard: "Вейкборд",
-  surf: "Серф",
-  skim: "Ским",
-};
-
 type PilotPeriod = "day" | "week" | "season" | "custom";
 type PilotStatusFilter = "all" | "waiting" | "ready" | "on_water" | "done" | "problem";
-
-function getToday(): string {
-  return formatLocalIsoDate();
-}
 
 function getWeekBounds(dateText: string): { from: string; to: string } {
   const current = new Date(`${dateText}T00:00:00`);
@@ -62,8 +28,8 @@ function getWeekBounds(dateText: string): { from: string; to: string } {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   return {
-    from: formatLocalIsoDate(monday),
-    to: formatLocalIsoDate(sunday),
+    from: monday.toISOString().slice(0, 10),
+    to: sunday.toISOString().slice(0, 10),
   };
 }
 
@@ -73,13 +39,6 @@ function getSeasonBounds(dateText: string): { from: string; to: string } {
     from: `${year}-06-01`,
     to: `${year}-10-01`,
   };
-}
-
-function getStatusTone(status: BookingStatus): string {
-  if (status === "ready" || status === "in_progress") return "game-badge-live";
-  if (status === "done") return "game-badge-success";
-  if (status === "late" || status === "no_show" || status === "cancelled") return "game-badge-warn";
-  return "game-badge-info";
 }
 
 function getProgressStep(status: BookingStatus): number {
@@ -111,31 +70,35 @@ function matchesPilotFilter(item: PilotQueueItem, filter: PilotStatusFilter): bo
 
 export function PilotPage({ session }: PilotPageProps): JSX.Element {
   const [boatId, setBoatId] = useState(session.boat_id ?? "");
+  const [boats, setBoats] = useState<BoatItem[]>([]);
   const [period, setPeriod] = useState<PilotPeriod>("day");
   const [date, setDate] = useState(() => getToday());
   const [dateFrom, setDateFrom] = useState(() => getToday());
   const [dateTo, setDateTo] = useState(() => getToday());
   const [items, setItems] = useState<PilotQueueItem[]>([]);
   const [statusFilter, setStatusFilter] = useState<PilotStatusFilter>("all");
-  const [boats, setBoats] = useState<BoatItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
   const effectiveBoatId = useMemo(() => (session.role === "pilot" ? session.boat_id ?? "" : boatId.trim()), [boatId, session.boat_id, session.role]);
-  const actionMap = session.role === "pilot" ? PILOT_ONLY_ACTIONS : OPERATOR_PILOT_ACTIONS;
 
   useEffect(() => {
-    if (session.role === "pilot") {
-      return;
-    }
+    if (session.role === "pilot") return;
+    let cancelled = false;
     void getBoats(session.token)
-      .then((items) => {
-        setBoats(items);
-        if (!boatId && items[0]) {
-          setBoatId(items[0].boat_id);
-        }
+      .then((availableBoats) => {
+        if (cancelled) return;
+        const activeBoats = availableBoats.filter((boat) => boat.is_active);
+        setBoats(activeBoats);
+        if (!boatId && activeBoats.length > 0) setBoatId(activeBoats[0].boat_id);
       })
-      .catch((err: Error) => setError(err.message));
-  }, [session.role, session.token]);
+      .catch((requestError: Error) => {
+        if (!cancelled) setError(requestError.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [boatId, session.role, session.token]);
 
   useEffect(() => {
     if (period === "week") {
@@ -258,16 +221,15 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
             <label className="mb-2 block text-sm font-bold text-cyan-100/70">Лодка</label>
             {session.role === "pilot" ? (
               <div className="game-input flex items-center">{session.boat_id || "Лодка не привязана к профилю пилота"}</div>
-            ) : boats.length ? (
+            ) : (
               <select value={boatId} onChange={(e) => setBoatId(e.target.value)} className="game-input">
+                {boats.length === 0 ? <option value="">Нет активных лодок</option> : null}
                 {boats.map((boat) => (
                   <option key={boat.boat_id} value={boat.boat_id}>
-                    {boat.boat_name} ({boat.boat_id})
+                    {boat.boat_name || boat.boat_id}
                   </option>
                 ))}
               </select>
-            ) : (
-              <input value={boatId} onChange={(e) => setBoatId(e.target.value)} placeholder="boat_id" className="game-input" />
             )}
           </div>
 
@@ -318,11 +280,6 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                   <div className="text-lg font-black text-white">{activeRide.client_name}</div>
                   <div className="text-sm text-cyan-100/70">{activeRide.time} • {RIDE_TYPE_LABELS[(activeRide.ride_type || "wakeboard") as RideType]}</div>
                   <span className={getStatusTone(activeRide.status)}>{STATUS_LABELS[activeRide.status] || activeRide.status}</span>
-                  {(actionMap[activeRide.status] ?? [])[0] ? (
-                    <button type="button" className="game-button w-full" onClick={() => void onStatusChange(activeRide.booking_id, (actionMap[activeRide.status] ?? [])[0])}>
-                      {getPrimaryActionText((actionMap[activeRide.status] ?? [])[0])}
-                    </button>
-                  ) : null}
                 </>
               ) : (
                 <div className="text-sm text-slate-300">Сейчас нет активного заезда.</div>
@@ -335,11 +292,6 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                   <div className="text-lg font-black text-white">{nextRide.client_name}</div>
                   <div className="text-sm text-cyan-100/70">{nextRide.time} • {RIDE_TYPE_LABELS[(nextRide.ride_type || "wakeboard") as RideType]}</div>
                   <span className={getStatusTone(nextRide.status)}>{STATUS_LABELS[nextRide.status] || nextRide.status}</span>
-                  {(actionMap[nextRide.status] ?? [])[0] ? (
-                    <button type="button" className="game-button w-full" onClick={() => void onStatusChange(nextRide.booking_id, (actionMap[nextRide.status] ?? [])[0])}>
-                      {getPrimaryActionText((actionMap[nextRide.status] ?? [])[0])}
-                    </button>
-                  ) : null}
                 </>
               ) : (
                 <div className="text-sm text-slate-300">Следующий заезд пока не сформирован.</div>
@@ -360,7 +312,7 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
 
       <section className="grid gap-4 xl:grid-cols-2">
         {filteredItems.map((item) => {
-          const nextActions = actionMap[item.status] ?? [];
+          const nextActions = PILOT_ACTIONS[item.status] ?? [];
           const nextPrimaryAction = nextActions[0];
           const progressStep = getProgressStep(item.status);
           return (
@@ -428,22 +380,5 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
       </section>
     </section>
   );
-}
-
-function getPrimaryActionText(status: BookingStatus): string {
-  switch (status) {
-    case "arrived":
-      return "Шаг 1. Принять спортсмена";
-    case "ready":
-      return "Шаг 2. Подготовить к старту";
-    case "in_progress":
-      return "Шаг 3. Вывести на воду";
-    case "done":
-      return "Шаг 4. Завершить заезд";
-    case "no_show":
-      return "Спортсмен не пришел";
-    default:
-      return ACTION_LABELS[status] || status;
-  }
 }
 

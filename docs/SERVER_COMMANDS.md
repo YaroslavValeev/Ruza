@@ -56,10 +56,16 @@ $env:ALLOW_GIT_PUSH=1; git push -u origin main
 ```env
 APP_ENV=production
 SPREADSHEET_ID=<ваш_id>
+INTAKE_SPREADSHEET_ID=<id_таблицы_заявок>
+INTAKE_TAB_NAME=Ruza
 SESSION_SECRET=<длинная_случайная_строка>
 SESSION_COOKIE_SECURE=true
 ALLOW_LEGACY_STAFF_LOGIN=false
 AUTH_DEBUG_CODE_IN_RESPONSE=false
+ALLOW_MANUAL_OTP_DELIVERY=false
+OTP_DELIVERY_WEBHOOK_URL=https://<sms-provider>/send
+OTP_DELIVERY_WEBHOOK_TOKEN=<секрет_провайдера>
+OTP_DELIVERY_TIMEOUT_SECONDS=8
 DISABLE_SYSTEM_PROXY_FOR_GOOGLE=true
 SHEETS_TAB_CACHE_TTL_SECONDS=15
 CORS_ALLOW_ORIGINS=https://<ваш-dashboard-домен>
@@ -122,15 +128,30 @@ cp .env.docker.example .env.docker
 nano .env.docker
 ```
 
+Перед любым запуском проверьте, что в `.env.docker` нет local/debug настроек:
+
+```bash
+bash scripts/server/validate-production-env.sh .env.docker
+```
+
+`deploy-api.sh` запускает эту проверку автоматически и остановит deploy, если включен debug OTP,
+manual OTP, insecure cookie, localhost CORS или placeholder values.
+
 Заполните (пример содержимого):
 ```env
 APP_ENV=production
 SPREADSHEET_ID=1Jos8absjdLueLoWXZDJS67PRHXfrQ-fnTq-yiXk2_18
+INTAKE_SPREADSHEET_ID=1kyNQVjeLLe4Ra6oWuf84fHqSjUlWXI8MakVMOrCgic0
+INTAKE_TAB_NAME=Ruza
 SESSION_SECRET=ЗАМЕНИТЕ_НА_OPENSSL_RAND
 SESSION_COOKIE_SECURE=true
 SESSION_COOKIE_NAME=icebeach_session
 ALLOW_LEGACY_STAFF_LOGIN=false
 AUTH_DEBUG_CODE_IN_RESPONSE=false
+ALLOW_MANUAL_OTP_DELIVERY=false
+OTP_DELIVERY_WEBHOOK_URL=https://sms-provider.example/send
+OTP_DELIVERY_WEBHOOK_TOKEN=ЗАМЕНИТЕ_НА_СЕКРЕТ_ПРОВАЙДЕРА
+OTP_DELIVERY_TIMEOUT_SECONDS=8
 DISABLE_SYSTEM_PROXY_FOR_GOOGLE=true
 SHEETS_TAB_CACHE_TTL_SECONDS=15
 CORS_ALLOW_ORIGINS=https://dashboard.example.com

@@ -3,11 +3,12 @@ param(
   [string]$StaffUserId = '23232323',
   [string]$Phone = '+79160117179',
   [string]$ClientQuery = '+79160117179',
-  [string]$RideType = 'skim'
+  [string]$RideType = 'skim',
+  [int]$ApiPort = 8000
 )
 
 $ErrorActionPreference = 'Stop'
-$ApiBase = 'http://127.0.0.1:8000'
+$ApiBase = "http://127.0.0.1:$ApiPort"
 $Script:Failures = 0
 
 function Pass([string]$Code, [string]$Message) {
@@ -33,7 +34,7 @@ Write-Output ''
 
 try {
   $health = Invoke-RestMethod -Uri "$ApiBase/health"
-  Assert-True ($health.status -eq 'ok') 'health' 'API health is ok' "unexpected health payload: $($health | ConvertTo-Json -Compress)"
+  Assert-True ($health.status -eq 'ok' -and $health.app -eq 'icebeach-wakeclub-api') 'health' 'Ruza API health is ok' "unexpected health payload: $($health | ConvertTo-Json -Compress)"
 } catch {
   Fail 'health' $_.Exception.Message
   Write-Output "SUMMARY failures=$Script:Failures"
@@ -115,12 +116,29 @@ if ($slot -and $client) {
     $pilotItem = $pilotQueue | Where-Object { $_.booking_id -eq $bookingCreate.booking_id } | Select-Object -First 1
     Assert-True ($null -ne $pilotItem) 'pilot.queue' 'booking visible in pilot queue' 'booking missing in pilot queue'
 
+    $checkinBody = @{
+      method = 'phone'
+      phone = $Phone
+      date = $Date
+      booking_id = $bookingCreate.booking_id
+      status = 'arrived'
+    } | ConvertTo-Json
+    $checkin = Invoke-RestMethod -WebSession $session -Method Post -Uri "$ApiBase/checkins" -ContentType 'application/json' -Body $checkinBody
+    Assert-True ($checkin.status -eq 'arrived') 'checkins.phone' "checkin status=$($checkin.status)" "unexpected status=$($checkin.status)"
+
     $statusPayload = @{ status = 'cancelled' } | ConvertTo-Json
     $bookingCancelled = Invoke-RestMethod -WebSession $session -Method Patch -Uri "$ApiBase/bookings/$($bookingCreate.booking_id)/status" -ContentType 'application/json' -Body $statusPayload
     Assert-True ($bookingCancelled.status -eq 'cancelled') 'bookings.cancel' 'booking cancelled' "unexpected status=$($bookingCancelled.status)"
   } catch {
     Fail 'bookings' $_.Exception.Message
   }
+}
+
+try {
+  $shift = Invoke-RestMethod -WebSession $session -Uri "$ApiBase/shift/today?date=$Date"
+  Assert-True ($null -ne $shift.summary) 'shift.today' "bookings=$($shift.summary.total_bookings)" 'shift summary missing'
+} catch {
+  Fail 'shift.today' $_.Exception.Message
 }
 
 try {

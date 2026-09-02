@@ -11,6 +11,9 @@ BookingStatus = Literal["confirmed", "arrived", "ready", "in_progress", "done", 
 WetsuitSize = Literal["XS", "S", "M", "L", "XL", "XXL"]
 WetsuitGender = Literal["male", "female"]
 RideType = Literal["wakeboard", "surf", "skim"]
+PaymentKind = Literal["charge", "refund"]
+PaymentStatus = Literal["pending", "succeeded", "failed", "cancelled"]
+PaymentMethod = Literal["cash", "card_terminal", "sbp", "online"]
 KpiPeriod = Literal["day", "week", "month", "season", "custom"]
 PreflightLevel = Literal["PASS", "WARN", "BLOCKER"]
 SmokeLevel = Literal["PASS", "FAIL"]
@@ -137,7 +140,98 @@ class BookingItem(BaseModel):
     wetsuit_size: WetsuitSize | None = None
     wetsuit_gender: WetsuitGender | None = None
     total_price: int
+    payment_status: Literal["unpaid", "partially_paid", "paid", "overpaid", "partially_refunded", "refunded"] = "unpaid"
+    paid_amount_minor: int = 0
+    refunded_amount_minor: int = 0
+    net_paid_minor: int = 0
+    balance_due_minor: int = 0
     notes: str = ""
+
+
+class PaymentCreateRequest(BaseModel):
+    booking_id: str
+    amount_minor: int = Field(gt=0)
+    method: PaymentMethod
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    provider: str = "manual"
+    external_payment_id: str = ""
+    occurred_at: str | None = None
+
+
+class PaymentRefundRequest(BaseModel):
+    amount_minor: int = Field(gt=0)
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    occurred_at: str | None = None
+
+
+class PaymentItem(BaseModel):
+    payment_id: str
+    booking_id: str
+    client_id: str
+    kind: PaymentKind
+    status: PaymentStatus
+    method: PaymentMethod
+    amount_minor: int
+    currency: str
+    provider: str
+    external_payment_id: str = ""
+    parent_payment_id: str = ""
+    paid_at: str = ""
+    occurred_at: str
+    recorded_by: str
+
+
+class BookingPaymentSummary(BaseModel):
+    booking_id: str
+    expected_amount_minor: int
+    paid_amount_minor: int
+    refunded_amount_minor: int
+    net_paid_minor: int
+    balance_due_minor: int
+    payment_status: Literal["unpaid", "partially_paid", "paid", "overpaid", "partially_refunded", "refunded"]
+
+
+class PaymentMutationResponse(BaseModel):
+    payment: PaymentItem
+    summary: BookingPaymentSummary
+
+
+class ReconciliationMethodItem(BaseModel):
+    method: PaymentMethod
+    charges_minor: int
+    refunds_minor: int
+    net_minor: int
+
+
+class DailyReconciliationResponse(BaseModel):
+    date: date
+    bookings_value_minor: int
+    completed_value_minor: int
+    charges_minor: int
+    refunds_minor: int
+    net_received_minor: int
+    outstanding_minor: int
+    methods: list[ReconciliationMethodItem]
+    closure_status: Literal["open", "closed"] = "open"
+    discrepancy_minor: int | None = None
+
+
+class ReconciliationCloseRequest(BaseModel):
+    date: date
+    counted_total_minor: int = Field(ge=0)
+    override_discrepancy: bool = False
+    notes: str = ""
+
+
+class ReconciliationClosureItem(BaseModel):
+    closure_id: str
+    date: date
+    expected_net_minor: int
+    counted_total_minor: int
+    discrepancy_minor: int
+    status: Literal["closed"]
+    closed_by: str
+    closed_at: str
 
 
 class BookingStatusUpdateRequest(BaseModel):
@@ -235,6 +329,96 @@ class CheckinItem(BaseModel):
     status: CheckinStatus
     ts: str
     operator_user_id: str | None = None
+    consent_face: bool = False
+    consent_voice: bool = False
+
+
+class ShiftSummary(BaseModel):
+    total_bookings: int
+    checkins_count: int
+    confirmed: int
+    arrived: int
+    ready: int
+    in_progress: int
+    done: int
+    late: int
+    no_show: int
+    cancelled: int
+
+
+class ShiftTodayResponse(BaseModel):
+    date: date
+    bookings: list[BookingItem]
+    checkins: list[CheckinItem]
+    summary: ShiftSummary
+
+
+class DailyBriefKpiSlice(BaseModel):
+    sessions_count: int
+    utilization_pct: float
+    revenue_estimate: int
+
+
+class DailyBriefUpcomingItem(BaseModel):
+    time: str
+    client_name: str
+    status: str
+    ride_type: str
+
+
+class DailyBriefResponse(BaseModel):
+    mode: str
+    date: date
+    club_id: str
+    title: str
+    text: str
+    summary: ShiftSummary
+    kpi: DailyBriefKpiSlice
+    upcoming: list[DailyBriefUpcomingItem]
+
+
+class ClientStatsItem(BaseModel):
+    client_id: str
+    full_name: str
+    phone: str
+    consent_face: bool = False
+    consent_voice: bool = False
+    sessions_count: int
+    revenue_estimate: int
+    visits_count: int
+    last_visit_date: str = ""
+
+
+class PublicBookingRequest(BaseModel):
+    full_name: str = Field(min_length=1)
+    phone: str = Field(min_length=5)
+    date: date
+    time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    ride_type: RideType = "wakeboard"
+    notes: str = ""
+
+
+class PublicBookingRequestResponse(BaseModel):
+    lead_id: str
+    status: str
+    message: str
+
+
+class ApprovalRequestCreate(BaseModel):
+    action: str = Field(min_length=1)
+    entity: str = Field(min_length=1)
+    entity_id: str = Field(min_length=1)
+    reason: str = ""
+
+
+class ApprovalRequestItem(BaseModel):
+    approval_id: str
+    action: str
+    entity: str
+    entity_id: str
+    status: Literal["pending", "approved", "rejected"]
+    reason: str = ""
+    created_at: str
 
 
 class MarkLateResponse(BaseModel):
@@ -257,6 +441,10 @@ class KpiSummaryResponse(BaseModel):
     sessions_count: int
     utilization_pct: float
     revenue_estimate: int
+    payments_gross_minor: int = 0
+    refunds_total_minor: int = 0
+    net_revenue_minor: int = 0
+    outstanding_minor: int = 0
     ride_breakdown: list[KpiRideBreakdownItem]
     timeline: list[KpiTimelinePoint]
     plan_fact: KpiPlanFact | None = None
@@ -282,6 +470,12 @@ class LeadItem(BaseModel):
     utm_campaign: str = ""
     created_at: str
     notes: str = ""
+    external_source: str = ""
+    external_record_id: str = ""
+    received_at: str = ""
+    sync_status: str = ""
+    sync_error: str = ""
+    converted_booking_id: str = ""
 
 
 class LeadCreateRequest(BaseModel):
@@ -295,6 +489,15 @@ class LeadCreateRequest(BaseModel):
 
 class LeadStatusUpdateRequest(BaseModel):
     status: LeadStatus
+
+
+class IntakeSyncResponse(BaseModel):
+    source_tab: str
+    scanned: int
+    created: int
+    skipped_existing: int
+    skipped_invalid: int
+    errors: list[str]
 
 
 class MarketingFunnelResponse(BaseModel):

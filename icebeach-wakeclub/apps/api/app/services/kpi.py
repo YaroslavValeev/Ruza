@@ -5,6 +5,8 @@ from datetime import date, timedelta
 from packages.sheets import SheetWrapper
 
 from ..models import KpiPeriod, RideType
+from .operating_calendar import build_operating_slots
+from .payments import payment_summaries_by_booking
 
 
 def _pct(actual: float | int, target: int | None) -> float | None:
@@ -79,14 +81,13 @@ def _get_period_bounds(period: KpiPeriod, *, today: date, date_from: str | None,
     raise ValueError(f"Unsupported KPI period: {period}")
 
 
-def _build_schedule_capacity_map(schedule_rows: list[dict[str, str]]) -> dict[int, int]:
-    capacity_map: dict[int, int] = {weekday: 0 for weekday in range(7)}
-    for row in schedule_rows:
-        weekday = row.get("weekday", "")
-        if weekday == "":
-            continue
-        capacity_map[int(weekday)] += int(row.get("capacity") or 0)
-    return capacity_map
+def _build_schedule_capacity_map(
+    boats: list[dict[str, str]], schedule_rows: list[dict[str, str]]
+) -> dict[int, int]:
+    return {
+        weekday: sum(int(slot["capacity"]) for slot in build_operating_slots(boats, schedule_rows, weekday=weekday))
+        for weekday in range(7)
+    }
 
 
 def get_kpi_summary(
@@ -102,20 +103,42 @@ def get_kpi_summary(
     start_text = start.isoformat()
     end_text = end.isoformat()
 
-    bookings = [
+    period_bookings = [
         row
         for row in sheet.read_tab("bookings")
         if row.get("club_id") == club_id
         and start_text <= row.get("date", "") <= end_text
-        and row.get("status") == "done"
     ]
+    bookings = [row for row in period_bookings if row.get("status") == "done"]
+    booking_ids = {row.get("booking_id", "") for row in period_bookings}
+    payments = [
+        row
+        for row in sheet.read_tab("payments")
+        if row.get("club_id") == club_id
+        and row.get("booking_id") in booking_ids
+        and row.get("status") == "succeeded"
+    ]
+    payments_gross_minor = sum(
+        int(row.get("amount_minor") or 0) for row in payments if row.get("kind") == "charge"
+    )
+    refunds_total_minor = sum(
+        int(row.get("amount_minor") or 0) for row in payments if row.get("kind") == "refund"
+    )
+    active_bookings = [row for row in period_bookings if row.get("status") not in {"cancelled", "no_show"}]
+    payment_summaries = payment_summaries_by_booking(active_bookings, payments)
+    outstanding_minor = sum(int(summary["balance_due_minor"]) for summary in payment_summaries.values())
 
     schedule_rows = [
         row
         for row in sheet.read_tab("schedule")
         if row.get("club_id") == club_id and str(row.get("is_active", "")).lower() in {"1", "true", "yes"}
     ]
-    schedule_capacity_map = _build_schedule_capacity_map(schedule_rows)
+    boats = [
+        row
+        for row in sheet.read_tab("boats")
+        if row.get("club_id") == club_id and str(row.get("is_active", "")).lower() in {"1", "true", "yes"}
+    ]
+    schedule_capacity_map = _build_schedule_capacity_map(boats, schedule_rows)
 
     sessions_count = len(bookings)
     revenue_estimate = sum(int(row.get("total_price") or 0) for row in bookings)
@@ -176,6 +199,10 @@ def get_kpi_summary(
         "sessions_count": sessions_count,
         "utilization_pct": utilization_pct,
         "revenue_estimate": revenue_estimate,
+        "payments_gross_minor": payments_gross_minor,
+        "refunds_total_minor": refunds_total_minor,
+        "net_revenue_minor": payments_gross_minor - refunds_total_minor,
+        "outstanding_minor": outstanding_minor,
         "ride_breakdown": [ride_breakdown_index[ride_type] for ride_type in ride_types],
         "timeline": timeline,
         "plan_fact": _build_plan_fact(sheet, club_id, period, start, sessions_count, utilization_pct, revenue_estimate),

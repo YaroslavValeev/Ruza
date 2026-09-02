@@ -34,3 +34,49 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run build
+      - run: npm audit --audit-level=low
+
+  production-env-guard-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate production env guard behavior
+        run: bash scripts/server/test-production-env-guards.sh
+
+  production-env-guard-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate production env guard behavior
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\test-production-env-guards.ps1
+
+  clean-release-tree-guard-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate clean release tree guard behavior
+        run: bash scripts/server/test-clean-release-tree.sh
+
+  clean-release-tree-guard-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate clean release tree guard behavior
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\test-clean-release-tree.ps1
+
+  staging-proof-guard-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate staging proof behavior
+        run: python scripts/test_staging_proof.py
+
+  staging-proof-guard-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate staging proof behavior
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\test-staging-proof.ps1

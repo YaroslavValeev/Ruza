@@ -1,6 +1,6 @@
 # Quality review — стадия Ruza / Ice Beach
 
-Дата: 2026-08-20  
+Дата: 2026-09-02
 Контур: **MyWave Training / Cash-cow** (`booking → check-in → pilot → KPI`)
 
 ## 1. На какой мы стадии
@@ -54,20 +54,33 @@
 - Demo-запуск без Google: `scripts/start-demo.ps1` / `scripts/start-demo.sh`
 - Локальная дата смены (не UTC), кнопки demo-ролей на логине, `scripts/smoke_demo.py`
 
-## 4. Что сознательно отложено владельцем
+### Волна 3 (production-v1 release candidate)
+
+- Source of Truth: внешний intake идёт через canonical MyWave sheet → `RuzaTab.leads`, без автосоздания брони.
+- Payment ledger: `payments` + `payment_closures`, API записи/возвратов, KPI считает `payments_gross_minor` / `net_revenue_minor`.
+- Release gates: clean-tree guard, production env guard, staging/prod proof gate, PR #4, tag `v1.0.0-rc.11`, локальный production audit.
+- Production env validation: Windows и Linux скрипты блокируют debug OTP, manual OTP, insecure cookie, localhost CORS и placeholder values перед deploy.
+- Frontend dependency hygiene: Vite / React Router / plugin обновлены, `npm audit --audit-level=low` даёт 0 findings и включён в local audit + CI.
+
+## 4. Что сознательно отложено владельцем / внешним контуром
 
 - **Ротация секретов из git history** — только после завершения всех текущих работ
-- Боевой Telegram/SMS OTP (адаптер есть, токен не кладём)
+- Боевой Telegram/SMS OTP (адаптер есть, production требует HTTPS webhook/token)
 - Конкурентные записи в Sheets (single-writer)
-- Live Sheets / Timeweb staging в этом окружении
+- Timeweb staging/prod, HTTPS, monitoring/alerting и rollback drill
+- Restore-write в отдельную staging-таблицу
+- Live website/TG intake delivery proof
+- iOS Safari smoke на HTTPS URL
 - Frontend unit/a11y автотесты
 - CAC attribution и UTM public ingest
 - SponsorOS / Gear / слияние Personal_Helper–Agents–Molt
 
 ## 5. Критерий готовности к пилотной смене
 
-1. pytest зелёный  
-2. dashboard build зелёный  
-3. demo: login → бронь → arrived → ready → in_progress → done  
-4. На staging: 2× smoke + preflight без blockers  
-5. После закрытия работ: ротация секретов человеком, затем `TELEGRAM_BOT_TOKEN` при необходимости
+1. pytest зелёный
+2. dashboard build зелёный
+3. dashboard dependency audit зелёный
+4. demo: login → бронь → arrived → ready → in_progress → done
+5. `scripts/production-v1-local-audit.ps1` без local blockers
+6. На staging: 2× smoke + preflight без blockers
+7. После закрытия работ: ротация секретов человеком, затем production OTP provider
