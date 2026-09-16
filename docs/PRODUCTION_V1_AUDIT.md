@@ -1,7 +1,7 @@
 # Ruza / Club Ops production v1 audit
 
-Audit date: 2026-09-02
-Current release candidate: `v1.0.0-rc.11`
+Audit date: 2026-09-16
+Current release candidate: `v1.0.0-rc.13`
 Current PR: `https://github.com/YaroslavValeev/Ruza/pull/4`
 
 ## Executive status
@@ -32,8 +32,8 @@ HTTPS production, real OTP provider, Timeweb staging/prod rollout, backup restor
 | Сверить local / GitHub main / PR / WIP | PASS | `scripts/production-v1-local-audit.ps1` verifies local HEAD, PR #4 head, GitHub CI and merge state | Keep PR updated until merge |
 | Не потерять полезные изменения | PASS | All current work is committed in PR #4; working tree clean before this audit update | Re-run clean-tree guard before deploy |
 | Разделить изменения на логические PR | PARTIAL | Current production-v1 work is in one draft PR #4 | If reviewer requests smaller slices, split before merge |
-| Получить release candidate SHA | PASS | Tag `v1.0.0-rc.11` must point at the same HEAD verified by `scripts/production-v1-local-audit.ps1` | Create final tag after merge |
-| Вернуть полный test gate | PASS | GitHub checks `api-tests`, `dashboard-build`, `production-env-guard-linux`, `production-env-guard-windows`, `clean-release-tree-guard-linux`, `clean-release-tree-guard-windows`, `staging-proof-guard-linux`, `staging-proof-guard-windows` are required on PR #4; local pytest/build/audit commands are documented | Re-run after each commit |
+| Получить release candidate SHA | PASS | Tag `v1.0.0-rc.13` must point at the same HEAD verified by `scripts/production-v1-local-audit.ps1` | Create final tag after merge |
+| Вернуть полный test gate | PASS | GitHub checks `api-tests`, `dashboard-build`, `production-env-guard-linux`, `production-env-guard-windows`, `clean-release-tree-guard-linux`, `clean-release-tree-guard-windows`, `staging-proof-guard-linux`, `staging-proof-guard-windows`, `server-healthcheck-guard-linux` are required on PR #4; local pytest/build/audit commands are documented | Re-run after each commit |
 | Запретить production deploy из dirty tree | PASS | `scripts/server/assert-clean-release-tree.sh`; `scripts/server/assert-clean-release-tree.ps1`; `scripts/test-clean-release-tree.ps1`; `scripts/server/test-clean-release-tree.sh`; deploy script calls Linux guard before `docker run` | Use guard in Timeweb deploy path |
 | Запретить production deploy с debug/local env | PASS | `scripts/validate-production-env.ps1`; `scripts/server/validate-production-env.sh`; `scripts/test-production-env-guards.ps1`; `scripts/server/test-production-env-guards.sh`; `deploy-api.sh` calls env guard before `docker run` | Fill real `.env.docker` and run guard on Timeweb |
 | Доказать staging/prod URL до GO | PASS local / BLOCKED_EXTERNAL | `scripts/staging-proof.ps1`, `scripts/server/staging-proof.sh`, `scripts/test-staging-proof.ps1`, `scripts/server/test-staging-proof.sh` validate proof-gate behavior without external side effects | Run proof against real HTTPS staging/prod URL |
@@ -50,7 +50,7 @@ HTTPS production, real OTP provider, Timeweb staging/prod rollout, backup restor
 | Preflight / smoke | PASS local | `scripts/preflight-local.ps1`; `scripts/smoke-local.ps1` | Run on staging/prod URLs |
 | Backup | PASS dry-run | `scripts/backup-sheets.ps1` | Schedule production backup |
 | Restore-test | BLOCKED_EXTERNAL | `scripts/restore-sheets-backup.ps1` supports dry-run and explicit write restore | Requires separate target spreadsheet |
-| Monitoring / alerting | PARTIAL | Local health/status scripts and UI health badge exist | Add production uptime/alert channel |
+| Monitoring / alerting | PARTIAL | `scripts/server/healthcheck.sh` can be scheduled on VPS and can POST alert webhooks; behavior covered by `scripts/server/test-healthcheck.sh` and CI | Install scheduler on staging/prod and connect real alert channel |
 | Rollback drill | PARTIAL | Clean deploy script and rollback docs/runbook exist | Execute on staging |
 | Dry-run shift | PASS local | Smoke and manual local mobile checks exercised core flow | Repeat with final staging SHA |
 | Controlled real shift | BLOCKED_EXTERNAL | SOP/runbook exists | Requires real date, staff, and business GO |
