@@ -133,6 +133,18 @@ bash scripts/server/test-healthcheck.sh
 dashboard HTTP 200, запись log-файла и alert webhook только при blocker.
 Эта проверка включена в GitHub Actions job `server-healthcheck-guard-linux`.
 
+Backup restore behavior guard:
+
+```powershell
+.\scripts\test-restore-sheets-backup.ps1
+python scripts/test_restore_sheets_backup.py
+```
+
+Проверяет dry-run restore, hash-integrity, запрет `--write` без
+`--target-spreadsheet-id` и блокировку повреждённого backup. Эта проверка
+включена в GitHub Actions jobs `restore-backup-guard-linux` и
+`restore-backup-guard-windows`.
+
 ### 5. Staging gate
 
 См. `icebeach-wakeclub/docs/enterprise/23_STAGING_LAUNCH_CHECKLIST.md`:

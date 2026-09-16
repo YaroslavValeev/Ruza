@@ -19,6 +19,7 @@ PASS только если:
 - CI проверяет поведение staging/prod proof-gate для HTTPS, dashboard, health,
   CORS credentials, authenticated preflight и OTP debug leakage без внешних side effects;
 - CI проверяет server healthcheck для monitoring/alerting без внешних side effects;
+- CI проверяет restore backup dry-run/hash/write guard без внешних side effects;
 - production env проходит machine-check:
   `scripts/validate-production-env.ps1` на Windows/local и
   `scripts/server/validate-production-env.sh` на Linux/Timeweb;
@@ -144,6 +145,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\restore-sheets-backup.ps1 -Ba
 
 `restore-sheets-backup.ps1` без `-Write` выполняет dry-run и проверяет integrity hash.
 Запись в тестовую таблицу выполняется только с явным `-Write -TargetSpreadsheetId <id>`.
+
+Проверка поведения restore guard без Google Sheets:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test-restore-sheets-backup.ps1
+python scripts/test_restore_sheets_backup.py
+```
 
 ## 5. Staging / production gates
 

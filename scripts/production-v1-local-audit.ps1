@@ -145,7 +145,11 @@ try {
     'scripts\test-staging-proof.ps1',
     'scripts\server\test-staging-proof.sh',
     'scripts\server\healthcheck.sh',
-    'scripts\server\test-healthcheck.sh'
+    'scripts\server\test-healthcheck.sh',
+    'scripts\restore_sheets_backup.py',
+    'scripts\restore-sheets-backup.ps1',
+    'scripts\test_restore_sheets_backup.py',
+    'scripts\test-restore-sheets-backup.ps1'
   )) {
     if (Test-Path (Join-Path $RepoRoot $path)) {
       Pass "doc.$path" 'present'
@@ -214,6 +218,17 @@ try {
     }
   }
 
+  Invoke-Step 'ci.restore_backup' {
+    $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
+    foreach ($jobName in @('restore-backup-guard-linux', 'restore-backup-guard-windows')) {
+      if ($ci -notmatch [regex]::Escape($jobName)) {
+        Blocker 'ci.restore_backup' "$jobName missing from CI"
+        return
+      }
+    }
+    Pass 'ci.restore_backup' 'restore backup behavior is tested in CI on Linux and Windows'
+  }
+
   Invoke-Step 'ci.dashboard_audit' {
     $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
     if ($ci -match 'npm audit --audit-level=low') {
@@ -230,6 +245,15 @@ try {
         Pass 'tests.staging_proof' 'staging proof behavior test passed'
       } else {
         Blocker 'tests.staging_proof' "staging proof behavior test exited with $LASTEXITCODE"
+      }
+    }
+
+    Invoke-Step 'tests.restore_backup' {
+      python (Join-Path $RepoRoot 'scripts\test_restore_sheets_backup.py')
+      if ($LASTEXITCODE -eq 0) {
+        Pass 'tests.restore_backup' 'restore backup behavior test passed'
+      } else {
+        Blocker 'tests.restore_backup' "restore backup behavior test exited with $LASTEXITCODE"
       }
     }
 
