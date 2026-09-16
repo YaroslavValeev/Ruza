@@ -123,6 +123,16 @@ dashboard HTML, API health, CORS credentials, authenticated preflight and no
 `debug_code` leakage during explicit OTP probe. Эта проверка включена в GitHub
 Actions jobs `staging-proof-guard-linux` и `staging-proof-guard-windows`.
 
+Server healthcheck / alerting guard:
+
+```powershell
+bash scripts/server/test-healthcheck.sh
+```
+
+Проверяет read-only healthcheck для серверного мониторинга: API `/health`,
+dashboard HTTP 200, запись log-файла и alert webhook только при blocker.
+Эта проверка включена в GitHub Actions job `server-healthcheck-guard-linux`.
+
 ### 5. Staging gate
 
 См. `icebeach-wakeclub/docs/enterprise/23_STAGING_LAUNCH_CHECKLIST.md`:

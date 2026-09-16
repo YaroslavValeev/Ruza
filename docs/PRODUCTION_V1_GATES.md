@@ -18,6 +18,7 @@ PASS только если:
 - CI проверяет dashboard dependency audit через `npm audit --audit-level=low`;
 - CI проверяет поведение staging/prod proof-gate для HTTPS, dashboard, health,
   CORS credentials, authenticated preflight и OTP debug leakage без внешних side effects;
+- CI проверяет server healthcheck для monitoring/alerting без внешних side effects;
 - production env проходит machine-check:
   `scripts/validate-production-env.ps1` на Windows/local и
   `scripts/server/validate-production-env.sh` на Linux/Timeweb;
@@ -61,6 +62,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\staging-proof.ps1 `
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\test-staging-proof.ps1
 bash scripts/server/test-staging-proof.sh
+```
+
+Server healthcheck / alerting guard без реальных внешних сервисов:
+
+```powershell
+bash scripts/server/test-healthcheck.sh
 ```
 
 Production env перед staging/deploy:
@@ -139,6 +146,25 @@ powershell -ExecutionPolicy Bypass -File .\scripts\restore-sheets-backup.ps1 -Ba
 Запись в тестовую таблицу выполняется только с явным `-Write -TargetSpreadsheetId <id>`.
 
 ## 5. Staging / production gates
+
+Monitoring healthcheck после deploy:
+
+```bash
+bash scripts/server/healthcheck.sh \
+  --api-url "https://<api-domain>" \
+  --dashboard-url "https://<dashboard-domain>" \
+  --log-file "/var/log/ruza/healthcheck.log"
+```
+
+С webhook-алертом:
+
+```bash
+bash scripts/server/healthcheck.sh \
+  --api-url "https://<api-domain>" \
+  --dashboard-url "https://<dashboard-domain>" \
+  --log-file "/var/log/ruza/healthcheck.log" \
+  --alert-webhook-url "https://<alert-webhook>"
+```
 
 Пока не считать v1 завершенным без:
 - staging HTTPS;

@@ -143,7 +143,9 @@ try {
     'scripts\server\staging-proof.sh',
     'scripts\test_staging_proof.py',
     'scripts\test-staging-proof.ps1',
-    'scripts\server\test-staging-proof.sh'
+    'scripts\server\test-staging-proof.sh',
+    'scripts\server\healthcheck.sh',
+    'scripts\server\test-healthcheck.sh'
   )) {
     if (Test-Path (Join-Path $RepoRoot $path)) {
       Pass "doc.$path" 'present'
@@ -201,6 +203,15 @@ try {
       }
     }
     Pass 'ci.staging_proof' 'staging proof behavior is tested in CI on Linux and Windows'
+  }
+
+  Invoke-Step 'ci.server_healthcheck' {
+    $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
+    if ($ci -match 'server-healthcheck-guard-linux') {
+      Pass 'ci.server_healthcheck' 'server healthcheck behavior is tested in CI'
+    } else {
+      Blocker 'ci.server_healthcheck' 'server-healthcheck-guard-linux missing from CI'
+    }
   }
 
   Invoke-Step 'ci.dashboard_audit' {

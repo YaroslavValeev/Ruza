@@ -21,7 +21,7 @@ HTTPS production, real OTP provider, Timeweb staging/prod rollout, backup restor
 | Data / Google Sheets | Data lead | PASS local/live-local | Backup restore-test to separate sheet |
 | Security / Auth | Security lead | PARTIAL | Real OTP provider and HTTPS cookie in staging/prod |
 | QA / E2E | QA lead | PASS local/CI | Staging and production E2E |
-| DevOps / Timeweb | DevOps lead | PARTIAL | Timeweb staging, monitoring, rollback drill |
+| DevOps / Timeweb | DevOps lead | PARTIAL | Timeweb staging, server healthcheck, monitoring, rollback drill |
 | Operations / SOP | Ops lead | PASS docs | Dry-run and real shift sign-off |
 | Privacy | Privacy lead | PARTIAL | Production privacy/security acceptance |
 
@@ -37,6 +37,7 @@ HTTPS production, real OTP provider, Timeweb staging/prod rollout, backup restor
 | Запретить production deploy из dirty tree | PASS | `scripts/server/assert-clean-release-tree.sh`; `scripts/server/assert-clean-release-tree.ps1`; `scripts/test-clean-release-tree.ps1`; `scripts/server/test-clean-release-tree.sh`; deploy script calls Linux guard before `docker run` | Use guard in Timeweb deploy path |
 | Запретить production deploy с debug/local env | PASS | `scripts/validate-production-env.ps1`; `scripts/server/validate-production-env.sh`; `scripts/test-production-env-guards.ps1`; `scripts/server/test-production-env-guards.sh`; `deploy-api.sh` calls env guard before `docker run` | Fill real `.env.docker` and run guard on Timeweb |
 | Доказать staging/prod URL до GO | PASS local / BLOCKED_EXTERNAL | `scripts/staging-proof.ps1`, `scripts/server/staging-proof.sh`, `scripts/test-staging-proof.ps1`, `scripts/server/test-staging-proof.sh` validate proof-gate behavior without external side effects | Run proof against real HTTPS staging/prod URL |
+| Monitoring healthcheck готов к установке | PASS local / BLOCKED_EXTERNAL | `scripts/server/healthcheck.sh`, `scripts/server/test-healthcheck.sh`; CI job `server-healthcheck-guard-linux` validates healthcheck/log/alert behavior | Install on server scheduler and connect real alert channel |
 | Intake from site / Telegram / public / manual into one operational intake | PARTIAL | `apps/api/app/services/intake.py`; `POST /public/booking-request`; `POST /intake/sync`; docs `INTAKE_SYNC.md` | Enable real site/TG writers and production scheduler |
 | Intake fields exist | PASS | `packages/sheets/schema.py` requires `external_source`, `external_record_id`, `received_at`, `sync_status`, `sync_error`, `converted_booking_id` in `leads` | Keep schema preflight green |
 | Duplicate external delivery does not duplicate lead | PASS | `apps/api/tests/test_contract_intake.py`; `scripts/intake-e2e-local.ps1` live/local proof | Run production proof after deployment |
@@ -74,7 +75,7 @@ NO-GO until:
 - real OTP delivery is configured and tested;
 - intake sync runs from real site/TG sources without duplicates;
 - paid revenue reconciliation is tested on real data;
-- backup restore-test, monitoring, alerting and rollback drill are complete;
+- backup restore-test, scheduled monitoring, alerting and rollback drill are complete;
 - Android and iOS Safari pass the main scenario;
 - one real shift completes without P0.
 

@@ -282,6 +282,26 @@ docker logs -f --tail 200 icebeach-api
 docker compose -f /opt/icebeach/docker-compose.yml logs -f api
 ```
 
+### Monitoring healthcheck
+
+Read-only проверка API/dashboard с записью лога:
+
+**[Linux]**
+```bash
+cd /opt/icebeach
+mkdir -p /var/log/ruza
+bash scripts/server/healthcheck.sh \
+  --api-url "https://api.example.com" \
+  --dashboard-url "https://dashboard.example.com" \
+  --log-file "/var/log/ruza/healthcheck.log"
+```
+
+Cron каждые 5 минут:
+
+```bash
+(crontab -l 2>/dev/null; echo '*/5 * * * * cd /opt/icebeach && bash scripts/server/healthcheck.sh --api-url "https://api.example.com" --dashboard-url "https://dashboard.example.com" --log-file "/var/log/ruza/healthcheck.log" --alert-webhook-url "https://alert-webhook.example/ruza"') | crontab -
+```
+
 ### Остановка
 
 **[Linux]**

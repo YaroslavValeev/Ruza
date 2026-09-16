@@ -80,3 +80,10 @@ jobs:
       - name: Validate staging proof behavior
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File .\scripts\test-staging-proof.ps1
+
+  server-healthcheck-guard-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate server healthcheck behavior
+        run: bash scripts/server/test-healthcheck.sh
