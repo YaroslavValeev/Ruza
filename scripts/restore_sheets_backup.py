@@ -5,10 +5,6 @@ import hashlib
 import json
 from pathlib import Path
 
-from apps.api.app.config import get_settings
-from packages.sheets import SheetWrapper
-
-
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -50,6 +46,9 @@ def main() -> int:
 
     if not args.target_spreadsheet_id.strip():
         raise RuntimeError("--target-spreadsheet-id is required with --write")
+
+    from apps.api.app.config import get_settings
+    from packages.sheets import SheetWrapper
 
     settings = get_settings()
     sheet = SheetWrapper(
