@@ -20,6 +20,7 @@ PASS только если:
   CORS credentials, authenticated preflight и OTP debug leakage без внешних side effects;
 - CI проверяет server healthcheck для monitoring/alerting без внешних side effects;
 - CI проверяет restore backup dry-run/hash/write guard без внешних side effects;
+- CI проверяет rollback guard без внешних side effects;
 - production env проходит machine-check:
   `scripts/validate-production-env.ps1` на Windows/local и
   `scripts/server/validate-production-env.sh` на Linux/Timeweb;
@@ -172,6 +173,21 @@ bash scripts/server/healthcheck.sh \
   --dashboard-url "https://<dashboard-domain>" \
   --log-file "/var/log/ruza/healthcheck.log" \
   --alert-webhook-url "https://<alert-webhook>"
+```
+
+Rollback dry-run:
+
+```bash
+bash scripts/server/rollback-api.sh --target-tag "v1.0.0-rc.<previous>"
+```
+
+Rollback execute на staging/prod выполняется только с явным `--execute`:
+
+```bash
+bash scripts/server/rollback-api.sh \
+  --target-tag "v1.0.0-rc.<previous>" \
+  --healthcheck-command "bash scripts/server/healthcheck.sh --api-url https://<api-domain> --dashboard-url https://<dashboard-domain>" \
+  --execute
 ```
 
 Пока не считать v1 завершенным без:

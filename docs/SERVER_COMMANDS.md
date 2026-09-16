@@ -302,6 +302,25 @@ Cron каждые 5 минут:
 (crontab -l 2>/dev/null; echo '*/5 * * * * cd /opt/icebeach && bash scripts/server/healthcheck.sh --api-url "https://api.example.com" --dashboard-url "https://dashboard.example.com" --log-file "/var/log/ruza/healthcheck.log" --alert-webhook-url "https://alert-webhook.example/ruza"') | crontab -
 ```
 
+### Rollback drill
+
+Dry-run rollback plan:
+
+**[Linux]**
+```bash
+cd /opt/icebeach
+bash scripts/server/rollback-api.sh --target-tag "v1.0.0-rc.<previous>"
+```
+
+Execute rollback only after dry-run is clean:
+
+```bash
+bash scripts/server/rollback-api.sh \
+  --target-tag "v1.0.0-rc.<previous>" \
+  --healthcheck-command "bash scripts/server/healthcheck.sh --api-url https://api.example.com --dashboard-url https://dashboard.example.com --log-file /var/log/ruza/healthcheck.log" \
+  --execute
+```
+
 ### Остановка
 
 **[Linux]**

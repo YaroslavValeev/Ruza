@@ -102,3 +102,10 @@ jobs:
       - name: Validate restore backup behavior
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File .\scripts\test-restore-sheets-backup.ps1
+
+  rollback-guard-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate rollback behavior
+        run: bash scripts/server/test-rollback-api.sh

@@ -149,7 +149,9 @@ try {
     'scripts\restore_sheets_backup.py',
     'scripts\restore-sheets-backup.ps1',
     'scripts\test_restore_sheets_backup.py',
-    'scripts\test-restore-sheets-backup.ps1'
+    'scripts\test-restore-sheets-backup.ps1',
+    'scripts\server\rollback-api.sh',
+    'scripts\server\test-rollback-api.sh'
   )) {
     if (Test-Path (Join-Path $RepoRoot $path)) {
       Pass "doc.$path" 'present'
@@ -227,6 +229,15 @@ try {
       }
     }
     Pass 'ci.restore_backup' 'restore backup behavior is tested in CI on Linux and Windows'
+  }
+
+  Invoke-Step 'ci.rollback' {
+    $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
+    if ($ci -match 'rollback-guard-linux') {
+      Pass 'ci.rollback' 'rollback behavior is tested in CI'
+    } else {
+      Blocker 'ci.rollback' 'rollback-guard-linux missing from CI'
+    }
   }
 
   Invoke-Step 'ci.dashboard_audit' {

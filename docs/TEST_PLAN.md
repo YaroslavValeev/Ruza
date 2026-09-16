@@ -145,6 +145,16 @@ python scripts/test_restore_sheets_backup.py
 включена в GitHub Actions jobs `restore-backup-guard-linux` и
 `restore-backup-guard-windows`.
 
+Rollback guard:
+
+```powershell
+bash scripts/server/test-rollback-api.sh
+```
+
+Проверяет rollback dry-run, запрет rollback из dirty working tree и execute-mode
+с явными deploy/healthcheck командами. Эта проверка включена в GitHub Actions
+job `rollback-guard-linux`.
+
 ### 5. Staging gate
 
 См. `icebeach-wakeclub/docs/enterprise/23_STAGING_LAUNCH_CHECKLIST.md`:
