@@ -58,7 +58,7 @@
 
 - Source of Truth: внешний intake идёт через canonical MyWave sheet → `RuzaTab.leads`, без автосоздания брони.
 - Payment ledger: `payments` + `payment_closures`, API записи/возвратов, KPI считает `payments_gross_minor` / `net_revenue_minor`.
-- Release gates: clean-tree guard, production env guard, staging/prod proof gate, server healthcheck guard, PR #4, tag `v1.0.0-rc.13`, локальный production audit.
+- Release gates: clean-tree guard, production env guard, staging/prod proof gate, server healthcheck guard, restore-backup guard, PR #4, tag `v1.0.0-rc.14`, локальный production audit.
 - Production env validation: Windows и Linux скрипты блокируют debug OTP, manual OTP, insecure cookie, localhost CORS и placeholder values перед deploy.
 - Frontend dependency hygiene: Vite / React Router / plugin обновлены, `npm audit --audit-level=low` даёт 0 findings и включён в local audit + CI.
 
