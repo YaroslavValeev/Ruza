@@ -7,7 +7,7 @@
 **[PowerShell]**
 ```powershell
 git push -u origin codex/v1-payment-ledger-20260824
-git push origin v1.0.0-rc.18
+git push origin v1.0.0-rc.19
 ```
 
 ## 2. Timeweb App Platform

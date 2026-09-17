@@ -39,7 +39,7 @@ cd "F:\Проекты MyWave\NEW2026\Ruza"
 git status --short --branch
 git tag --points-at HEAD
 git push origin codex/v1-payment-ledger-20260824
-git push origin v1.0.0-rc.18
+git push origin v1.0.0-rc.19
 ```
 
 ---
@@ -121,7 +121,7 @@ mkdir -p /opt/icebeach
 cd /opt/icebeach
 git clone https://github.com/YaroslavValeev/Ruza.git .
 git fetch --tags origin
-git checkout v1.0.0-rc.18
+git checkout v1.0.0-rc.19
 ```
 
 ### 3.3 Production env на сервере
@@ -233,7 +233,7 @@ docker compose --env-file .env.docker up -d --force-recreate api dashboard
 ```bash
 cd /opt/icebeach
 git fetch --tags origin
-git checkout v1.0.0-rc.18
+git checkout v1.0.0-rc.19
 bash scripts/server/assert-clean-release-tree.sh
 bash scripts/server/validate-production-env.sh .env.docker
 docker compose --env-file .env.docker up --build -d

@@ -1,7 +1,7 @@
 # Ruza / Club Ops production v1 audit
 
 Audit date: 2026-09-18
-Current release candidate: `v1.0.0-rc.18`
+Current release candidate: `v1.0.0-rc.19`
 Current PR: `https://github.com/YaroslavValeev/Ruza/pull/4`
 
 ## Executive status
@@ -32,7 +32,7 @@ HTTPS production, real OTP provider, Timeweb staging/prod rollout, backup restor
 | Сверить local / GitHub main / PR / WIP | PASS | `scripts/production-v1-local-audit.ps1` verifies local HEAD, PR #4 head, GitHub CI and merge state | Keep PR updated until merge |
 | Не потерять полезные изменения | PASS | All current work is committed in PR #4; working tree clean before this audit update | Re-run clean-tree guard before deploy |
 | Разделить изменения на логические PR | PARTIAL | Current production-v1 work is in one draft PR #4 | If reviewer requests smaller slices, split before merge |
-| Получить release candidate SHA | PASS | Tag `v1.0.0-rc.18` must point at the same HEAD verified by `scripts/production-v1-local-audit.ps1` | Create final tag after merge |
+| Получить release candidate SHA | PASS | Tag `v1.0.0-rc.19` must point at the same HEAD verified by `scripts/production-v1-local-audit.ps1` | Create final tag after merge |
 | Вернуть полный test gate | PASS | GitHub checks `api-tests`, `dashboard-build`, `production-env-guard-linux`, `production-env-guard-windows`, `clean-release-tree-guard-linux`, `clean-release-tree-guard-windows`, `staging-proof-guard-linux`, `staging-proof-guard-windows`, `server-healthcheck-guard-linux`, `restore-backup-guard-linux`, `restore-backup-guard-windows`, `mobile-readiness-guard-linux`, `mobile-readiness-guard-windows`, `rollback-guard-linux` are required on PR #4; local pytest/build/audit commands are documented | Re-run after each commit |
 | Запретить production deploy из dirty tree | PASS | `scripts/server/assert-clean-release-tree.sh`; `scripts/server/assert-clean-release-tree.ps1`; `scripts/test-clean-release-tree.ps1`; `scripts/server/test-clean-release-tree.sh`; deploy script calls Linux guard before `docker run` | Use guard in Timeweb deploy path |
 | Запретить production deploy с debug/local env | PASS | `scripts/validate-production-env.ps1`; `scripts/server/validate-production-env.sh`; `scripts/test-production-env-guards.ps1`; `scripts/server/test-production-env-guards.sh`; `deploy-api.sh` calls env guard before `docker run` | Fill real `.env.docker` and run guard on Timeweb |
