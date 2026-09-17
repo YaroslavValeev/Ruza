@@ -40,6 +40,18 @@ export function getDefaultRouteForRole(role: StaffRole): string {
   }
 }
 
+export function getMobileRouteForRole(role: StaffRole): string {
+  switch (role) {
+    case "pilot":
+      return "/m/pilot";
+    case "admin":
+    case "operator":
+      return "/m/owner";
+    default:
+      return "/m/install";
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const [session, setSession] = useState<StaffSession | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");

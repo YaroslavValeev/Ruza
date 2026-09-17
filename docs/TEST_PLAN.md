@@ -22,6 +22,9 @@
 | `test_kpi_counts_done_sessions_only` | KPI = завершённые сессии |
 | `test_marketing_funnel_contacted_includes_booked` | воронка contacted включает booked |
 | `test_boats_list_and_pilot_cannot_change_foreign_boat` | лодки + RBAC пилота |
+| `test_intake_sync_idempotent_by_external_record_id` | intake не дублирует внешнюю заявку |
+| `test_public_booking_request_is_idempotent` | public booking request не создаёт дубль lead |
+| `test_payment_rbac_and_kpi_real_money` | KPI paid revenue берётся из payments, refund уменьшает net |
 
 Запуск:
 
@@ -50,16 +53,119 @@ python -m pytest icebeach-wakeclub/apps/api/tests -v
 
 Или API: `GET /preflight/summary?date=` (admin).
 
-### 4. Staging gate
+### 4. Production-v1 local audit
+
+Перед staging собрать локальный release evidence одной командой:
+
+**[PowerShell]**
+```powershell
+.\scripts\production-v1-local-audit.ps1
+```
+
+Проверяет: clean tree, PR SHA, GitHub CI, release tag, evidence docs, backend tests, dashboard build, dashboard dependency audit.
+Внешние production gates выводятся отдельно как `EXTERNAL` и не считаются локальными blockers.
+
+Production env guard:
+
+```powershell
+.\scripts\validate-production-env.ps1 -EnvFile .\.env.docker
+```
+
+На сервере:
+
+```bash
+bash scripts/server/validate-production-env.sh .env.docker
+```
+
+Проверяет: `APP_ENV=production`, secure cookie, отключенный debug/manual OTP,
+HTTPS OTP webhook, HTTPS CORS origins, наличие Google credentials и отсутствие placeholder values.
+
+Поведенческая проверка guard без настоящих секретов:
+
+```powershell
+.\scripts\test-production-env-guards.ps1
+bash scripts/server/test-production-env-guards.sh
+```
+
+Эта проверка также включена в GitHub Actions jobs `production-env-guard-linux` и
+`production-env-guard-windows`.
+
+Clean release tree guard:
+
+```powershell
+.\scripts\test-clean-release-tree.ps1
+bash scripts/server/test-clean-release-tree.sh
+```
+
+Проверяет, что deploy guard принимает чистый release checkout и блокирует dirty
+working tree. Эта проверка также включена в GitHub Actions jobs
+`clean-release-tree-guard-linux` и `clean-release-tree-guard-windows`.
+
+Dashboard dependency audit:
+
+```powershell
+cd .\icebeach-wakeclub\apps\dashboard
+npm audit --audit-level=low
+```
+
+Эта проверка также включена в GitHub Actions job `dashboard-build`.
+
+Staging/prod proof gate:
+
+```powershell
+.\scripts\test-staging-proof.ps1
+bash scripts/server/test-staging-proof.sh
+```
+
+Проверяет поведение `scripts/staging-proof.ps1` / `scripts/server/staging-proof.sh`:
+HTTPS required для staging/prod, local HTTP allowed only with explicit flag,
+dashboard HTML, API health, CORS credentials, authenticated preflight and no
+`debug_code` leakage during explicit OTP probe. Эта проверка включена в GitHub
+Actions jobs `staging-proof-guard-linux` и `staging-proof-guard-windows`.
+
+Server healthcheck / alerting guard:
+
+```powershell
+bash scripts/server/test-healthcheck.sh
+```
+
+Проверяет read-only healthcheck для серверного мониторинга: API `/health`,
+dashboard HTTP 200, запись log-файла и alert webhook только при blocker.
+Эта проверка включена в GitHub Actions job `server-healthcheck-guard-linux`.
+
+Backup restore behavior guard:
+
+```powershell
+.\scripts\test-restore-sheets-backup.ps1
+python scripts/test_restore_sheets_backup.py
+```
+
+Проверяет dry-run restore, hash-integrity, запрет `--write` без
+`--target-spreadsheet-id` и блокировку повреждённого backup. Эта проверка
+включена в GitHub Actions jobs `restore-backup-guard-linux` и
+`restore-backup-guard-windows`.
+
+Rollback guard:
+
+```powershell
+bash scripts/server/test-rollback-api.sh
+```
+
+Проверяет rollback dry-run, запрет rollback из dirty working tree и execute-mode
+с явными deploy/healthcheck командами. Эта проверка включена в GitHub Actions
+job `rollback-guard-linux`.
+
+### 5. Staging gate
 
 См. `icebeach-wakeclub/docs/enterprise/23_STAGING_LAUNCH_CHECKLIST.md`:
 - 2× green smoke подряд
 - ручной цикл `booking → ready → in_progress → done`
 
-### 5. Frontend (CI)
+### 6. Frontend (CI)
 
 - `npm run build` — production build
 - `npx tsc --noEmit` — typecheck
+- `npm audit --audit-level=low` — dependency audit
 
 ## Quality gates
 

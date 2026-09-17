@@ -1,8 +1,9 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { getDefaultRouteForRole, useAuth } from "../auth/session";
 import { getApiBaseUrl } from "../api/client";
+import { ApiHealthBadge } from "../components/ApiHealthBadge";
 
 export function LoginPage(): JSX.Element {
   const navigate = useNavigate();
@@ -76,6 +77,8 @@ export function LoginPage(): JSX.Element {
             Введите телефон сотрудника. Код подтверждения действует несколько минут.
           </p>
         </div>
+
+        <ApiHealthBadge />
 
         {import.meta.env.DEV ? (
           <div className="game-card space-y-2 text-sm text-cyan-100/80">
@@ -200,7 +203,12 @@ export function LoginPage(): JSX.Element {
             Изменить телефон
           </button>
         ) : null}
-        <p className="text-xs text-slate-500">Сервер: {getApiBaseUrl()}</p>
+        <p className="text-xs text-slate-500">
+          Сервер: {getApiBaseUrl()} ·{" "}
+          <Link to="/m/install" className="text-cyan-300 underline">
+            Установка на телефон
+          </Link>
+        </p>
       </form>
     </div>
   );

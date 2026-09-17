@@ -6,6 +6,7 @@ import json
 import os
 import ssl
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -44,6 +45,9 @@ class SheetWrapper:
         self._disable_proxy = _truthy_env("DISABLE_SYSTEM_PROXY_FOR_GOOGLE", "true")
         self._tab_cache_ttl_seconds = int(os.getenv("SHEETS_TAB_CACHE_TTL_SECONDS", "15"))
         self._tab_cache: dict[str, tuple[float, list[list[str]]]] = {}
+        # FastAPI runs sync routes concurrently, but httplib2 connections are
+        # not thread-safe. A cached wrapper must serialize its HTTP transport.
+        self._http_lock = threading.RLock()
         self.service = self._build_service()
 
     def _build_http(self) -> AuthorizedHttp:
@@ -57,19 +61,20 @@ class SheetWrapper:
         self.service = self._build_service()
 
     def _execute_with_retries(self, request_factory, *, attempts: int = 4, base_sleep_seconds: float = 0.6):
-        last_exc: Exception | None = None
-        for i in range(attempts):
-            try:
-                request = request_factory()
-                return request.execute()
-            except (ssl.SSLError, OSError) as exc:
-                last_exc = exc
-                self._refresh_service()
-                if i == attempts - 1:
-                    raise
-                time.sleep(base_sleep_seconds * (2**i))
-        if last_exc:
-            raise last_exc
+        with self._http_lock:
+            last_exc: Exception | None = None
+            for i in range(attempts):
+                try:
+                    request = request_factory()
+                    return request.execute()
+                except (ssl.SSLError, OSError) as exc:
+                    last_exc = exc
+                    self._refresh_service()
+                    if i == attempts - 1:
+                        raise
+                    time.sleep(base_sleep_seconds * (2**i))
+            if last_exc:
+                raise last_exc
 
     def read_tab(self, tab_name: str) -> list[dict[str, str]]:
         values = self._fetch_values(tab_name)

@@ -188,7 +188,7 @@ export function KpiPage({ session }: KpiPageProps): JSX.Element {
           <div>
             <h1 className="game-heading">Аналитика клуба</h1>
             <p className="game-subheading mt-2 max-w-2xl">
-              Показатели клуба за выбранный период: смотри динамику по дням и сравнивай выручку и загрузку по дисциплинам.
+              Показатели клуба за выбранный период: стоимость завершённых заездов, фактические поступления, возвраты и задолженность.
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
@@ -201,8 +201,8 @@ export function KpiPage({ session }: KpiPageProps): JSX.Element {
               <div className="mt-1 text-sm font-black text-white">{kpi?.sessions_count ?? 0}</div>
             </div>
             <div className="game-stat p-3">
-              <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Выручка</div>
-              <div className="mt-1 text-sm font-black text-white">{kpi?.revenue_estimate ?? 0} ₽</div>
+              <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Получено</div>
+              <div className="mt-1 text-sm font-black text-white">{((kpi?.net_revenue_minor ?? 0) / 100).toLocaleString("ru-RU")} ₽</div>
             </div>
           </div>
         </div>
@@ -267,11 +267,15 @@ export function KpiPage({ session }: KpiPageProps): JSX.Element {
         </section>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Период" value={kpi ? `${kpi.date_from} — ${kpi.date_to}` : "—"} />
         <KpiCard label="Сессий" value={String(kpi?.sessions_count ?? 0)} />
         <KpiCard label="Загрузка" value={`${String(kpi?.utilization_pct ?? 0)} %`} />
-        <KpiCard label="Выручка" value={`${String(kpi?.revenue_estimate ?? 0)} ₽`} />
+        <KpiCard label="Стоимость завершённых заездов" value={`${String(kpi?.revenue_estimate ?? 0)} ₽`} />
+        <KpiCard label="Поступления" value={`${((kpi?.payments_gross_minor ?? 0) / 100).toLocaleString("ru-RU")} ₽`} />
+        <KpiCard label="Возвраты" value={`${((kpi?.refunds_total_minor ?? 0) / 100).toLocaleString("ru-RU")} ₽`} />
+        <KpiCard label="Чистое поступление" value={`${((kpi?.net_revenue_minor ?? 0) / 100).toLocaleString("ru-RU")} ₽`} />
+        <KpiCard label="К оплате" value={`${((kpi?.outstanding_minor ?? 0) / 100).toLocaleString("ru-RU")} ₽`} />
         <KpiCard label="Режим" value={PERIOD_OPTIONS.find((item) => item.value === (kpi?.period ?? period))?.label ?? "—"} />
       </div>
 
@@ -279,7 +283,7 @@ export function KpiPage({ session }: KpiPageProps): JSX.Element {
         <section className="game-panel grid gap-3 sm:grid-cols-3">
           <PlanBar label="Сессии" actual={kpi.sessions_count} target={kpi.plan_fact.sessions_target} pct={kpi.plan_fact.sessions_pct} />
           <PlanBar label="Загрузка %" actual={kpi.utilization_pct} target={kpi.plan_fact.utilization_target_pct} pct={kpi.plan_fact.utilization_pct_of_target} />
-          <PlanBar label="Выручка" actual={kpi.revenue_estimate} target={kpi.plan_fact.revenue_target} pct={kpi.plan_fact.revenue_pct} />
+          <PlanBar label="Стоимость завершённых заездов" actual={kpi.revenue_estimate} target={kpi.plan_fact.revenue_target} pct={kpi.plan_fact.revenue_pct} />
         </section>
       ) : null}
 
@@ -300,7 +304,7 @@ export function KpiPage({ session }: KpiPageProps): JSX.Element {
             <h2 className="mt-1 text-xl font-black text-white">Прогресс по дням</h2>
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
-            <span className="game-chip text-cyan-100">Бирюзовые столбцы — выручка</span>
+            <span className="game-chip text-cyan-100">Бирюзовые столбцы — стоимость завершённых заездов</span>
             <span className="game-chip text-orange-100">Оранжевая линия — сессии</span>
           </div>
         </div>
@@ -323,7 +327,7 @@ export function KpiPage({ session }: KpiPageProps): JSX.Element {
                   <div className="mt-1 text-2xl font-black text-white">{item.sessions_count}</div>
                 </div>
                 <div className="game-stat p-3">
-                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Выручка</div>
+                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Стоимость заездов</div>
                   <div className="mt-1 text-2xl font-black text-white">{item.revenue_estimate} ₽</div>
                 </div>
               </div>
