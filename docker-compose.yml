@@ -4,16 +4,13 @@ services:
       context: ./icebeach-wakeclub
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env.docker
     environment:
       API_HOST: 0.0.0.0
       API_PORT: 8000
       DISABLE_SYSTEM_PROXY_FOR_GOOGLE: "true"
-      GOOGLE_SERVICE_ACCOUNT_JSON: /run/secrets/service-account.json
-    volumes:
-      - ./service-account.json:/run/secrets/service-account.json:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
       interval: 15s
@@ -26,9 +23,9 @@ services:
       context: ./icebeach-wakeclub/apps/dashboard
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: http://127.0.0.1:8000
+        VITE_API_BASE_URL: /api
     ports:
-      - "5173:80"
+      - "127.0.0.1:5173:80"
     depends_on:
       api:
         condition: service_healthy

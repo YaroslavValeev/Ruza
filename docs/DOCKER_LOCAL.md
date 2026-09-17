@@ -98,7 +98,9 @@ flowchart LR
 - `DISABLE_SYSTEM_PROXY_FOR_GOOGLE=true` уже в `.env.docker`
 
 **Dashboard не видит API**
-- `VITE_API_BASE_URL=http://127.0.0.1:8000` (браузер на хосте, не внутри контейнера)
+- `VITE_API_BASE_URL=/api` для Docker/production dashboard. В dev-скриптах можно
+  временно использовать `http://127.0.0.1:8000`; мобильный клиент умеет заменять
+  loopback host на LAN host телефона.
 
 **Порт занят**
 ```powershell
@@ -120,4 +122,6 @@ docker system prune -f
 - `docker-compose.yml` — prod-like (api + nginx dashboard)
 - `docker-compose.dev.yml` — override для hot reload (`ports: !override` — только `5173:5173`, без дубля `5173:80` из base)
 - `.env.docker` — генерируется из `.env` (не коммитить)
-- `service-account.json` — mount в контейнер (не коммитить)
+- `service-account.json` — локальный источник credentials (не коммитить);
+  `docker-sync-env.ps1` записывает его base64 в игнорируемый `.env.docker`,
+  который используют оба варианта Compose

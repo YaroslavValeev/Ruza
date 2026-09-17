@@ -135,6 +135,7 @@ try {
     'scripts\validate-production-env.ps1',
     'scripts\server\validate-production-env.sh',
     'scripts\test-production-env-guards.ps1',
+    'scripts\test-docker-sync-env.ps1',
     'scripts\server\test-production-env-guards.sh',
     'scripts\test-clean-release-tree.ps1',
     'scripts\server\test-clean-release-tree.sh',
@@ -150,6 +151,8 @@ try {
     'scripts\restore-sheets-backup.ps1',
     'scripts\test_restore_sheets_backup.py',
     'scripts\test-restore-sheets-backup.ps1',
+    'scripts\mobile_readiness.py',
+    'scripts\test-mobile-readiness.ps1',
     'scripts\server\rollback-api.sh',
     'scripts\server\test-rollback-api.sh'
   )) {
@@ -240,6 +243,17 @@ try {
     }
   }
 
+  Invoke-Step 'ci.mobile_readiness' {
+    $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
+    foreach ($jobName in @('mobile-readiness-guard-linux', 'mobile-readiness-guard-windows')) {
+      if ($ci -notmatch [regex]::Escape($jobName)) {
+        Blocker 'ci.mobile_readiness' "$jobName missing from CI"
+        return
+      }
+    }
+    Pass 'ci.mobile_readiness' 'mobile/PWA readiness behavior is tested in CI on Linux and Windows'
+  }
+
   Invoke-Step 'ci.dashboard_audit' {
     $ci = Get-Content -LiteralPath (Join-Path $RepoRoot '.github\workflows\ci.yml') -Raw
     if ($ci -match 'npm audit --audit-level=low') {
@@ -265,6 +279,24 @@ try {
         Pass 'tests.restore_backup' 'restore backup behavior test passed'
       } else {
         Blocker 'tests.restore_backup' "restore backup behavior test exited with $LASTEXITCODE"
+      }
+    }
+
+    Invoke-Step 'tests.mobile_readiness' {
+      python (Join-Path $RepoRoot 'scripts\mobile_readiness.py')
+      if ($LASTEXITCODE -eq 0) {
+        Pass 'tests.mobile_readiness' 'mobile/PWA readiness test passed'
+      } else {
+        Blocker 'tests.mobile_readiness' "mobile/PWA readiness test exited with $LASTEXITCODE"
+      }
+    }
+
+    Invoke-Step 'tests.docker_sync_env' {
+      powershell -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\test-docker-sync-env.ps1')
+      if ($LASTEXITCODE -eq 0) {
+        Pass 'tests.docker_sync_env' 'Docker credential sync test passed'
+      } else {
+        Blocker 'tests.docker_sync_env' "Docker credential sync test exited with $LASTEXITCODE"
       }
     }
 

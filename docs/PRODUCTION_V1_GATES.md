@@ -21,6 +21,9 @@ PASS только если:
 - CI проверяет server healthcheck для monitoring/alerting без внешних side effects;
 - CI проверяет restore backup dry-run/hash/write guard без внешних side effects;
 - CI проверяет rollback guard без внешних side effects;
+- CI проверяет mobile/PWA readiness без внешних side effects: iOS meta, manifest,
+  service worker, safe-area, mobile routes, same-origin `/api` и отсутствие видимых
+  слов `Игрок/игровой` в dashboard copy;
 - production env проходит machine-check:
   `scripts/validate-production-env.ps1` на Windows/local и
   `scripts/server/validate-production-env.sh` на Linux/Timeweb;
@@ -154,7 +157,28 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-restore-sheets-backup.ps
 python scripts/test_restore_sheets_backup.py
 ```
 
-## 5. Staging / production gates
+## 5. Mobile / PWA / iOS readiness
+
+Локально и в CI проверяются предпосылки для Android/iOS PWA:
+- `viewport-fit=cover`, Apple PWA meta, manifest и touch icon;
+- manifest `standalone`, portrait, `/m/pilot` и shortcuts `/m/pilot`, `/m/owner`;
+- service worker и мобильные routes `/m/pilot`, `/m/owner`, `/m/install`;
+- safe-area insets и 48px touch targets в mobile shell;
+- production dashboard build использует same-origin `/api`, а nginx dashboard
+  проксирует `/api/` в API service;
+- пользовательский dashboard copy не возвращает `Игрок/игровой`.
+
+Проверка:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-readiness.ps1
+python scripts/mobile_readiness.py
+```
+
+Это не заменяет реальный iOS Safari smoke по HTTPS. PASS production v1 только
+после ручного прохода основного сценария на iPhone/iPad с HTTPS staging/prod URL.
+
+## 6. Staging / production gates
 
 Monitoring healthcheck после deploy:
 

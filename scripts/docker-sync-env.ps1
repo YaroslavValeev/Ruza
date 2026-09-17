@@ -9,7 +9,7 @@ $targetEnv = Join-Path $repoRoot '.env.docker'
 $serviceAccount = Join-Path $repoRoot 'service-account.json'
 
 if (-not (Test-Path $sourceEnv)) {
-  Write-Error "Missing $sourceEnv — create from .env.docker.example or merge from old 1.txt/2.txt"
+  Write-Error "Missing $sourceEnv - create from .env.docker.example or merge from old 1.txt/2.txt"
 }
 
 if ((Test-Path $targetEnv) -and -not $Force) {
@@ -36,8 +36,9 @@ foreach ($key in $required) {
 }
 
 if (-not (Test-Path $serviceAccount)) {
-  Write-Warning "service-account.json not found at $serviceAccount — mount will fail until file exists"
+  Write-Error "service-account.json not found at $serviceAccount"
 }
+$serviceAccountBase64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($serviceAccount))
 
 function Get-EnvValue([hashtable]$Map, [string]$Key, [string]$Default = '') {
   if ($Map.ContainsKey($Key) -and -not [string]::IsNullOrWhiteSpace($Map[$Key])) {
@@ -65,7 +66,7 @@ $dockerLines = @(
   'CORS_ALLOW_ORIGINS=http://127.0.0.1:5173,http://localhost:5173',
   'DISABLE_SYSTEM_PROXY_FOR_GOOGLE=true',
   'SHEETS_TAB_CACHE_TTL_SECONDS=15',
-  'GOOGLE_SERVICE_ACCOUNT_JSON=/run/secrets/service-account.json',
+  "GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=$serviceAccountBase64",
   'VITE_API_BASE_URL=/api'
 )
 
@@ -73,4 +74,4 @@ Set-Content -Path $targetEnv -Value ($dockerLines -join "`n") -Encoding UTF8 -No
 Add-Content -Path $targetEnv -Value "`n" -Encoding UTF8
 
 Write-Output "Synced .env -> .env.docker"
-Write-Output "Google SA mount: service-account.json -> /run/secrets/service-account.json"
+Write-Output 'Google SA encoded into .env.docker (do not commit)'

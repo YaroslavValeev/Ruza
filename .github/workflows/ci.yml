@@ -50,6 +50,9 @@ jobs:
       - name: Validate production env guard behavior
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File .\scripts\test-production-env-guards.ps1
+      - name: Validate Docker credential sync
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\test-docker-sync-env.ps1
 
   clean-release-tree-guard-linux:
     runs-on: ubuntu-latest
@@ -102,6 +105,21 @@ jobs:
       - name: Validate restore backup behavior
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File .\scripts\test-restore-sheets-backup.ps1
+
+  mobile-readiness-guard-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate mobile/PWA readiness behavior
+        run: python scripts/mobile_readiness.py
+
+  mobile-readiness-guard-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate mobile/PWA readiness behavior
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-readiness.ps1
 
   rollback-guard-linux:
     runs-on: ubuntu-latest

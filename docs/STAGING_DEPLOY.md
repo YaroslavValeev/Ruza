@@ -6,7 +6,8 @@
 
 **[PowerShell]**
 ```powershell
-$env:ALLOW_GIT_PUSH=1; git push -u origin main
+git push -u origin codex/v1-payment-ledger-20260824
+git push origin v1.0.0-rc.18
 ```
 
 ## 2. Timeweb App Platform
@@ -22,8 +23,11 @@ $env:ALLOW_GIT_PUSH=1; git push -u origin main
 
 ## 3. Frontend staging
 
-- Build dashboard с `VITE_API_BASE_URL=https://<staging-api-domain>`
-- CORS: добавить staging dashboard origin в `CORS_ALLOW_ORIGINS`
+- Build dashboard с `VITE_API_BASE_URL=/api` (same-origin API через dashboard nginx).
+- Dashboard container должен проксировать `/api/` в API service; это проверяет
+  `scripts/mobile_readiness.py`.
+- CORS: добавить staging dashboard origin в `CORS_ALLOW_ORIGINS`. Если API также
+  опубликован отдельным доменом, добавьте и этот origin только при необходимости.
 
 ## 4. Checklist GO
 
@@ -34,7 +38,7 @@ $env:ALLOW_GIT_PUSH=1; git push -u origin main
 **[PowerShell]**
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\staging-proof.ps1 `
-  -ApiBaseUrl "https://<staging-api-domain>" `
+  -ApiBaseUrl "https://<staging-dashboard-domain>/api" `
   -DashboardUrl "https://<staging-dashboard-domain>" `
   -Date "2026-06-01"
 ```
@@ -43,7 +47,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\staging-proof.ps1 `
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\staging-proof.ps1 `
-  -ApiBaseUrl "https://<staging-api-domain>" `
+  -ApiBaseUrl "https://<staging-dashboard-domain>/api" `
   -DashboardUrl "https://<staging-dashboard-domain>" `
   -Date "2026-06-01" `
   -SessionCookie "icebeach_session=<cookie>"
@@ -54,7 +58,7 @@ OTP-запрос скрипт не делает по умолчанию, что�
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\staging-proof.ps1 `
-  -ApiBaseUrl "https://<staging-api-domain>" `
+  -ApiBaseUrl "https://<staging-dashboard-domain>/api" `
   -DashboardUrl "https://<staging-dashboard-domain>" `
   -ProbeOtpRequest `
   -StaffUserId "<staff_user_id>" `
@@ -65,7 +69,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\staging-proof.ps1 `
 
 ```bash
 bash scripts/server/staging-proof.sh \
-  --api-base-url "https://<staging-api-domain>" \
+  --api-base-url "https://<staging-dashboard-domain>/api" \
   --dashboard-url "https://<staging-dashboard-domain>" \
   --date "2026-06-01"
 ```
