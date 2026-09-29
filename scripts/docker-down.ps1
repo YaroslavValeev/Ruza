@@ -1,5 +1,13 @@
+param(
+  [switch]$Dev
+)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 Set-Location $repoRoot
-docker compose down
-Write-Output "Docker stack stopped."
+
+$args = @('compose', 'down')
+if ($Dev) {
+  $args = @('compose', '-f', 'docker-compose.yml', '-f', 'docker-compose.dev.yml', 'down')
+}
+& docker @args
+Write-Output 'Docker stack stopped.'

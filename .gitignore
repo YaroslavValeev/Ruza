@@ -7,6 +7,8 @@ __pycache__/
 node_modules/
 dist/
 **/.runlogs/
+logs/
+backups/
 service-account.json
 **/service-account.json
 1.txt

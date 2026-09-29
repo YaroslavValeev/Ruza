@@ -1,32 +1,34 @@
 import { Link } from "react-router-dom";
 
-import { getDefaultRouteForRole, useAuth } from "../auth/session";
+import { getDefaultRouteForRole, getMobileRouteForRole, useAuth } from "../auth/session";
+import { isMobilePreferred } from "../utils/routes";
 
 export function UnauthorizedPage(): JSX.Element {
   const { session, signOut, clearIssue } = useAuth();
-  const home = session ? getDefaultRouteForRole(session.role) : "/login";
+  const mobile = isMobilePreferred();
+  const home = session
+    ? mobile
+      ? getMobileRouteForRole(session.role)
+      : getDefaultRouteForRole(session.role)
+    : "/login";
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 text-slate-100">
-      <div className="game-panel w-full max-w-md space-y-4">
-        <h1 className="game-heading">Нет доступа</h1>
-        <p className="game-subheading">
-          {session
-            ? `Роль «${session.role}» не может открыть этот раздел. Войдите под другим сотрудником или вернитесь на доступный экран.`
-            : "У этой роли нет прав на страницу. Войдите заново."}
-        </p>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Link to={home} className="game-button flex-1" onClick={() => clearIssue()}>
+    <div className="flex min-h-[100dvh] items-center justify-center px-4 py-8">
+      <div className="game-panel w-full max-w-md space-y-4 text-center">
+        <div className="text-xs font-black uppercase tracking-[0.14em] text-red-200/80">403</div>
+        <h1 className="text-xl font-black text-white">Доступ запрещён</h1>
+        <p className="text-sm text-slate-400">У вашей роли нет прав на эту страницу.</p>
+        <div className="flex flex-col gap-2">
+          <Link to={home} onClick={clearIssue} className="game-button min-h-[48px]">
             На доступный экран
           </Link>
-          <button
-            type="button"
-            className="game-button-secondary flex-1"
-            onClick={() => {
-              void signOut();
-            }}
-          >
-            Сменить сотрудника
+          {mobile ? (
+            <Link to="/m/install" className="game-button-secondary min-h-[48px]">
+              Установка на телефон
+            </Link>
+          ) : null}
+          <button type="button" className="game-button-secondary min-h-[48px]" onClick={() => void signOut()}>
+            Войти другим сотрудником
           </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 import hashlib
 import secrets
 
@@ -43,3 +43,16 @@ def phone_key_last10(value: str) -> str:
 def phones_match(expected: str, provided: str) -> bool:
     # Accept "+7XXXXXXXXXX" and "8XXXXXXXXXX" and other formatting differences.
     return normalize_phone(expected) == normalize_phone(provided) or phone_key_last10(expected) == phone_key_last10(provided)
+
+
+def parse_utc_instant(value: str) -> datetime | None:
+    if not value:
+        return None
+    text = value.strip().replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)

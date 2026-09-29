@@ -1,0 +1,30 @@
+# Dev override: hot reload API + Vite dashboard (без пересборки образа при каждом изменении)
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+services:
+  api:
+    volumes:
+      - ./icebeach-wakeclub/apps/api/app:/app/apps/api/app
+      - ./icebeach-wakeclub/packages/sheets:/app/packages/sheets
+    command:
+      - sh
+      - -c
+      - python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/apps/api/app --reload-dir /app/packages/sheets
+
+  dashboard:
+    build:
+      context: ./icebeach-wakeclub/apps/dashboard
+      dockerfile: Dockerfile.dev
+    ports: !override
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: /api
+      VITE_API_PROXY_TARGET: http://api:8000
+    volumes:
+      - ./icebeach-wakeclub/apps/dashboard/src:/app/src
+      - ./icebeach-wakeclub/apps/dashboard/public:/app/public
+      - ./icebeach-wakeclub/apps/dashboard/index.html:/app/index.html
+      - ./icebeach-wakeclub/apps/dashboard/vite.config.ts:/app/vite.config.ts
+    depends_on:
+      api:
+        condition: service_healthy

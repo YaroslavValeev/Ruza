@@ -84,7 +84,7 @@ def default_minimal_tabs() -> dict[str, list[dict[str, str]]]:
                 "schedule_id": "sch_1",
                 "club_id": CLUB_ID,
                 "weekday": "0",
-                "time": "10:00",
+                "time": "07:00",
                 "boat_id": "boat_1",
                 "capacity": "1",
                 "is_active": "true",
@@ -93,6 +93,8 @@ def default_minimal_tabs() -> dict[str, list[dict[str, str]]]:
         ],
         "slot_overrides": [],
         "bookings": [],
+        "payments": [],
+        "payment_closures": [],
         "checkins": [],
         "analytics_daily": [],
         "kpi_targets": [],
@@ -118,20 +120,18 @@ def demo_tabs(*, today: date | None = None) -> dict[str, list[dict[str, str]]]:
     today = today or date.today()
     schedule: list[dict[str, str]] = []
     for day in range(7):
-        for hour, minute in ((10, 0), (10, 30), (11, 0), (14, 0), (15, 0), (16, 0)):
-            time_value = f"{hour:02d}:{minute:02d}"
-            schedule.append(
-                {
-                    "schedule_id": f"sch_{day}_{time_value.replace(':', '')}",
-                    "club_id": CLUB_ID,
-                    "weekday": str(day),
-                    "time": time_value,
-                    "boat_id": "boat_1",
-                    "capacity": "1",
-                    "is_active": "true",
-                    "notes": "",
-                }
-            )
+        schedule.append(
+            {
+                "schedule_id": f"sch_{day}",
+                "club_id": CLUB_ID,
+                "weekday": str(day),
+                "time": "07:00",
+                "boat_id": "boat_1",
+                "capacity": "1",
+                "is_active": "true",
+                "notes": "",
+            }
+        )
     tabs["schedule"] = schedule
     tabs["leads"] = [
         {
@@ -144,6 +144,12 @@ def demo_tabs(*, today: date | None = None) -> dict[str, list[dict[str, str]]]:
             "utm_source": "ig",
             "utm_campaign": "summer",
             "created_at": f"{today.isoformat()}T08:00:00Z",
+            "external_source": "demo",
+            "external_record_id": "demo-lead-1",
+            "received_at": f"{today.isoformat()}T08:00:00Z",
+            "sync_status": "demo",
+            "sync_error": "",
+            "converted_booking_id": "",
             "notes": "Хочет пробный заезд",
         },
         {
@@ -156,6 +162,12 @@ def demo_tabs(*, today: date | None = None) -> dict[str, list[dict[str, str]]]:
             "utm_source": "",
             "utm_campaign": "",
             "created_at": f"{(today - timedelta(days=3)).isoformat()}T10:00:00Z",
+            "external_source": "demo",
+            "external_record_id": "demo-lead-2",
+            "received_at": f"{(today - timedelta(days=3)).isoformat()}T10:00:00Z",
+            "sync_status": "demo",
+            "sync_error": "",
+            "converted_booking_id": "",
             "notes": "",
         },
     ]
@@ -321,6 +333,7 @@ class InMemorySheetWrapper:
         diff_json: dict[str, Any],
         *,
         actor: str = "system",
+        strict: bool = False,
     ) -> None:
         self.tabs.setdefault("audit_log", []).append(
             {

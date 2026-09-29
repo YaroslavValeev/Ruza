@@ -20,6 +20,8 @@ DEFAULT_LAN_CORS_REGEX = r"^https?://(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.
 @dataclass(frozen=True)
 class Settings:
     spreadsheet_id: str
+    intake_spreadsheet_id: str | None
+    intake_tab_name: str
     service_account_json_path: str | None
     service_account_info: dict[str, Any] | None
     session_secret: str
@@ -36,6 +38,15 @@ class Settings:
     api_host: str
     api_port: int
     environment: str
+    agents_secret: str | None
+    agents_staff_user_id: str
+    telegram_bot_token: str | None
+    telegram_owner_chat_id: str | None
+    otp_delivery_webhook_url: str | None
+    otp_delivery_webhook_token: str | None
+    otp_delivery_timeout_seconds: float
+    allow_manual_otp_delivery: bool
+    public_club_id: str
 
 
 def _truthy_env(name: str, default: str = "false") -> bool:
@@ -89,15 +100,42 @@ def get_settings() -> Settings:
         raise RuntimeError("AUTH_DEBUG_CODE_IN_RESPONSE cannot be true when APP_ENV=production")
     if environment == "production" and allow_legacy_staff_login:
         raise RuntimeError("ALLOW_LEGACY_STAFF_LOGIN cannot be true when APP_ENV=production")
+    session_cookie_secure = _truthy_env("SESSION_COOKIE_SECURE", "false")
+    if environment == "production" and not session_cookie_secure:
+        raise RuntimeError("SESSION_COOKIE_SECURE must be true when APP_ENV=production")
+
+    intake_spreadsheet_id = os.getenv("INTAKE_SPREADSHEET_ID", "").strip() or None
+    agents_secret = os.getenv("AGENTS_SECRET", "").strip() or None
+    otp_delivery_webhook_url = os.getenv("OTP_DELIVERY_WEBHOOK_URL", "").strip() or None
+    otp_delivery_webhook_token = os.getenv("OTP_DELIVERY_WEBHOOK_TOKEN", "").strip() or None
+    allow_manual_otp_delivery = _truthy_env(
+        "ALLOW_MANUAL_OTP_DELIVERY",
+        "false" if environment == "production" else "true",
+    )
+    if environment == "production":
+        if allow_manual_otp_delivery:
+            raise RuntimeError("ALLOW_MANUAL_OTP_DELIVERY cannot be true when APP_ENV=production")
+        if not otp_delivery_webhook_url:
+            raise RuntimeError("OTP_DELIVERY_WEBHOOK_URL is required when APP_ENV=production")
+        if not otp_delivery_webhook_url.lower().startswith("https://"):
+            raise RuntimeError("OTP_DELIVERY_WEBHOOK_URL must use HTTPS when APP_ENV=production")
+        if not otp_delivery_webhook_token:
+            raise RuntimeError("OTP_DELIVERY_WEBHOOK_TOKEN is required when APP_ENV=production")
+        if not intake_spreadsheet_id:
+            raise RuntimeError("INTAKE_SPREADSHEET_ID is required when APP_ENV=production")
+        if not agents_secret:
+            raise RuntimeError("AGENTS_SECRET is required when APP_ENV=production")
 
     return Settings(
         spreadsheet_id=spreadsheet_id,
+        intake_spreadsheet_id=intake_spreadsheet_id,
+        intake_tab_name=os.getenv("INTAKE_TAB_NAME", "Ruza").strip() or "Ruza",
         service_account_json_path=service_account_json_path,
         service_account_info=service_account_info,
         session_secret=session_secret,
         session_max_age_seconds=int(os.getenv("SESSION_MAX_AGE_SECONDS", "28800")),
         session_cookie_name=os.getenv("SESSION_COOKIE_NAME", "icebeach_session"),
-        session_cookie_secure=_truthy_env("SESSION_COOKIE_SECURE", "false"),
+        session_cookie_secure=session_cookie_secure,
         allow_legacy_staff_login=allow_legacy_staff_login,
         auth_code_ttl_seconds=int(os.getenv("AUTH_CODE_TTL_SECONDS", "300")),
         auth_code_rate_limit_window_seconds=int(os.getenv("AUTH_CODE_RATE_LIMIT_WINDOW_SECONDS", "600")),
@@ -108,4 +146,13 @@ def get_settings() -> Settings:
         api_host=os.getenv("API_HOST", "127.0.0.1"),
         api_port=int(os.getenv("API_PORT", "8000")),
         environment=environment,
+        agents_secret=agents_secret,
+        agents_staff_user_id=os.getenv("AGENTS_STAFF_USER_ID", "system-agent").strip() or "system-agent",
+        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or None,
+        telegram_owner_chat_id=os.getenv("TELEGRAM_OWNER_CHAT_ID", "").strip() or None,
+        otp_delivery_webhook_url=otp_delivery_webhook_url,
+        otp_delivery_webhook_token=otp_delivery_webhook_token,
+        otp_delivery_timeout_seconds=float(os.getenv("OTP_DELIVERY_TIMEOUT_SECONDS", "8")),
+        allow_manual_otp_delivery=allow_manual_otp_delivery,
+        public_club_id=os.getenv("PUBLIC_CLUB_ID", "ice_beach_ruza").strip() or "ice_beach_ruza",
     )

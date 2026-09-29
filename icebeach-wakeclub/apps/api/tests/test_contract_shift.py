@@ -125,6 +125,17 @@ def test_preflight_and_smoke_on_memory_store() -> None:
     app.dependency_overrides.clear()
 
 
+def test_preflight_blocks_when_leads_tab_is_missing() -> None:
+    tabs = demo_tabs(today=date(2026, 6, 1))
+    tabs.pop("leads")
+    mock_sheet = MockSheetWrapper(tabs)
+
+    summary = run_preflight_check(mock_sheet, target_date="2026-06-01")
+
+    assert summary["blockers"] == 1
+    assert any(item["code"] == "tab:leads" and item["level"] == "BLOCKER" for item in summary["checks"])
+
+
 def test_analytics_snapshot_is_club_scoped() -> None:
     mock_sheet = MockSheetWrapper()
     mock_sheet.tabs["analytics_daily"] = [

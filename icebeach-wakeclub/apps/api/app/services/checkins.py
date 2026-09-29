@@ -56,16 +56,27 @@ def _find_booking_for_checkin(
     return client_bookings[0]
 
 
-def _checkin_to_item(row: dict[str, str]) -> dict[str, str]:
+def _client_consent_flags(sheet: SheetWrapper, club_id: str, client_id: str) -> tuple[bool, bool]:
+    for row in sheet.read_tab("clients"):
+        if row.get("club_id") == club_id and row.get("client_id") == client_id:
+            return parse_bool(row.get("consent_face")), parse_bool(row.get("consent_voice"))
+    return False, False
+
+
+def _checkin_to_item(sheet: SheetWrapper, club_id: str, row: dict[str, str]) -> dict[str, str | bool | None]:
+    client_id = row.get("client_id", "")
+    consent_face, consent_voice = _client_consent_flags(sheet, club_id, client_id)
     return {
         "checkin_id": row.get("checkin_id", ""),
         "club_id": row.get("club_id", ""),
         "booking_id": row.get("booking_id", ""),
-        "client_id": row.get("client_id", ""),
+        "client_id": client_id,
         "method": row.get("method", "manual"),
         "status": row.get("status", "arrived"),
         "ts": row.get("ts", ""),
         "operator_user_id": row.get("operator_user_id") or None,
+        "consent_face": consent_face,
+        "consent_voice": consent_voice,
     }
 
 
@@ -81,7 +92,7 @@ def list_checkins(sheet: SheetWrapper, *, club_id: str, target_date: str) -> lis
         if row.get("club_id") == club_id and bookings.get(row.get("booking_id", ""), {}).get("date") == target_date
     ]
     rows.sort(key=lambda row: row.get("ts", ""), reverse=True)
-    return [_checkin_to_item(row) for row in rows]
+    return [_checkin_to_item(sheet, club_id, row) for row in rows]
 
 
 def create_checkin(
@@ -156,7 +167,7 @@ def create_checkin(
         actor=actor_staff_user_id,
     )
 
-    return _checkin_to_item(row)
+    return _checkin_to_item(sheet, club_id, row)
 
 
 def mark_late_checkins(

@@ -36,7 +36,10 @@ Write-Host "GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 скопирован в буфе�
 **[PowerShell]**
 ```powershell
 cd "F:\Проекты MyWave\NEW2026\Ruza"
-$env:ALLOW_GIT_PUSH=1; git push -u origin main
+git status --short --branch
+git tag --points-at HEAD
+git push origin codex/v1-payment-ledger-20260824
+git push origin v1.0.0-rc.19
 ```
 
 ---
@@ -56,10 +59,16 @@ $env:ALLOW_GIT_PUSH=1; git push -u origin main
 ```env
 APP_ENV=production
 SPREADSHEET_ID=<ваш_id>
+INTAKE_SPREADSHEET_ID=<id_таблицы_заявок>
+INTAKE_TAB_NAME=Ruza
 SESSION_SECRET=<длинная_случайная_строка>
 SESSION_COOKIE_SECURE=true
 ALLOW_LEGACY_STAFF_LOGIN=false
 AUTH_DEBUG_CODE_IN_RESPONSE=false
+ALLOW_MANUAL_OTP_DELIVERY=false
+OTP_DELIVERY_WEBHOOK_URL=https://<sms-provider>/send
+OTP_DELIVERY_WEBHOOK_TOKEN=<секрет_провайдера>
+OTP_DELIVERY_TIMEOUT_SECONDS=8
 DISABLE_SYSTEM_PROXY_FOR_GOOGLE=true
 SHEETS_TAB_CACHE_TTL_SECONDS=15
 CORS_ALLOW_ORIGINS=https://<ваш-dashboard-домен>
@@ -68,12 +77,13 @@ API_HOST=0.0.0.0
 API_PORT=8000
 ```
 
-**Проверка после деплоя [Linux/curl с любой машины]:**
+**Проверка backend после деплоя [Linux/curl с любой машины]:**
 ```bash
 curl -sS https://<api-domain>/health
-curl -sS "https://<api-domain>/preflight/summary?date=2026-06-01" -b "icebeach_session=..." 
-# login сначала через dashboard
 ```
+
+Для доступа с iOS Safari потребуется отдельно развернуть dashboard с HTTPS и
+`VITE_API_BASE_URL=/api` либо эквивалентным same-origin reverse proxy.
 
 Подробнее: [22_TIMEWEB_BACKEND_DEPLOY.md](../icebeach-wakeclub/docs/enterprise/22_TIMEWEB_BACKEND_DEPLOY.md)
 
@@ -109,8 +119,9 @@ mkdir -p /opt/icebeach
 **[Linux]**
 ```bash
 cd /opt/icebeach
-git clone https://github.com/<org>/Ruza.git .
-# или: git pull origin main  — при обновлении
+git clone https://github.com/YaroslavValeev/Ruza.git .
+git fetch --tags origin
+git checkout v1.0.0-rc.19
 ```
 
 ### 3.3 Production env на сервере
@@ -122,15 +133,30 @@ cp .env.docker.example .env.docker
 nano .env.docker
 ```
 
+Перед любым запуском проверьте, что в `.env.docker` нет local/debug настроек:
+
+```bash
+bash scripts/server/validate-production-env.sh .env.docker
+```
+
+`deploy-api.sh` запускает эту проверку автоматически и остановит deploy, если включен debug OTP,
+manual OTP, insecure cookie, localhost CORS или placeholder values.
+
 Заполните (пример содержимого):
 ```env
 APP_ENV=production
 SPREADSHEET_ID=1Jos8absjdLueLoWXZDJS67PRHXfrQ-fnTq-yiXk2_18
+INTAKE_SPREADSHEET_ID=1kyNQVjeLLe4Ra6oWuf84fHqSjUlWXI8MakVMOrCgic0
+INTAKE_TAB_NAME=Ruza
 SESSION_SECRET=ЗАМЕНИТЕ_НА_OPENSSL_RAND
 SESSION_COOKIE_SECURE=true
 SESSION_COOKIE_NAME=icebeach_session
 ALLOW_LEGACY_STAFF_LOGIN=false
 AUTH_DEBUG_CODE_IN_RESPONSE=false
+ALLOW_MANUAL_OTP_DELIVERY=false
+OTP_DELIVERY_WEBHOOK_URL=https://sms-provider.example/send
+OTP_DELIVERY_WEBHOOK_TOKEN=ЗАМЕНИТЕ_НА_СЕКРЕТ_ПРОВАЙДЕРА
+OTP_DELIVERY_TIMEOUT_SECONDS=8
 DISABLE_SYSTEM_PROXY_FOR_GOOGLE=true
 SHEETS_TAB_CACHE_TTL_SECONDS=15
 CORS_ALLOW_ORIGINS=https://dashboard.example.com
@@ -144,61 +170,31 @@ API_PORT=8000
 openssl rand -hex 32
 ```
 
-### 3.4 Запуск API (только backend)
+### 3.4 Запуск API + Dashboard (docker compose)
 
-**[Linux]**
-```bash
-cd /opt/icebeach/icebeach-wakeclub
-docker build -t icebeach-api:latest .
-docker stop icebeach-api 2>/dev/null; docker rm icebeach-api 2>/dev/null
-docker run -d \
-  --name icebeach-api \
-  --restart unless-stopped \
-  --env-file /opt/icebeach/.env.docker \
-  -p 127.0.0.1:8000:8000 \
-  icebeach-api:latest
-```
-
-Проверка:
-```bash
-curl -sS http://127.0.0.1:8000/health
-docker logs -f --tail 100 icebeach-api
-```
-
-### 3.5 Запуск API + Dashboard (docker compose)
-
-Перед сборкой dashboard укажите публичный URL API в compose или пересоберите с build-arg.
+Dashboard собирается с `VITE_API_BASE_URL=/api`: браузер ходит на тот же HTTPS-домен,
+а dashboard nginx проксирует `/api/` в backend container. Это уменьшает CORS/cookie
+риски на iOS Safari.
 
 **[Linux]**
 ```bash
 cd /opt/icebeach
-# Отредактируйте docker-compose.yml: VITE_API_BASE_URL=https://api.example.com
+bash scripts/server/assert-clean-release-tree.sh
+bash scripts/server/validate-production-env.sh .env.docker
 docker compose --env-file .env.docker up --build -d
 docker compose ps
 curl -sS http://127.0.0.1:8000/health
+curl -sS http://127.0.0.1:5173/api/health
 curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:5173/
 ```
 
-### 3.6 Nginx + SSL (Let's Encrypt)
+### 3.5 Nginx + SSL (Let's Encrypt)
 
 **[Linux]**
 ```bash
 apt install -y nginx certbot python3-certbot-nginx
 
 cat > /etc/nginx/sites-available/icebeach <<'NGINX'
-server {
-    listen 80;
-    server_name api.example.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
 server {
     listen 80;
     server_name dashboard.example.com;
@@ -211,18 +207,20 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
+
 NGINX
 
 ln -sf /etc/nginx/sites-available/icebeach /etc/nginx/sites-enabled/icebeach
 nginx -t && systemctl reload nginx
 
-certbot --nginx -d api.example.com -d dashboard.example.com
+certbot --nginx -d dashboard.example.com
 ```
 
 После SSL обновите `CORS_ALLOW_ORIGINS` в `.env.docker` и перезапустите API:
 ```bash
-docker restart icebeach-api
-# или: cd /opt/icebeach && docker compose up -d --force-recreate api
+cd /opt/icebeach
+grep -q '^CORS_ALLOW_ORIGINS=https://dashboard.example.com$' .env.docker || echo 'Проверьте CORS_ALLOW_ORIGINS вручную'
+docker compose --env-file .env.docker up -d --force-recreate api dashboard
 ```
 
 ---
@@ -234,22 +232,13 @@ docker restart icebeach-api
 **[Linux]**
 ```bash
 cd /opt/icebeach
-git pull origin main
-cd icebeach-wakeclub
-docker build -t icebeach-api:latest .
-docker stop icebeach-api && docker rm icebeach-api
-docker run -d --name icebeach-api --restart unless-stopped \
-  --env-file /opt/icebeach/.env.docker \
-  -p 127.0.0.1:8000:8000 \
-  icebeach-api:latest
-curl -sS http://127.0.0.1:8000/health
-```
-
-С compose:
-```bash
-cd /opt/icebeach
-git pull origin main
+git fetch --tags origin
+git checkout v1.0.0-rc.19
+bash scripts/server/assert-clean-release-tree.sh
+bash scripts/server/validate-production-env.sh .env.docker
 docker compose --env-file .env.docker up --build -d
+docker compose ps
+curl -sS https://dashboard.example.com/api/health
 ```
 
 ### Логи и статус
@@ -257,16 +246,53 @@ docker compose --env-file .env.docker up --build -d
 **[Linux]**
 ```bash
 docker ps
-docker logs -f --tail 200 icebeach-api
-docker compose -f /opt/icebeach/docker-compose.yml logs -f api
+docker compose -f /opt/icebeach/docker-compose.yml logs -f api dashboard
+```
+
+### Monitoring healthcheck
+
+Read-only проверка API/dashboard с записью лога:
+
+**[Linux]**
+```bash
+cd /opt/icebeach
+mkdir -p /var/log/ruza
+bash scripts/server/healthcheck.sh \
+  --api-url "https://dashboard.example.com/api" \
+  --dashboard-url "https://dashboard.example.com" \
+  --log-file "/var/log/ruza/healthcheck.log"
+```
+
+Cron каждые 5 минут:
+
+```bash
+(crontab -l 2>/dev/null; echo '*/5 * * * * cd /opt/icebeach && bash scripts/server/healthcheck.sh --api-url "https://dashboard.example.com/api" --dashboard-url "https://dashboard.example.com" --log-file "/var/log/ruza/healthcheck.log" --alert-webhook-url "https://alert-webhook.example/ruza"') | crontab -
+```
+
+### Rollback drill
+
+Dry-run rollback plan:
+
+**[Linux]**
+```bash
+cd /opt/icebeach
+bash scripts/server/rollback-api.sh --target-tag "v1.0.0-rc.<previous>"
+```
+
+Execute rollback only after dry-run is clean:
+
+```bash
+bash scripts/server/rollback-api.sh \
+  --target-tag "v1.0.0-rc.<previous>" \
+  --deploy-command "docker compose --env-file .env.docker up --build -d" \
+  --healthcheck-command "bash scripts/server/healthcheck.sh --api-url https://dashboard.example.com/api --dashboard-url https://dashboard.example.com --log-file /var/log/ruza/healthcheck.log" \
+  --execute
 ```
 
 ### Остановка
 
 **[Linux]**
 ```bash
-docker stop icebeach-api
-# или
 cd /opt/icebeach && docker compose down
 ```
 
@@ -274,11 +300,12 @@ cd /opt/icebeach && docker compose down
 
 ## 5. Smoke / preflight на сервере
 
-После login (через dashboard или curl с cookie):
+После login (через dashboard или curl с cookie). `smoke/run` меняет данные,
+поэтому выполняйте его только на staging с тестовыми записями:
 
 **[Linux]**
 ```bash
-API=https://api.example.com
+API=https://dashboard.example.com/api
 DATE=2026-06-10
 
 curl -sS "$API/health"
@@ -293,16 +320,17 @@ curl -sS -X POST "$API/smoke/run?date=$DATE" -H "Cookie: icebeach_session=..."
 ```powershell
 cd "F:\Проекты MyWave\NEW2026\Ruza"
 .\scripts\smoke-local.ps1 -Date "2026-06-10"
-# Для удалённого API измените $ApiBase в скрипте или:
-$env:SMOKE_API_BASE = "https://api.example.com"
 ```
+
+Для удалённого HTTPS staging используйте `scripts/staging-proof.ps1` с
+`-ApiBaseUrl "https://dashboard.example.com/api"` и `-DashboardUrl "https://dashboard.example.com"`.
 
 ---
 
 ## 6. Чеклист GO / NO-GO
 
 **GO:**
-- `/health` → `{"status":"ok"}`
+- `https://dashboard.example.com/api/health` → `{"status":"ok"}`
 - preflight blockers = 0
 - smoke ok = true
 - login + KPI + bookings на staging dashboard

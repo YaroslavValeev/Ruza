@@ -46,10 +46,16 @@
 11. В разделе переменных окружения добавь:
     - `APP_ENV=production`
     - `SPREADSHEET_ID=...`
+    - `INTAKE_SPREADSHEET_ID=...`
+    - `INTAKE_TAB_NAME=Ruza`
     - `SESSION_SECRET=...`
     - `SESSION_COOKIE_SECURE=true`
     - `ALLOW_LEGACY_STAFF_LOGIN=false`
     - `AUTH_DEBUG_CODE_IN_RESPONSE=false`
+    - `ALLOW_MANUAL_OTP_DELIVERY=false`
+    - `OTP_DELIVERY_WEBHOOK_URL=https://<sms-provider>/send`
+    - `OTP_DELIVERY_WEBHOOK_TOKEN=...`
+    - `OTP_DELIVERY_TIMEOUT_SECONDS=8`
     - `DISABLE_SYSTEM_PROXY_FOR_GOOGLE=true`
     - `SHEETS_TAB_CACHE_TTL_SECONDS=15`
     - `CORS_ALLOW_ORIGINS=https://<staging-dashboard-domain>`
@@ -80,9 +86,14 @@
 Минимум:
 - `APP_ENV=production`
 - `SPREADSHEET_ID`
+- `INTAKE_SPREADSHEET_ID`
+- `INTAKE_TAB_NAME=Ruza`
 - `SESSION_SECRET`
 - `SESSION_COOKIE_SECURE=true`
 - `CORS_ALLOW_ORIGINS=https://<dashboard-domain>`
+- `ALLOW_MANUAL_OTP_DELIVERY=false`
+- `OTP_DELIVERY_WEBHOOK_URL=https://<sms-provider>/send`
+- `OTP_DELIVERY_WEBHOOK_TOKEN`
 - один из:
   - `GOOGLE_SERVICE_ACCOUNT_JSON`
   - `GOOGLE_SERVICE_ACCOUNT_JSON_INLINE`
@@ -91,6 +102,8 @@
 ## Что не делать
 - не тащить локальный путь `E:\...\service-account.json` в production env
 - не оставлять `AUTH_DEBUG_CODE_IN_RESPONSE=true`
+- не включать `ALLOW_MANUAL_OTP_DELIVERY` в production
+- не запускать production без проверенной доставки OTP на телефон
 - не ставить wildcard CORS
 - не деплоить backend без точного frontend origin
 

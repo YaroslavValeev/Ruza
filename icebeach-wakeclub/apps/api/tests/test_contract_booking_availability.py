@@ -51,11 +51,16 @@ def test_availability_contract() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert isinstance(payload, list)
-    assert len(payload) == 1
+    assert len(payload) == 30
     assert payload[0]["boat_id"] == "boat_1"
-    assert payload[0]["time"] == "10:00"
+    assert payload[0]["time"] == "07:00"
     assert payload[0]["capacity"] == 1
     assert payload[0]["available"] == 1
+    assert payload[-1]["time"] == "21:30"
+
+    outside_season = client.get("/availability?date=2026-05-31")
+    assert outside_season.status_code == 200
+    assert outside_season.json() == []
 
     app.dependency_overrides.clear()
 
