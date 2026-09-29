@@ -44,7 +44,7 @@ HTTPS production, real OTP provider, Timeweb staging/prod rollout, backup restor
 | Real OTP delivery | PARTIAL | `apps/api/app/services/otp_delivery.py` supports phone webhook and Telegram fallback; production config rejects manual OTP | Configure real `OTP_DELIVERY_WEBHOOK_URL` and token |
 | Secure cookie / HTTPS / CORS / session expiry / logout / audit | PARTIAL | Production config requires secure cookie; CORS env supported; auth routes write audit; local session/logout tests exist | Prove under HTTPS staging/prod |
 | Rate limiting login | PASS local | Auth code rate-limit settings and tests in auth contract suite | Verify on production logs |
-| Payment ledger | PASS local | `payments` and `payment_closures` schema, API routes, service, tests | Decide real payment methods/process for staff |
+| Payment ledger | PASS local | `payments` and `payment_closures` schema, API routes, service, tests | Owner decision recorded: manual Google Sheets ledger only; keep staff SOP aligned, no provider integration in v1 |
 | KPI does not count booking price as paid revenue | PASS local | `test_contract_payments.py::test_payment_rbac_and_kpi_real_money` asserts unpaid booking has `net_revenue_minor=0` and paid/refund values come from `payments` | Re-run on staging with real sheet |
 | Staging then production | BLOCKED_EXTERNAL | Timeweb runbooks exist | Requires Timeweb access and owner GO |
 | Preflight / smoke | PASS local | `scripts/preflight-local.ps1`; `scripts/smoke-local.ps1` | Run on staging/prod URLs |

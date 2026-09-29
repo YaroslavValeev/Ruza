@@ -153,6 +153,8 @@ class PaymentCreateRequest(BaseModel):
     amount_minor: int = Field(gt=0)
     method: PaymentMethod
     idempotency_key: str = Field(min_length=8, max_length=128)
+    # Metadata only: v1 keeps a manual Sheets ledger and does not integrate
+    # an external payment provider lifecycle.
     provider: str = "manual"
     external_payment_id: str = ""
     occurred_at: str | None = None

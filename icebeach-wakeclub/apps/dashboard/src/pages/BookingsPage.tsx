@@ -404,7 +404,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
         method: paymentMethod,
         idempotency_key: `${booking.booking_id}-${Date.now()}-${crypto.randomUUID()}`,
       });
-      setToast({ type: "success", message: `Оплата ${amountRubles.toLocaleString("ru-RU")} ₽ зафиксирована` });
+      setToast({ type: "success", message: `Оплата ${amountRubles.toLocaleString("ru-RU")} ₽ зафиксирована в журнале оплат` });
       setPaymentBookingId("");
       setPaymentAmount("");
       await loadDayData(date);
@@ -868,6 +868,9 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
                   <div>
                     <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/60">Оплата</div>
                     <div className="mt-1 text-sm font-black text-white">{PAYMENT_STATUS_LABELS[booking.payment_status]}</div>
+                    <div className="mt-1 text-xs text-cyan-100/60">
+                      Ручной ledger в Google Sheets: способ оплаты фиксируется оператором, эквайринг в приложении не выполняется.
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-cyan-100/60">Получено / остаток</div>
@@ -889,7 +892,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
                       <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)} className="game-input">
                         {PAYMENT_METHODS.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
                       </select>
-                      <button type="button" disabled={loading} onClick={() => void onPayment(booking)} className="game-button px-4">Принять</button>
+                      <button type="button" disabled={loading} onClick={() => void onPayment(booking)} className="game-button px-4">Зафиксировать</button>
                     </div>
                   ) : (
                     <button
@@ -900,7 +903,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
                       }}
                       className="game-button-secondary w-full"
                     >
-                      Принять оплату
+                      Зафиксировать оплату
                     </button>
                   )
                 ) : null}

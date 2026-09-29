@@ -123,6 +123,11 @@ PASS только если команда завершилась строкой 
 
 KPI production v1 считает поступления из `payments`, а не только `bookings.total_price`.
 
+Owner decision для PR #4: платежи в Ruza остаются ручным ledger в Google Sheets.
+В scope v1 не входят card acquiring, внешний payment provider, provider webhooks
+и lifecycle статусов от провайдера. Поля `provider` и `external_payment_id`
+сохраняются как audit/metadata-only.
+
 Обязательные поля:
 - `booking_id`
 - `kind`

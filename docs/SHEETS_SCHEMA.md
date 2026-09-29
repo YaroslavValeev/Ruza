@@ -121,18 +121,23 @@
 - notes
 
 ### `payments`
+- v1 scope: ручной ledger в Google Sheets. Это не эквайринг и не интеграция с
+  внешним payment provider; `provider` и `external_payment_id` хранятся только
+  как metadata/audit reference.
 - payment_id (string, unique)
 - club_id
 - booking_id
 - client_id
 - kind (charge|refund)
-- status (pending|succeeded|failed|cancelled)
-- method (cash|card_terminal|sbp|online)
+- status (pending|succeeded|failed|cancelled) — локальное ledger-состояние; в v1
+  не управляется provider webhook'ами
+- method (cash|card_terminal|sbp|online) — операторская метка способа оплаты в
+  ручном ledger
 - amount_minor (int, копейки)
 - currency (RUB)
 - paid_at (ISO datetime)
-- provider (manual|terminal|bank|online)
-- external_payment_id
+- provider (manual|terminal|bank|online) — metadata only
+- external_payment_id (optional metadata / external receipt reference)
 - idempotency_key (unique per source operation)
 - parent_payment_id (для refund)
 - occurred_at
