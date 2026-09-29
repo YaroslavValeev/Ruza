@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from packages.sheets import SheetWrapper
 
@@ -35,15 +35,34 @@ def public_booking_request(
         payload,
         source_tab=settings.intake_tab_name,
     )
-    sync_intake_leads(
+    lead_id = lead_id_for_external(request_id)
+    sync_result = sync_intake_leads(
         source_sheet,
         target_sheet,
         source_tab=settings.intake_tab_name,
         club_id=settings.public_club_id,
         actor="public-widget",
     )
+    created_lead = next(
+        (
+            row
+            for row in target_sheet.find("leads", {"lead_id": lead_id})
+            if row.get("club_id") == settings.public_club_id and row.get("external_record_id") == request_id
+        ),
+        None,
+    )
+    if created_lead is None:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "operational_lead_missing",
+                "message": "Не удалось принять заявку: операционный лид не создан.",
+                "lead_id": lead_id,
+                "sync_errors": list(sync_result.get("errors", [])),
+            },
+        )
     return PublicBookingRequestResponse(
-        lead_id=lead_id_for_external(request_id),
+        lead_id=lead_id,
         status="new",
         message="Заявка принята. Оператор свяжется для подтверждения записи.",
     )

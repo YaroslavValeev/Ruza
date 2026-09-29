@@ -9,6 +9,13 @@ from apps.api.app.main import app
 from conftest import MockSheetWrapper, make_test_settings
 
 
+class LeadsFailingSheetWrapper(MockSheetWrapper):
+    def append_row(self, tab_name: str, row: dict[str, str], *, unique_key: str | None = None) -> None:
+        if tab_name == "leads":
+            raise RuntimeError("simulated leads failure")
+        super().append_row(tab_name, row, unique_key=unique_key)
+
+
 def _source_sheet() -> MockSheetWrapper:
     return MockSheetWrapper(
         {
@@ -134,4 +141,33 @@ def test_public_booking_request_writes_canonical_source_then_lead() -> None:
     assert len(target.tabs["leads"]) == 1
     assert target.tabs["leads"][0]["external_record_id"] == source_row["request_id"]
     assert response.json()["lead_id"] == target.tabs["leads"][0]["lead_id"]
+    app.dependency_overrides.clear()
+
+
+def test_public_booking_request_fails_when_operational_lead_is_not_created() -> None:
+    source = MockSheetWrapper({"Ruza": []})
+    target = LeadsFailingSheetWrapper()
+    app.dependency_overrides[get_intake_sheet_wrapper] = lambda: source
+    app.dependency_overrides[get_sheet_wrapper] = lambda: target
+    app.dependency_overrides[get_settings] = make_test_settings
+    client = TestClient(app)
+
+    response = client.post(
+        "/public/booking-request",
+        json={
+            "full_name": "Мария Райдер",
+            "phone": "+7 999 111-22-33",
+            "date": "2026-06-15",
+            "time": "12:30",
+            "ride_type": "surf",
+            "notes": "Первая тренировка",
+        },
+    )
+    assert response.status_code == 502
+    assert len(source.tabs["Ruza"]) == 1
+    assert target.tabs["leads"] == []
+    body = response.json()
+    assert body["detail"]["code"] == "operational_lead_missing"
+    assert body["detail"]["message"] == "Не удалось принять заявку: операционный лид не создан."
+    assert body["detail"]["sync_errors"] == ["row 2: RuntimeError"]
     app.dependency_overrides.clear()
