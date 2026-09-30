@@ -18,6 +18,7 @@ from ..services.pilot import get_pilot_boat_id
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 _VERIFY_FAILS: dict[str, list[datetime]] = {}
+SESSION_PRESENCE_COOKIE = "icebeach_session_present"
 
 
 def _set_session_cookie(response: Response, *, settings: Settings, token: str) -> None:
@@ -30,10 +31,20 @@ def _set_session_cookie(response: Response, *, settings: Settings, token: str) -
         max_age=settings.session_max_age_seconds,
         path="/",
     )
+    response.set_cookie(
+        key=SESSION_PRESENCE_COOKIE,
+        value="1",
+        httponly=False,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+        max_age=settings.session_max_age_seconds,
+        path="/",
+    )
 
 
 def _clear_session_cookie(response: Response, settings: Settings) -> None:
     response.delete_cookie(settings.session_cookie_name, path="/")
+    response.delete_cookie(SESSION_PRESENCE_COOKIE, path="/")
 
 
 def _session_payload(user: dict[str, str], *, boat_id: str | None = None) -> dict[str, str]:

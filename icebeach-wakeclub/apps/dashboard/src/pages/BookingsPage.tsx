@@ -210,6 +210,12 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
   const selectedClient = clients.find((client) => client.client_id === selectedClientId) || null;
   const selectedSlot = availableSlotKey(boatId, time);
 
+  function mergeUpdatedBooking(updatedBooking: BookingItem) {
+    setBookings((currentBookings) => currentBookings.map((booking) => (
+      booking.booking_id === updatedBooking.booking_id ? { ...booking, ...updatedBooking } : booking
+    )));
+  }
+
   async function loadDayData(targetDate: string) {
     const requestId = dayRequestIdRef.current + 1;
     dayRequestIdRef.current = requestId;
@@ -292,7 +298,8 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
 
   const bookingStats = useMemo(() => ({
     total: bookings.length,
-    waiting: bookings.filter((booking) => ["confirmed", "arrived", "ready", "late"].includes(booking.status)).length,
+    // "Ожидают" в верхнем счётчике = ещё не отмечен фактический приезд.
+    waiting: bookings.filter((booking) => ["confirmed", "late"].includes(booking.status)).length,
     onWater: bookings.filter((booking) => booking.status === "in_progress").length,
     done: bookings.filter((booking) => booking.status === "done").length,
   }), [bookings]);
@@ -374,7 +381,8 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
     setToast(null);
     setLoading(true);
     try {
-      await updateBookingStatus(bookingId, status, session.token);
+      const updatedBooking = await updateBookingStatus(bookingId, status, session.token);
+      mergeUpdatedBooking(updatedBooking);
       setToast({ type: "success", message: `Статус обновлён: ${getStatusLabel(status)}` });
       await loadDayData(date);
     } catch (err) {
@@ -422,7 +430,10 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
     }
     setLoading(true);
     try {
-      await createCheckin({ method: "phone", phone: checkinPhone.trim(), date, status }, session.token);
+      const checkin = await createCheckin({ method: "phone", phone: checkinPhone.trim(), date, status }, session.token);
+      setBookings((currentBookings) => currentBookings.map((booking) => (
+        booking.booking_id === checkin.booking_id ? { ...booking, status: checkin.status as BookingStatus } : booking
+      )));
       setToast({ type: "success", message: status === "arrived" ? "Приезд отмечен" : "Готов к старту" });
       await loadDayData(date);
     } catch (err) {

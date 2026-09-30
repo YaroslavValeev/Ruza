@@ -57,6 +57,11 @@ def patch_booking_status(
     user: AuthUser = Depends(require_roles("admin", "operator", "pilot")),
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
 ) -> BookingItem:
+    if user.role == "operator" and payload.status in PILOT_ALLOWED_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operator can only hand off bookings to pilot",
+        )
     if user.role == "pilot":
         if payload.status not in PILOT_ALLOWED_STATUSES:
             raise HTTPException(

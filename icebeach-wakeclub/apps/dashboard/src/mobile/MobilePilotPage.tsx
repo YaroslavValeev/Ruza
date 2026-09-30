@@ -4,6 +4,7 @@ import { getPilotToday, updateBookingStatus } from "../api/client";
 import { BookingStatus, PilotQueueItem, StaffSession } from "../types";
 import {
   ACTION_LABELS,
+  getPilotStepHint,
   PILOT_ACTIONS,
   RIDE_TYPE_LABELS,
   STATUS_LABELS,
@@ -105,6 +106,7 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
 
   const nextAction = focusRide ? (PILOT_ACTIONS[focusRide.status] ?? [])[0] : undefined;
   const secondaryActions = focusRide ? (PILOT_ACTIONS[focusRide.status] ?? []).slice(1) : [];
+  const focusRideHint = focusRide ? getPilotStepHint(focusRide.status) : null;
 
   return (
     <div className="space-y-4">
@@ -154,6 +156,12 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
             {focusRide.time} • {RIDE_TYPE_LABELS[(focusRide.ride_type || "wakeboard") as keyof typeof RIDE_TYPE_LABELS]}
           </div>
           <span className={getStatusTone(focusRide.status)}>{STATUS_LABELS[focusRide.status] || focusRide.status}</span>
+          {focusRideHint ? (
+            <div className={`rounded-2xl border p-4 text-sm ${focusRideHint.actor === "operator" ? "border-amber-300/20 bg-amber-950/20 text-amber-100" : focusRideHint.actor === "pilot" ? "border-cyan-300/15 bg-cyan-950/20 text-cyan-50" : "border-slate-800 bg-slate-900/70 text-slate-300"}`}>
+              <div className="text-xs font-black uppercase tracking-[0.12em]">{focusRideHint.title}</div>
+              <div className="mt-2">{focusRideHint.description}</div>
+            </div>
+          ) : null}
 
           {nextAction ? (
             <button
@@ -164,11 +172,7 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
             >
               {getPrimaryActionText(nextAction)}
             </button>
-          ) : (
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-300">
-              Для этого заезда следующий шаг не требуется.
-            </div>
-          )}
+          ) : null}
 
           {secondaryActions.length > 0 ? (
             <div className="flex flex-wrap gap-2">

@@ -4,6 +4,7 @@ import { getBoats, getPilotToday, updateBookingStatus } from "../api/client";
 import { BoatItem, BookingStatus, PilotQueueItem, RideType, StaffSession } from "../types";
 import {
   ACTION_LABELS,
+  getPilotStepHint,
   PILOT_ACTIONS,
   RIDE_TYPE_LABELS,
   STATUS_LABELS,
@@ -60,7 +61,7 @@ function getProgressStep(status: BookingStatus): number {
 
 function matchesPilotFilter(item: PilotQueueItem, filter: PilotStatusFilter): boolean {
   if (filter === "all") return true;
-  if (filter === "waiting") return item.status === "confirmed" || item.status === "arrived";
+  if (filter === "waiting") return item.status === "confirmed" || item.status === "arrived" || item.status === "late";
   if (filter === "ready") return item.status === "ready";
   if (filter === "on_water") return item.status === "in_progress";
   if (filter === "done") return item.status === "done";
@@ -177,6 +178,7 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
   const filteredItems = useMemo(() => items.filter((item) => matchesPilotFilter(item, statusFilter)), [items, statusFilter]);
   const activeRide = useMemo(() => items.find((item) => item.status === "in_progress") ?? null, [items]);
   const nextRide = useMemo(() => items.find((item) => item.status === "ready") ?? items.find((item) => item.status === "arrived") ?? items.find((item) => item.status === "confirmed") ?? null, [items]);
+  const nextRideHint = nextRide ? getPilotStepHint(nextRide.status) : null;
 
   return (
     <section className="space-y-5 sm:space-y-6">
@@ -292,6 +294,12 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                   <div className="text-lg font-black text-white">{nextRide.client_name}</div>
                   <div className="text-sm text-cyan-100/70">{nextRide.time} • {RIDE_TYPE_LABELS[(nextRide.ride_type || "wakeboard") as RideType]}</div>
                   <span className={getStatusTone(nextRide.status)}>{STATUS_LABELS[nextRide.status] || nextRide.status}</span>
+                  {nextRideHint && nextRideHint.actor !== "pilot" ? (
+                    <div className="rounded-2xl border border-amber-300/20 bg-amber-950/20 px-3 py-3 text-sm text-amber-100">
+                      <div className="text-xs font-black uppercase tracking-[0.12em] text-amber-100/70">{nextRideHint.title}</div>
+                      <div className="mt-2">{nextRideHint.description}</div>
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <div className="text-sm text-slate-300">Следующий заезд пока не сформирован.</div>
@@ -315,6 +323,7 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
           const nextActions = PILOT_ACTIONS[item.status] ?? [];
           const nextPrimaryAction = nextActions[0];
           const progressStep = getProgressStep(item.status);
+          const stepHint = getPilotStepHint(item.status);
           return (
             <article key={item.booking_id} className="game-card space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -341,15 +350,24 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
               </div>
 
               {nextPrimaryAction ? (
-                <button
-                  type="button"
-                  onClick={() => void onStatusChange(item.booking_id, nextPrimaryAction)}
-                  className="game-button w-full"
-                >
-                  {getPrimaryActionText(nextPrimaryAction)}
-                </button>
+                <>
+                  <div className="rounded-2xl border border-cyan-300/15 bg-cyan-950/20 px-3 py-3 text-sm text-cyan-50">
+                    <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">{stepHint.title}</div>
+                    <div className="mt-2">{stepHint.description}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void onStatusChange(item.booking_id, nextPrimaryAction)}
+                    className="game-button w-full"
+                  >
+                    {getPrimaryActionText(nextPrimaryAction)}
+                  </button>
+                </>
               ) : (
-                <div className="game-stat p-3 text-center text-sm font-black text-white">Для этого заезда следующий шаг не требуется.</div>
+                <div className={`rounded-2xl border px-3 py-3 text-sm ${stepHint.actor === "operator" ? "border-amber-300/20 bg-amber-950/20 text-amber-100" : "border-slate-800 bg-slate-900/70 text-slate-300"}`}>
+                  <div className="text-xs font-black uppercase tracking-[0.12em]">{stepHint.title}</div>
+                  <div className="mt-2">{stepHint.description}</div>
+                </div>
               )}
 
               {nextActions.length > 1 ? (

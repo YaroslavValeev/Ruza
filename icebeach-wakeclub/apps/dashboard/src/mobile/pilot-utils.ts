@@ -1,10 +1,7 @@
 import { BookingStatus, RideType } from "../types";
 
 export const PILOT_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
-  confirmed: ["arrived"],
-  arrived: ["ready"],
   ready: ["in_progress"],
-  late: ["arrived", "no_show"],
   in_progress: ["done"],
 };
 
@@ -58,4 +55,69 @@ export function getStatusTone(status: BookingStatus): string {
   if (status === "done") return "game-badge-success";
   if (status === "late" || status === "no_show" || status === "cancelled") return "game-badge-warn";
   return "game-badge-info";
+}
+
+type PilotStepHint = {
+  actor: "pilot" | "operator" | "none";
+  title: string;
+  description: string;
+};
+
+export function getPilotStepHint(status: BookingStatus): PilotStepHint {
+  switch (status) {
+    case "confirmed":
+      return {
+        actor: "operator",
+        title: "Ждёт оператора",
+        description: "На /bookings нужно отметить приезд клиента. Пилот не принимает confirmed-заезд.",
+      };
+    case "arrived":
+      return {
+        actor: "operator",
+        title: "Ждёт передачи от оператора",
+        description: "После подготовки и инструктажа оператор или админ должен нажать «Передать пилоту» на /bookings.",
+      };
+    case "ready":
+      return {
+        actor: "pilot",
+        title: "Следующий шаг пилота",
+        description: "Когда фактический старт подтверждён, переведите заезд в «На воде».",
+      };
+    case "in_progress":
+      return {
+        actor: "pilot",
+        title: "Следующий шаг пилота",
+        description: "После фактического финиша завершите заезд кнопкой «Завершить заезд».",
+      };
+    case "late":
+      return {
+        actor: "operator",
+        title: "Ждёт решения оператора",
+        description: "Оператор или админ должен вернуть клиента в «Приехал» либо отметить «Не пришел».",
+      };
+    case "done":
+      return {
+        actor: "none",
+        title: "Заезд завершён",
+        description: "Следующий шаг не требуется.",
+      };
+    case "cancelled":
+      return {
+        actor: "none",
+        title: "Бронь отменена",
+        description: "Следующий шаг не требуется.",
+      };
+    case "no_show":
+      return {
+        actor: "none",
+        title: "Клиент не пришёл",
+        description: "Следующий шаг не требуется.",
+      };
+    default:
+      return {
+        actor: "none",
+        title: "Проверьте статус",
+        description: "Для этого заезда нужен ручной разбор статуса.",
+      };
+  }
 }

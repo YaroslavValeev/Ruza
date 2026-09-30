@@ -232,3 +232,67 @@ def test_boats_list_and_pilot_cannot_change_foreign_boat() -> None:
     own_boats = pilot.get("/boats").json()
     assert [row["boat_id"] for row in own_boats] == ["boat_1"]
     app.dependency_overrides.clear()
+
+
+def test_operator_cannot_start_ride_via_booking_status_api() -> None:
+    mock_sheet = MockSheetWrapper()
+    operator = _make_client(mock_sheet)
+    _login(operator)
+    created = operator.post(
+        "/bookings",
+        json={
+            "booking_id": "bkg_operator_start",
+            "client_id": "client_1",
+            "date": "2026-06-01",
+            "time": "10:00",
+            "boat_id": "boat_1",
+        },
+    )
+    assert created.status_code == 200
+    assert operator.post(
+        "/checkins",
+        json={"method": "phone", "phone": "+79990000011", "date": "2026-06-01", "status": "arrived", "booking_id": "bkg_operator_start"},
+    ).status_code == 200
+    assert operator.post(
+        "/checkins",
+        json={"method": "phone", "phone": "+79990000011", "date": "2026-06-01", "status": "ready", "booking_id": "bkg_operator_start"},
+    ).status_code == 200
+
+    forbidden = operator.patch("/bookings/bkg_operator_start/status", json={"status": "in_progress"})
+    assert forbidden.status_code == 403
+    current = operator.get("/bookings?date=2026-06-01").json()
+    assert next(item for item in current if item["booking_id"] == "bkg_operator_start")["status"] == "ready"
+    app.dependency_overrides.clear()
+
+
+def test_pilot_cannot_skip_ready_to_done() -> None:
+    mock_sheet = MockSheetWrapper()
+    operator = _make_client(mock_sheet)
+    _login(operator)
+    created = operator.post(
+        "/bookings",
+        json={
+            "booking_id": "bkg_skip_done",
+            "client_id": "client_1",
+            "date": "2026-06-01",
+            "time": "10:00",
+            "boat_id": "boat_1",
+        },
+    )
+    assert created.status_code == 200
+    assert operator.post(
+        "/checkins",
+        json={"method": "phone", "phone": "+79990000011", "date": "2026-06-01", "status": "arrived", "booking_id": "bkg_skip_done"},
+    ).status_code == 200
+    assert operator.post(
+        "/checkins",
+        json={"method": "phone", "phone": "+79990000011", "date": "2026-06-01", "status": "ready", "booking_id": "bkg_skip_done"},
+    ).status_code == 200
+
+    pilot = _make_client(mock_sheet)
+    _login(pilot, staff_user_id="staff_pilot", phone="+79990000002")
+    skipped = pilot.patch("/bookings/bkg_skip_done/status", json={"status": "done"})
+    assert skipped.status_code == 409
+    current = pilot.get("/pilot/today?date=2026-06-01").json()
+    assert next(item for item in current if item["booking_id"] == "bkg_skip_done")["status"] == "ready"
+    app.dependency_overrides.clear()

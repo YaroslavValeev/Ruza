@@ -15,19 +15,21 @@ def _make_client(mock_sheet: MockSheetWrapper) -> TestClient:
     return TestClient(app)
 
 
-def _login(client: TestClient, staff_user_id: str = "staff_001", phone: str = "+79990000001") -> None:
+def _login(client: TestClient, staff_user_id: str = "staff_001", phone: str = "+79990000001"):
     request_code = client.post("/auth/request-code", json={"staff_user_id": staff_user_id, "phone": phone})
     assert request_code.status_code == 200
     code = request_code.json()["debug_code"]
     verify = client.post("/auth/verify-code", json={"staff_user_id": staff_user_id, "code": code})
     assert verify.status_code == 200
+    return verify
 
 
 def test_auth_code_flow_and_me() -> None:
     mock_sheet = MockSheetWrapper()
     client = _make_client(mock_sheet)
 
-    _login(client)
+    verify = _login(client)
+    assert verify.cookies.get("icebeach_session_present") == "1"
 
     response = client.get("/auth/me")
     assert response.status_code == 200
