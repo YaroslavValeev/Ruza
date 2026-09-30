@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { getPilotToday, updateBookingStatus } from "../api/client";
-import { BookingStatus, PilotQueueItem, StaffSession } from "../types";
+import { getPilotToday } from "../api/client";
+import { PilotRideControls } from "../components/shift-timer/PilotRideControls";
+import { PilotQueueItem, StaffSession } from "../types";
 import {
-  ACTION_LABELS,
   getPilotStepHint,
-  PILOT_ACTIONS,
   RIDE_TYPE_LABELS,
   STATUS_LABELS,
-  getPrimaryActionText,
   getStatusTone,
   getToday,
 } from "./pilot-utils";
+import { formatDurationClock } from "../lib/shift-timer";
 
 type MobilePilotPageProps = {
   session: StaffSession;
@@ -92,21 +91,12 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
     }
   }, [focusRide]);
 
-  const onStatusChange = async (bookingId: string, status: BookingStatus) => {
-    setError(null);
-    setLoading(true);
-    try {
-      await updateBookingStatus(bookingId, status, session.token);
-      await loadQueue();
-    } catch (err) {
-      setError((err as Error).message);
-      setLoading(false);
-    }
-  };
-
-  const nextAction = focusRide ? (PILOT_ACTIONS[focusRide.status] ?? [])[0] : undefined;
-  const secondaryActions = focusRide ? (PILOT_ACTIONS[focusRide.status] ?? []).slice(1) : [];
   const focusRideHint = focusRide ? getPilotStepHint(focusRide.status) : null;
+  const mergeItem = (updatedItem: import("../types").BookingItem) => {
+    setItems((currentItems) => currentItems.map((item) => (
+      item.booking_id === updatedItem.booking_id ? { ...item, ...updatedItem } : item
+    )));
+  };
 
   return (
     <div className="space-y-4">
@@ -156,6 +146,9 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
             {focusRide.time} • {RIDE_TYPE_LABELS[(focusRide.ride_type || "wakeboard") as keyof typeof RIDE_TYPE_LABELS]}
           </div>
           <span className={getStatusTone(focusRide.status)}>{STATUS_LABELS[focusRide.status] || focusRide.status}</span>
+          <div className="text-sm text-cyan-100/70">
+            {formatDurationClock(focusRide.remaining_seconds)} осталось • план {focusRide.planned_duration_minutes} мин
+          </div>
           {focusRideHint ? (
             <div className={`rounded-2xl border p-4 text-sm ${focusRideHint.actor === "operator" ? "border-amber-300/20 bg-amber-950/20 text-amber-100" : focusRideHint.actor === "pilot" ? "border-cyan-300/15 bg-cyan-950/20 text-cyan-50" : "border-slate-800 bg-slate-900/70 text-slate-300"}`}>
               <div className="text-xs font-black uppercase tracking-[0.12em]">{focusRideHint.title}</div>
@@ -163,32 +156,7 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
             </div>
           ) : null}
 
-          {nextAction ? (
-            <button
-              type="button"
-              className="game-button min-h-[56px] w-full text-lg"
-              disabled={loading}
-              onClick={() => void onStatusChange(focusRide.booking_id, nextAction)}
-            >
-              {getPrimaryActionText(nextAction)}
-            </button>
-          ) : null}
-
-          {secondaryActions.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {secondaryActions.map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  className="game-button-secondary min-h-[48px] flex-1 px-3 text-sm"
-                  disabled={loading}
-                  onClick={() => void onStatusChange(focusRide.booking_id, status)}
-                >
-                  {ACTION_LABELS[status] || status}
-                </button>
-              ))}
-            </div>
-          ) : null}
+          <PilotRideControls session={session} booking={focusRide} onUpdated={mergeItem} allowTimerControls compact />
         </section>
       ) : needsBoatId ? null : (
         <section className="game-panel text-sm text-slate-300">На выбранную дату активных заездов нет.</section>
@@ -196,49 +164,30 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
 
       <section className="space-y-3">
         <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Вся очередь ({items.length})</div>
-        {items.map((item) => {
-          const actions = PILOT_ACTIONS[item.status] ?? [];
-          const primary = actions[0];
-          const secondary = actions.slice(1);
-          return (
-            <article key={item.booking_id} className="game-card space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-lg font-black text-white">{item.client_name || item.client_id}</div>
-                  <div className="mt-1 text-sm text-slate-400">
-                    {item.time} • {item.boat_id}
-                  </div>
+        {items.map((item) => (
+          <article key={item.booking_id} className="game-card space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-lg font-black text-white">{item.client_name || item.client_id}</div>
+                <div className="mt-1 text-sm text-slate-400">
+                  {item.time} • {item.boat_id}
                 </div>
-                <span className={getStatusTone(item.status)}>{STATUS_LABELS[item.status] || item.status}</span>
               </div>
-              {primary ? (
-                <button
-                  type="button"
-                  className="game-button-secondary min-h-[48px] w-full"
-                  disabled={loading}
-                  onClick={() => void onStatusChange(item.booking_id, primary)}
-                >
-                  {getPrimaryActionText(primary)}
-                </button>
-              ) : null}
-              {secondary.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {secondary.map((status) => (
-                    <button
-                      key={status}
-                      type="button"
-                      className="game-button-secondary min-h-[44px] px-3 text-xs"
-                      disabled={loading}
-                      onClick={() => void onStatusChange(item.booking_id, status)}
-                    >
-                      {ACTION_LABELS[status] || status}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </article>
-          );
-        })}
+              <span className={getStatusTone(item.status)}>{STATUS_LABELS[item.status] || item.status}</span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="game-stat p-3">
+                <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">План</div>
+                <div className="mt-1 text-sm font-black text-white">{item.planned_duration_minutes} мин</div>
+              </div>
+              <div className="game-stat p-3">
+                <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Осталось</div>
+                <div className="mt-1 text-sm font-black text-white">{formatDurationClock(item.remaining_seconds)}</div>
+              </div>
+            </div>
+            <PilotRideControls session={session} booking={item} onUpdated={mergeItem} allowTimerControls compact />
+          </article>
+        ))}
       </section>
     </div>
   );

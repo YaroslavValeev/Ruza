@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { getBoats, getPilotToday, updateBookingStatus } from "../api/client";
+import { PilotRideControls } from "../components/shift-timer/PilotRideControls";
 import { BoatItem, BookingStatus, PilotQueueItem, RideType, StaffSession } from "../types";
 import {
-  ACTION_LABELS,
   getPilotStepHint,
   PILOT_ACTIONS,
   RIDE_TYPE_LABELS,
   STATUS_LABELS,
-  getPrimaryActionText,
   getStatusTone,
   getToday,
 } from "../mobile/pilot-utils";
+import { formatDurationClock } from "../lib/shift-timer";
 
 type PilotPageProps = {
   session: StaffSession;
@@ -173,6 +173,12 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
     }
   };
 
+  const mergeItem = (updatedItem: import("../types").BookingItem) => {
+    setItems((currentItems) => currentItems.map((item) => (
+      item.booking_id === updatedItem.booking_id ? { ...item, ...updatedItem } : item
+    )));
+  };
+
   const dateLabel = period === "week" ? "Опорная дата недели" : period === "season" ? "Опорная дата сезона" : "Дата";
 
   const filteredItems = useMemo(() => items.filter((item) => matchesPilotFilter(item, statusFilter)), [items, statusFilter]);
@@ -282,6 +288,9 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                   <div className="text-lg font-black text-white">{activeRide.client_name}</div>
                   <div className="text-sm text-cyan-100/70">{activeRide.time} • {RIDE_TYPE_LABELS[(activeRide.ride_type || "wakeboard") as RideType]}</div>
                   <span className={getStatusTone(activeRide.status)}>{STATUS_LABELS[activeRide.status] || activeRide.status}</span>
+                  <div className="text-sm text-cyan-100/70">
+                    {formatDurationClock(activeRide.remaining_seconds)} осталось • план {activeRide.planned_duration_minutes} мин
+                  </div>
                 </>
               ) : (
                 <div className="text-sm text-slate-300">Сейчас нет активного заезда.</div>
@@ -294,6 +303,7 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                   <div className="text-lg font-black text-white">{nextRide.client_name}</div>
                   <div className="text-sm text-cyan-100/70">{nextRide.time} • {RIDE_TYPE_LABELS[(nextRide.ride_type || "wakeboard") as RideType]}</div>
                   <span className={getStatusTone(nextRide.status)}>{STATUS_LABELS[nextRide.status] || nextRide.status}</span>
+                  <div className="text-sm text-cyan-100/70">План {nextRide.planned_duration_minutes} мин • {nextRide.sets_count} сет.</div>
                   {nextRideHint && nextRideHint.actor !== "pilot" ? (
                     <div className="rounded-2xl border border-amber-300/20 bg-amber-950/20 px-3 py-3 text-sm text-amber-100">
                       <div className="text-xs font-black uppercase tracking-[0.12em] text-amber-100/70">{nextRideHint.title}</div>
@@ -320,8 +330,6 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
 
       <section className="grid gap-4 xl:grid-cols-2">
         {filteredItems.map((item) => {
-          const nextActions = PILOT_ACTIONS[item.status] ?? [];
-          const nextPrimaryAction = nextActions[0];
           const progressStep = getProgressStep(item.status);
           const stepHint = getPilotStepHint(item.status);
           return (
@@ -341,6 +349,21 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                 </div>
               </div>
 
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="game-stat p-3">
+                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">План</div>
+                  <div className="mt-1 text-sm font-black text-white">{item.planned_duration_minutes} мин</div>
+                </div>
+                <div className="game-stat p-3">
+                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Осталось</div>
+                  <div className="mt-1 text-sm font-black text-white">{formatDurationClock(item.remaining_seconds)}</div>
+                </div>
+                <div className="game-stat p-3">
+                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Разминка</div>
+                  <div className="mt-1 text-sm font-black text-white">{item.warmup_state === "warmed_up" ? "Размялся" : item.warmup_state === "no_warmup" ? "Без разминки" : "Ещё не отмечена"}</div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-5 gap-2">
                 {[1, 2, 3, 4, 5].map((step) => (
                   <div key={step} className={`rounded-2xl px-2 py-2 text-center text-xs font-black uppercase tracking-[0.08em] ${step <= progressStep ? "bg-cyan-400/20 text-cyan-50 ring-1 ring-cyan-300/35" : "bg-slate-950/80 text-slate-500 ring-1 ring-slate-800"}`}>
@@ -349,41 +372,17 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                 ))}
               </div>
 
-              {nextPrimaryAction ? (
-                <>
-                  <div className="rounded-2xl border border-cyan-300/15 bg-cyan-950/20 px-3 py-3 text-sm text-cyan-50">
-                    <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">{stepHint.title}</div>
-                    <div className="mt-2">{stepHint.description}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void onStatusChange(item.booking_id, nextPrimaryAction)}
-                    className="game-button w-full"
-                  >
-                    {getPrimaryActionText(nextPrimaryAction)}
-                  </button>
-                </>
-              ) : (
-                <div className={`rounded-2xl border px-3 py-3 text-sm ${stepHint.actor === "operator" ? "border-amber-300/20 bg-amber-950/20 text-amber-100" : "border-slate-800 bg-slate-900/70 text-slate-300"}`}>
-                  <div className="text-xs font-black uppercase tracking-[0.12em]">{stepHint.title}</div>
-                  <div className="mt-2">{stepHint.description}</div>
-                </div>
-              )}
+              <div className={`rounded-2xl border px-3 py-3 text-sm ${stepHint.actor === "operator" ? "border-amber-300/20 bg-amber-950/20 text-amber-100" : "border-slate-800 bg-slate-900/70 text-slate-300"}`}>
+                <div className="text-xs font-black uppercase tracking-[0.12em]">{stepHint.title}</div>
+                <div className="mt-2">{stepHint.description}</div>
+              </div>
 
-              {nextActions.length > 1 ? (
-                <div className="flex flex-wrap gap-2">
-                  {nextActions.slice(1).map((nextStatus) => (
-                    <button
-                      key={nextStatus}
-                      type="button"
-                      onClick={() => void onStatusChange(item.booking_id, nextStatus)}
-                      className="game-button-secondary px-3 text-xs"
-                    >
-                      {ACTION_LABELS[nextStatus] || nextStatus}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+              <PilotRideControls
+                session={session}
+                booking={item}
+                onUpdated={mergeItem}
+                allowTimerControls
+              />
             </article>
           );
         })}

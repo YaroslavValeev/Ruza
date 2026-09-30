@@ -12,6 +12,16 @@ from .availability import get_availability_for_date
 from .common import parse_bool
 from .gender import infer_gender_from_full_name
 from .payments import payment_summaries_by_booking
+from .ride_runtime import (
+    compute_elapsed_seconds,
+    compute_remaining_seconds,
+    iter_booking_slots,
+    offset_time_text,
+    parse_actual_duration_seconds,
+    parse_sets_count,
+    planned_duration_minutes,
+    timer_state,
+)
 
 FINAL_BOOKING_STATUSES = {"done", "cancelled", "no_show"}
 ACTIVE_BOOKING_STATUSES = {"confirmed", "arrived", "ready", "in_progress", "late"}
@@ -29,6 +39,23 @@ ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
 RIDE_TYPE_NOTE_PREFIX = "[ride_type:"
 WETSUIT_SIZE_NOTE_PREFIX = "[wetsuit_size:"
 WETSUIT_GENDER_NOTE_PREFIX = "[wetsuit_gender:"
+RIDE_RUNTIME_DEFAULTS = {
+    "warmup_state": "pending",
+    "timer_state": "idle",
+    "timer_started_at": "",
+    "timer_anchor_at": "",
+    "elapsed_seconds": "0",
+    "actual_duration_seconds": "0",
+    "admin_notice_15_sent_at": "",
+    "admin_notice_5_sent_at": "",
+    "client_notice_15_sent_at": "",
+    "client_notice_5_sent_at": "",
+    "next_client_notified_at": "",
+}
+
+
+def _required_slot_times(time_text: str, sets_count: int) -> list[str]:
+    return [offset_time_text(time_text, index) for index in range(sets_count)]
 
 
 def _get_pricing(sheet: SheetWrapper, booking_date: str, club_id: str) -> dict[str, str | int]:
@@ -108,6 +135,8 @@ def _booking_to_item(
 ) -> dict[str, str | int | bool]:
     client = clients.get(row.get("client_id", ""), {})
     notes, ride_type, wetsuit_required, wetsuit_size, wetsuit_gender = _extract_booking_meta(row.get("notes", ""))
+    elapsed_seconds = compute_elapsed_seconds(row)
+    actual_duration_seconds = parse_actual_duration_seconds(row)
     item: dict[str, str | int | bool] = {
         "booking_id": row.get("booking_id", ""),
         "client_id": row.get("client_id", ""),
@@ -120,9 +149,18 @@ def _booking_to_item(
         "coach_required": parse_bool(row.get("coach_required")),
         "coach_user_id": row.get("coach_user_id") or None,
         "ride_type": row.get("ride_type") or ride_type or "wakeboard",
+        "sets_count": parse_sets_count(row),
+        "planned_duration_minutes": planned_duration_minutes(row),
         "wetsuit_required": parse_bool(row.get("wetsuit_required")) or wetsuit_required,
         "wetsuit_size": row.get("wetsuit_size") or wetsuit_size,
         "wetsuit_gender": row.get("wetsuit_gender") or wetsuit_gender or infer_gender_from_full_name(client.get("full_name", "")),
+        "warmup_state": row.get("warmup_state", "pending") or "pending",
+        "timer_state": timer_state(row),
+        "timer_started_at": row.get("timer_started_at", ""),
+        "timer_anchor_at": row.get("timer_anchor_at", ""),
+        "elapsed_seconds": elapsed_seconds,
+        "remaining_seconds": compute_remaining_seconds(row),
+        "actual_duration_seconds": actual_duration_seconds,
         "total_price": int(row.get("total_price") or 0),
         "notes": notes,
     }
@@ -158,16 +196,16 @@ def create_booking(
         }
 
     availability = get_availability_for_date(sheet, booking_date, club_id)
-    target_slot = next(
-        (
-            slot
-            for slot in availability
-            if slot["boat_id"] == payload.boat_id and slot["time"] == payload.time and slot["status"] == "active"
-        ),
-        None,
-    )
-    if not target_slot or target_slot["available"] <= 0:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No capacity for selected slot")
+    required_slot_times = _required_slot_times(payload.time, payload.sets_count)
+    matching_slots = {
+        slot["time"]: slot
+        for slot in availability
+        if slot["boat_id"] == payload.boat_id and slot["time"] in required_slot_times and slot["status"] == "active"
+    }
+    if len(matching_slots) != len(required_slot_times):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No capacity for selected slot duration")
+    if any(matching_slots[time_text]["available"] <= 0 for time_text in required_slot_times):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No capacity for selected slot duration")
 
     pricing = _get_pricing(sheet, booking_date, club_id)
     base_price = int(pricing["base_price"])
@@ -201,31 +239,34 @@ def create_booking(
             wetsuit_gender=payload.wetsuit_gender,
         ),
         "ride_type": payload.ride_type,
+        "sets_count": payload.sets_count,
         "wetsuit_required": payload.wetsuit_required,
         "wetsuit_size": payload.wetsuit_size or "",
         "wetsuit_gender": payload.wetsuit_gender or "",
+        **RIDE_RUNTIME_DEFAULTS,
     }
     sheet.append_row("bookings", booking_row, unique_key="booking_id")
 
-    slot_bookings = [
+    booking_rows = [
         row
         for row in sheet.read_tab("bookings")
         if row.get("club_id") == club_id
         and row.get("date") == booking_date
         and row.get("boat_id") == payload.boat_id
-        and row.get("time") == payload.time
         and row.get("status") not in {"cancelled", "no_show"}
     ]
-    if len(slot_bookings) > int(target_slot["capacity"]):
-        sheet.update_by_id(
-            "bookings",
-            "booking_id",
-            booking_id,
-            {"status": "cancelled", "updated_at": now_iso, "notes": "Auto-cancelled after overbook protection"},
-            actor=actor_staff_user_id,
-            audit_entity="booking",
-        )
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No capacity for selected slot")
+    for slot_time in required_slot_times:
+        occupied = sum(1 for row in booking_rows if slot_time in iter_booking_slots(row))
+        if occupied > int(matching_slots[slot_time]["capacity"]):
+            sheet.update_by_id(
+                "bookings",
+                "booking_id",
+                booking_id,
+                {"status": "cancelled", "updated_at": now_iso, "notes": "Auto-cancelled after duration overbook protection"},
+                actor=actor_staff_user_id,
+                audit_entity="booking",
+            )
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No capacity for selected slot duration")
 
     sheet.write_audit(
         action="create",
@@ -262,6 +303,14 @@ def list_bookings(
     return [_booking_to_item(row, clients, summaries.get(row.get("booking_id", ""))) for row in rows]
 
 
+def get_booking_row(sheet: SheetWrapper, *, booking_id: str, club_id: str) -> dict[str, str]:
+    rows = sheet.find("bookings", {"booking_id": booking_id})
+    row = next((item for item in rows if item.get("club_id") == club_id), None)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+    return row
+
+
 def update_booking_status(
     sheet: SheetWrapper,
     *,
@@ -270,10 +319,7 @@ def update_booking_status(
     actor_staff_user_id: str,
     club_id: str,
 ) -> dict[str, str | int | bool]:
-    rows = sheet.find("bookings", {"booking_id": booking_id})
-    row = next((item for item in rows if item.get("club_id") == club_id), None)
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+    row = get_booking_row(sheet, booking_id=booking_id, club_id=club_id)
 
     current_status = row.get("status", "confirmed")
     if current_status == status_value:

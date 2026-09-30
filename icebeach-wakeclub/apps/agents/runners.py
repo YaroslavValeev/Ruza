@@ -34,6 +34,12 @@ def run_late_marker(settings: AgentsSettings | None = None) -> dict[str, object]
     return {"agent": "late_marker", "marked_late": marked}
 
 
+def run_shift_reminders(settings: AgentsSettings | None = None) -> dict[str, object]:
+    settings = settings or get_agents_settings()
+    payload = call_agents_api(settings, "POST", "/internal/agents/shift-reminders")
+    return {"agent": "shift_reminders", **payload}
+
+
 def run_shift_snapshot(settings: AgentsSettings | None = None) -> dict[str, object]:
     settings = settings or get_agents_settings()
     today = date.today().isoformat()

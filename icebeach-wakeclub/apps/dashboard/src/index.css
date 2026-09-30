@@ -201,5 +201,178 @@ a {
     word-break: break-word;
     white-space: normal;
   }
+
+  .shift-strip {
+    transition: opacity 220ms ease, transform 220ms ease;
+  }
+
+  .shift-strip-water {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, rgba(89, 227, 255, 0.08) 0%, rgba(89, 227, 255, 0.02) 32%, transparent 60%),
+      radial-gradient(circle at 12% 50%, rgba(255, 180, 77, 0.16), transparent 20%);
+    opacity: 0.85;
+    animation: shift-strip-water 9s ease-in-out infinite;
+  }
+
+  .shift-step {
+    @apply rounded-2xl border px-2 py-2 text-center text-[10px] font-black uppercase tracking-[0.08em] text-slate-500 sm:text-[11px];
+    background: rgba(2, 9, 18, 0.72);
+    border-color: rgba(112, 188, 255, 0.12);
+    transition: background-color 260ms ease, border-color 260ms ease, color 260ms ease, transform 260ms ease;
+  }
+
+  .shift-step-active {
+    background: linear-gradient(180deg, rgba(89, 227, 255, 0.18) 0%, rgba(24, 72, 153, 0.34) 100%);
+    border-color: rgba(89, 227, 255, 0.36);
+    color: rgba(239, 250, 255, 0.96);
+    transform: translateY(-1px);
+  }
+
+  .shift-progress {
+    @apply h-1.5 overflow-hidden rounded-full;
+    background: rgba(12, 24, 43, 0.9);
+  }
+
+  .shift-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(89, 227, 255, 0.84) 0%, rgba(255, 180, 77, 0.65) 100%);
+    box-shadow: 0 0 14px rgba(89, 227, 255, 0.18);
+    transition: width 320ms ease, background-color 240ms ease;
+  }
+
+  .shift-clock {
+    @apply rounded-2xl border px-4 py-2 text-right text-2xl font-black text-white;
+    min-width: 7.25rem;
+    font-variant-numeric: tabular-nums;
+    transition: color 220ms ease, border-color 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
+  }
+
+  .shift-clock-cool {
+    background: rgba(7, 16, 30, 0.82);
+    border-color: rgba(89, 227, 255, 0.18);
+  }
+
+  .shift-clock-warm {
+    background: rgba(46, 27, 10, 0.42);
+    border-color: rgba(255, 180, 77, 0.28);
+    color: #ffe3bf;
+  }
+
+  .shift-clock-hot {
+    background: rgba(66, 32, 14, 0.48);
+    border-color: rgba(255, 180, 77, 0.44);
+    color: #fff0da;
+    box-shadow: 0 0 0 1px rgba(255, 180, 77, 0.08);
+  }
+
+  .pilot-boat-button {
+    @apply flex w-full items-center gap-3 rounded-[24px] border px-4 py-4 text-left text-white;
+    min-height: 5.25rem;
+    background: linear-gradient(180deg, rgba(16, 35, 61, 0.98) 0%, rgba(12, 25, 43, 0.98) 100%);
+    border-color: rgba(89, 227, 255, 0.22);
+    transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
+    touch-action: manipulation;
+  }
+
+  .pilot-boat-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 30px rgba(10, 24, 48, 0.26);
+  }
+
+  .pilot-boat-button:disabled {
+    @apply cursor-not-allowed opacity-60;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .pilot-boat-button-idle {
+    background: linear-gradient(180deg, rgba(22, 42, 68, 0.98) 0%, rgba(14, 27, 47, 0.98) 100%);
+  }
+
+  .pilot-boat-button-running {
+    border-color: rgba(89, 227, 255, 0.44);
+    box-shadow: 0 16px 28px rgba(36, 112, 214, 0.24);
+  }
+
+  .pilot-boat-button-paused {
+    border-color: rgba(255, 180, 77, 0.32);
+    background: linear-gradient(180deg, rgba(46, 30, 16, 0.92) 0%, rgba(26, 19, 14, 0.96) 100%);
+  }
+
+  .pilot-boat-icon {
+    @apply flex items-center justify-center rounded-2xl border;
+    min-width: 5.25rem;
+    min-height: 4rem;
+    background: rgba(5, 15, 28, 0.6);
+    border-color: rgba(89, 227, 255, 0.16);
+    overflow: hidden;
+  }
+
+  .pilot-boat-copy {
+    @apply flex min-w-0 flex-1 flex-col;
+  }
+
+  .pilot-boat-label {
+    @apply text-base font-black uppercase tracking-[0.06em];
+  }
+
+  .pilot-boat-subtitle {
+    @apply mt-1 text-sm;
+    color: rgba(217, 249, 255, 0.72);
+  }
+
+  .pilot-boat-svg-idle {
+    transition: transform 260ms ease;
+  }
+
+  .pilot-boat-svg-running {
+    transform: translateX(4px) rotate(-6deg);
+    transition: transform 260ms ease;
+  }
+
+  .pilot-boat-svg-paused {
+    transform: translateX(1px) rotate(-1deg);
+    transition: transform 260ms ease;
+  }
+
+  .pilot-boat-wake {
+    opacity: 0.28;
+    transition: opacity 220ms ease;
+  }
+
+  .pilot-boat-svg-running .pilot-boat-wake {
+    opacity: 0.9;
+  }
+}
+
+@keyframes shift-strip-water {
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.72;
+  }
+  50% {
+    transform: translateX(1.5%);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shift-strip,
+  .shift-strip-water,
+  .shift-step,
+  .shift-progress-fill,
+  .shift-clock,
+  .pilot-boat-button,
+  .pilot-boat-svg-idle,
+  .pilot-boat-svg-running,
+  .pilot-boat-svg-paused,
+  .pilot-boat-wake {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 

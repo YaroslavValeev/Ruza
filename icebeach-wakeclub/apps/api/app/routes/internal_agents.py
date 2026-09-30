@@ -15,6 +15,7 @@ from ..models import (
     MarkLateResponse,
     IntakeSyncResponse,
     PreflightSummaryResponse,
+    ShiftReminderRunResponse,
     ShiftSummary,
 )
 from ..services.analytics_snapshot import write_analytics_snapshot
@@ -22,6 +23,7 @@ from ..services.checkins import mark_late_checkins
 from ..services.daily_brief import build_daily_brief
 from ..services.preflight import run_preflight_check
 from ..services.intake import sync_intake_leads
+from ..services.shift_timer import process_shift_reminders
 
 
 router = APIRouter(prefix="/internal/agents", tags=["internal-agents"])
@@ -110,3 +112,17 @@ def agents_daily_brief(
         ),
         upcoming=[DailyBriefUpcomingItem(**item) for item in brief.get("upcoming", [])],  # type: ignore[arg-type]
     )
+
+
+@router.post("/shift-reminders", response_model=ShiftReminderRunResponse, dependencies=[Depends(verify_agents_secret)])
+def agents_shift_reminders(
+    sheet: SheetWrapper = Depends(get_sheet_wrapper),
+    settings: Settings = Depends(get_settings),
+) -> ShiftReminderRunResponse:
+    result = process_shift_reminders(
+        sheet,
+        settings,
+        club_id=settings.public_club_id,
+        actor_staff_user_id=settings.agents_staff_user_id,
+    )
+    return ShiftReminderRunResponse(**result)

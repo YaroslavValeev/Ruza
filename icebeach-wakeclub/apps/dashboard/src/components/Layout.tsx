@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 
 import { ApiHealthBadge } from "./ApiHealthBadge";
+import { LiveShiftStrip } from "./shift-timer/LiveShiftStrip";
 import { BUILD_STAMP } from "../constants/build";
 import { getDefaultRouteForRole, useAuth } from "../auth/session";
 import { StaffRole } from "../types";
@@ -90,6 +91,10 @@ export function Layout({ children }: { children: React.ReactNode }): JSX.Element
           </div>
         </div>
       </header>
+
+      <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
+        <LiveShiftStrip session={session} />
+      </div>
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">{children}</main>
     </div>

@@ -20,9 +20,12 @@ import {
   PreflightSummary,
   PublicBookingRequest,
   PublicBookingRequestResponse,
+  RideTimerAction,
   ShiftToday,
+  ShiftLive,
   SmokeSummary,
   StaffSession,
+  BookingPrepUpdateRequest,
 } from "../types";
 import { emitAuthFailure } from "../auth/auth-events";
 
@@ -259,6 +262,15 @@ export function getShiftToday(date: string, token?: string): Promise<ShiftToday>
   return fetchApi<ShiftToday>(`/shift/today?date=${encodeURIComponent(date)}`, { token });
 }
 
+export function getShiftLive(token?: string, date?: string): Promise<ShiftLive> {
+  const search = new URLSearchParams();
+  if (date) {
+    search.set("date", date);
+  }
+  const suffix = search.toString();
+  return fetchApi<ShiftLive>(`/shift/live${suffix ? `?${suffix}` : ""}`, { token });
+}
+
 export function getClientStats(clientId: string, token?: string): Promise<ClientStats> {
   return fetchApi<ClientStats>(`/clients/${encodeURIComponent(clientId)}/stats`, { token });
 }
@@ -330,6 +342,24 @@ export function updateBookingStatus(bookingId: string, status: BookingStatus, to
     method: "PATCH",
     token,
     body: JSON.stringify({ status }),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function updateBookingPrep(bookingId: string, payload: BookingPrepUpdateRequest, token?: string): Promise<BookingItem> {
+  return fetchApi<BookingItem>(`/bookings/${encodeURIComponent(bookingId)}/prep`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function runBookingTimerAction(bookingId: string, action: RideTimerAction, token?: string): Promise<BookingItem> {
+  return fetchApi<BookingItem>(`/bookings/${encodeURIComponent(bookingId)}/timer-action`, {
+    method: "POST",
+    token,
+    body: JSON.stringify({ action }),
     headers: { "Content-Type": "application/json" },
   });
 }

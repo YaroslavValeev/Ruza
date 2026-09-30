@@ -45,6 +45,7 @@ def post_client(
         club_id=user.club_id,
         full_name=payload.full_name,
         phone=payload.phone,
+        telegram_id=payload.telegram_id,
         consent_face=payload.consent_face,
         consent_voice=payload.consent_voice,
         actor=user.staff_user_id,
