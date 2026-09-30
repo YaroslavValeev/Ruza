@@ -8,7 +8,18 @@
 - **Backend:** Python 3.11, FastAPI, Google Sheets API
 - **Frontend:** React 18, Vite 5, Tailwind CSS
 - **Auth:** RBAC по `staff_users` в Sheets, cookie session + SMS-код
-- **Deploy:** Docker → Timeweb App Platform (staging)
+- **Deploy:** Docker; внешний deployment пока не согласован
+
+## Infrastructure placement
+
+Каноническая карта серверов и проектов: [docs/MYWAVE_INFRASTRUCTURE.md](docs/MYWAVE_INFRASTRUCTURE.md).
+
+Deployment-карточка проекта сейчас:
+
+`Club Box/Ruza CRM → NOT DEPLOYED → TBD → TBD → YaroslavValeev/Ruza → TBD → Google Sheets / backup policy TBD`
+
+Не создавать для Ruza новый VPS, Docker Compose project, базу данных,
+верхнеуровневую папку или nginx vhost до согласования всех полей карточки.
 
 ## Source of Truth
 
@@ -134,6 +145,7 @@ Ruza/
 ## Документация
 
 - **[docs/MYWAVE_NORTH_STAR.md](docs/MYWAVE_NORTH_STAR.md)** — путеводная звезда команды (стратегия MyWave → приоритеты Ruza)
+- **[docs/MYWAVE_INFRASTRUCTURE.md](docs/MYWAVE_INFRASTRUCTURE.md)** — канонические серверы, продукты и deployment-карточка Ruza
 - [docs/SHEETS_SCHEMA.md](docs/SHEETS_SCHEMA.md) — контракт табов
 - **[docs/SERVER_COMMANDS.md](docs/SERVER_COMMANDS.md)** — команды для VPS / Timeweb / Docker
 - [docs/STAGING_DEPLOY.md](docs/STAGING_DEPLOY.md) — staging runbook

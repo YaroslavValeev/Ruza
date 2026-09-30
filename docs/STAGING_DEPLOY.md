@@ -1,5 +1,11 @@
 # Timeweb Staging — Operator Runbook
 
+> **HOLD:** deployment target для Club Box/Ruza CRM не согласован. До заполнения
+> карточки `Product → Environment → Server → Canonical Folder → GitHub Repository
+> → Domain/API → Database/Backup` нельзя создавать App Platform application,
+> каталог на S1, Docker Compose project, nginx vhost или отдельную БД. См.
+> [MYWAVE_INFRASTRUCTURE.md](MYWAVE_INFRASTRUCTURE.md).
+
 После **2× green smoke** в local Docker:
 
 ## 1. Push (оператор)
@@ -10,7 +16,7 @@ git push -u origin codex/v1-payment-ledger-20260824
 git push origin v1.0.0-rc.19
 ```
 
-## 2. Timeweb App Platform
+## 2. Timeweb App Platform (legacy proposal, не выполнять без согласования)
 
 См. [22_TIMEWEB_BACKEND_DEPLOY.md](../icebeach-wakeclub/docs/enterprise/22_TIMEWEB_BACKEND_DEPLOY.md)
 

@@ -2,9 +2,27 @@
 
 Копируй блоки по порядку. Метки: **[PowerShell]** — Windows, **[Linux]** — VPS/Ubuntu.
 
+> **HOLD:** это технический runbook, а не утверждение placement. Каноническая
+> карта находится в [MYWAVE_INFRASTRUCTURE.md](MYWAVE_INFRASTRUCTURE.md).
+> Карточка Ruza сейчас содержит `NOT DEPLOYED / Server TBD / Canonical Folder TBD`.
+> Не выполняйте серверные команды до согласования environment, server,
+> canonical folder, domain/API и database/backup.
+
+После согласования оператор задает утвержденные server ID и абсолютный путь:
+
+```bash
+export MYWAVE_SERVER_ID='<APPROVED_SERVER_ID>'
+export RUZA_ROOT='/approved/canonical/folder'
+test "${MYWAVE_SERVER_ID}" != 'S3'
+test -n "${RUZA_ROOT}" && test "${RUZA_ROOT#/}" != "${RUZA_ROOT}" && test "${RUZA_ROOT}" != '/approved/canonical/folder'
+```
+
+Значение `/approved/canonical/folder` является маркером и не должно использоваться
+буквально.
+
 ---
 
-## 0. Что поднять
+## 0. Исторические варианты (ни один пока не утвержден)
 
 | Вариант | Когда |
 |---------|--------|
@@ -44,7 +62,7 @@ git push origin v1.0.0-rc.19
 
 ---
 
-## 2. Вариант A — Timeweb App Platform (без SSH)
+## 2. Вариант A — Timeweb App Platform (не утвержден)
 
 В панели Timeweb → Apps → GitHub → репозиторий **Ruza**:
 
@@ -89,7 +107,7 @@ curl -sS https://<api-domain>/health
 
 ---
 
-## 3. Вариант B — VPS Ubuntu (рекомендуется для production-like)
+## 3. Вариант B — VPS Ubuntu (не утвержден)
 
 ### 3.1 Первичная установка Docker
 
@@ -111,14 +129,15 @@ ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
 
-mkdir -p /opt/icebeach
+# Только после архитектурного согласования RUZA_ROOT:
+mkdir -p "${RUZA_ROOT}"
 ```
 
 ### 3.2 Клонирование репозитория
 
 **[Linux]**
 ```bash
-cd /opt/icebeach
+cd "${RUZA_ROOT}"
 git clone https://github.com/YaroslavValeev/Ruza.git .
 git fetch --tags origin
 git checkout v1.0.0-rc.19
@@ -128,7 +147,7 @@ git checkout v1.0.0-rc.19
 
 **[Linux]**
 ```bash
-cd /opt/icebeach
+cd "${RUZA_ROOT}"
 cp .env.docker.example .env.docker
 nano .env.docker
 ```
@@ -178,7 +197,7 @@ Dashboard собирается с `VITE_API_BASE_URL=/api`: браузер хо�
 
 **[Linux]**
 ```bash
-cd /opt/icebeach
+cd "${RUZA_ROOT}"
 bash scripts/server/assert-clean-release-tree.sh
 bash scripts/server/validate-production-env.sh .env.docker
 docker compose --env-file .env.docker up --build -d
@@ -218,7 +237,7 @@ certbot --nginx -d dashboard.example.com
 
 После SSL обновите `CORS_ALLOW_ORIGINS` в `.env.docker` и перезапустите API:
 ```bash
-cd /opt/icebeach
+cd "${RUZA_ROOT}"
 grep -q '^CORS_ALLOW_ORIGINS=https://dashboard.example.com$' .env.docker || echo 'Проверьте CORS_ALLOW_ORIGINS вручную'
 docker compose --env-file .env.docker up -d --force-recreate api dashboard
 ```
@@ -231,7 +250,7 @@ docker compose --env-file .env.docker up -d --force-recreate api dashboard
 
 **[Linux]**
 ```bash
-cd /opt/icebeach
+cd "${RUZA_ROOT}"
 git fetch --tags origin
 git checkout v1.0.0-rc.19
 bash scripts/server/assert-clean-release-tree.sh
@@ -246,7 +265,7 @@ curl -sS https://dashboard.example.com/api/health
 **[Linux]**
 ```bash
 docker ps
-docker compose -f /opt/icebeach/docker-compose.yml logs -f api dashboard
+docker compose -f "${RUZA_ROOT}/docker-compose.yml" logs -f api dashboard
 ```
 
 ### Monitoring healthcheck
@@ -255,7 +274,7 @@ Read-only проверка API/dashboard с записью лога:
 
 **[Linux]**
 ```bash
-cd /opt/icebeach
+cd "${RUZA_ROOT}"
 mkdir -p /var/log/ruza
 bash scripts/server/healthcheck.sh \
   --api-url "https://dashboard.example.com/api" \
@@ -266,7 +285,9 @@ bash scripts/server/healthcheck.sh \
 Cron каждые 5 минут:
 
 ```bash
-(crontab -l 2>/dev/null; echo '*/5 * * * * cd /opt/icebeach && bash scripts/server/healthcheck.sh --api-url "https://dashboard.example.com/api" --dashboard-url "https://dashboard.example.com" --log-file "/var/log/ruza/healthcheck.log" --alert-webhook-url "https://alert-webhook.example/ruza"') | crontab -
+# Подставить уже утвержденный canonical folder в cron явно; переменная shell
+# RUZA_ROOT не переносится в cron автоматически.
+(crontab -l 2>/dev/null; echo '*/5 * * * * cd <APPROVED_CANONICAL_FOLDER> && bash scripts/server/healthcheck.sh --api-url "https://dashboard.example.com/api" --dashboard-url "https://dashboard.example.com" --log-file "/var/log/ruza/healthcheck.log" --alert-webhook-url "https://alert-webhook.example/ruza"') | crontab -
 ```
 
 ### Rollback drill
@@ -275,7 +296,7 @@ Dry-run rollback plan:
 
 **[Linux]**
 ```bash
-cd /opt/icebeach
+cd "${RUZA_ROOT}"
 bash scripts/server/rollback-api.sh --target-tag "v1.0.0-rc.<previous>"
 ```
 
@@ -293,7 +314,7 @@ bash scripts/server/rollback-api.sh \
 
 **[Linux]**
 ```bash
-cd /opt/icebeach && docker compose down
+cd "${RUZA_ROOT}" && docker compose down
 ```
 
 ---

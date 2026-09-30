@@ -1,5 +1,12 @@
 # 22. Timeweb Backend Deploy
 
+> **HOLD / historical proposal:** документ не выбирает сервер автоматически.
+> Каноническая инфраструктура описана в
+> [`docs/MYWAVE_INFRASTRUCTURE.md`](../../../docs/MYWAVE_INFRASTRUCTURE.md).
+> Для Club Box/Ruza CRM пока не утверждены environment, server, canonical folder,
+> domain/API и backup policy. До утверждения запрещено создавать App Platform
+> application, новый VPS, верхнеуровневый каталог, Compose project или БД.
+
 ## Цель
 Поднять backend `icebeach-wakeclub` в staging на Timeweb Cloud так, чтобы:
 - API слушал production-порт внутри контейнера
@@ -16,8 +23,9 @@
   - из base64 env
 
 ## Рекомендуемый путь сейчас
-Для первого staging используем **Timeweb App Platform**, если код лежит в GitHub.
-Если нужен полный root-доступ и свой reverse proxy, переходить на VPS позже, после staging smoke.
+Не выполнять deployment до заполнения обязательной deployment-карточки.
+Описанные ниже варианты сохранены как техническая справка, а не как выбранная
+архитектура.
 
 Официальные ссылки:
 - [Timeweb Cloud Apps](https://timeweb.cloud/docs/apps)
@@ -32,7 +40,7 @@
    - staging frontend origin, например `https://icebeach-dashboard-staging.example`
 3. В Google Sheets service account должен иметь доступ к spreadsheet.
 
-## Вариант A: Timeweb App Platform, click-by-click
+## Вариант A: Timeweb App Platform, click-by-click (не утвержден)
 1. Открой браузер.
 2. Перейди в [Timeweb Cloud](https://timeweb.cloud/).
 3. Войди в аккаунт.
@@ -70,7 +78,7 @@
 Ожидаемый результат:
 - `https://<app-domain>/health` отвечает `{"status":"ok"}`
 
-## Вариант B: Timeweb VPS / Cloud Server
+## Вариант B: Timeweb VPS / Cloud Server (не утвержден)
 Использовать, если хочешь полный контроль над логами, reverse proxy, SSL и дальнейшим mobile rollout.
 
 Минимальная схема:

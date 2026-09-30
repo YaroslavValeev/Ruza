@@ -1,5 +1,12 @@
 # Architecture — Ice Beach Wake Club Automation (Greenfield)
 
+## Platform placement
+
+Ruza классифицируется как продукт `Club Box/Ruza CRM`. Каноническая карта
+MyWave находится в [MYWAVE_INFRASTRUCTURE.md](MYWAVE_INFRASTRUCTURE.md).
+Внешний environment, server, canonical folder, domain/API и backup policy для
+Ruza пока не утверждены; до утверждения проект остается `NOT DEPLOYED`.
+
 ## Goals (MVP)
 1) Каноническая MyWave Sheet = Source of Truth для входящих заявок
 2) RuzaTab = Source of Truth для операционных данных клуба
