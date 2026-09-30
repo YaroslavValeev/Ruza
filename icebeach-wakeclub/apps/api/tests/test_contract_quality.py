@@ -145,8 +145,10 @@ def test_kpi_counts_done_sessions_only() -> None:
     _login(operator)
     operator.patch("/bookings/bkg_kpi_1/status", json={"status": "arrived"})
     operator.patch("/bookings/bkg_kpi_1/status", json={"status": "ready"})
-    operator.patch("/bookings/bkg_kpi_1/status", json={"status": "in_progress"})
-    operator.patch("/bookings/bkg_kpi_1/status", json={"status": "done"})
+    pilot = _make_client(mock_sheet)
+    _login(pilot, staff_user_id="staff_pilot", phone="+79990000002")
+    pilot.patch("/bookings/bkg_kpi_1/status", json={"status": "in_progress"})
+    pilot.patch("/bookings/bkg_kpi_1/status", json={"status": "done"})
 
     filled = client.get("/kpi/summary?period=day&date_from=2026-06-01").json()
     assert filled["sessions_count"] == 1

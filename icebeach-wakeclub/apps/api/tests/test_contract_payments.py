@@ -144,8 +144,10 @@ def test_payment_rbac_and_kpi_real_money() -> None:
     _create_booking(operator)
     assert operator.patch("/bookings/bkg_payment_1/status", json={"status": "arrived"}).status_code == 200
     assert operator.patch("/bookings/bkg_payment_1/status", json={"status": "ready"}).status_code == 200
-    assert operator.patch("/bookings/bkg_payment_1/status", json={"status": "in_progress"}).status_code == 200
-    assert operator.patch("/bookings/bkg_payment_1/status", json={"status": "done"}).status_code == 200
+    pilot = _client(sheet)
+    _login(pilot, "staff_pilot", "+79990000002")
+    assert pilot.patch("/bookings/bkg_payment_1/status", json={"status": "in_progress"}).status_code == 200
+    assert pilot.patch("/bookings/bkg_payment_1/status", json={"status": "done"}).status_code == 200
 
     unpaid_kpi = operator.get("/kpi/summary?period=day&date_from=2026-06-01")
     assert unpaid_kpi.status_code == 200

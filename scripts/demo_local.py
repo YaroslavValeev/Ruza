@@ -32,6 +32,8 @@ def build_demo_app():
     store = InMemorySheetWrapper(demo_tabs())
     settings = Settings(
         spreadsheet_id="demo-sheet",
+        intake_spreadsheet_id="demo-intake-sheet",
+        intake_tab_name="Ruza",
         service_account_json_path=str(Path(__file__).resolve()),
         service_account_info=None,
         session_secret="demo-secret-not-for-production",
@@ -48,6 +50,15 @@ def build_demo_app():
         api_host="127.0.0.1",
         api_port=8000,
         environment="demo",
+        agents_secret="demo-agents-secret",
+        agents_staff_user_id="system-agent",
+        telegram_bot_token=None,
+        telegram_owner_chat_id=None,
+        otp_delivery_webhook_url=None,
+        otp_delivery_webhook_token=None,
+        otp_delivery_timeout_seconds=8.0,
+        allow_manual_otp_delivery=True,
+        public_club_id="ice_beach_ruza",
     )
     application = create_app(settings)
     application.dependency_overrides[get_sheet_wrapper] = lambda: store
