@@ -14,6 +14,8 @@ RUN pip install --upgrade pip && pip install -r /tmp/requirements.txt
 COPY . /app
 WORKDIR /app/apps/api
 
+RUN python -c "from app.routes import auth"
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
