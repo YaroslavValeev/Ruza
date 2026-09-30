@@ -978,13 +978,24 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
               {booking.notes ? <div className="rounded-2xl border border-cyan-200/10 bg-slate-950/70 px-3 py-3 text-sm text-slate-300">{booking.notes}</div> : null}
 
               {!readOnly ? (
-                <PilotRideControls
-                  session={session}
-                  booking={booking}
-                  onUpdated={mergeUpdatedBooking}
-                  allowCancel
-                  compact={compactList}
-                />
+                <div className="space-y-3">
+                  <PilotRideControls
+                    session={session}
+                    booking={booking}
+                    onUpdated={mergeUpdatedBooking}
+                    allowCancel
+                    compact={compactList}
+                  />
+                  {booking.status === "arrived" && booking.warmup_state !== "pending" ? (
+                    <button
+                      type="button"
+                      onClick={() => void onStatusChange(booking.booking_id, "ready")}
+                      className="game-button w-full"
+                    >
+                      Передать пилоту
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
             </article>
           ))}

@@ -157,14 +157,6 @@ def update_booking_prep(
         if row_after_arrival.get("status", "confirmed") not in {"arrived", "ready"}:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Warmup can only be set after arrival")
         runtime_patch["warmup_state"] = warmup_state
-        if row_after_arrival.get("status", "confirmed") != "ready":
-            update_booking_status(
-                sheet,
-                booking_id=booking_id,
-                status_value="ready",
-                actor_staff_user_id=actor_staff_user_id,
-                club_id=club_id,
-            )
 
     _patch_booking_runtime(
         sheet,
@@ -284,13 +276,45 @@ def get_shift_live(
     *,
     club_id: str,
     target_date: str,
+    role: str,
     boat_id: str | None = None,
 ) -> dict[str, object]:
     bookings = list_bookings(sheet, club_id=club_id, target_date=target_date)
     if boat_id:
         bookings = [booking for booking in bookings if booking.get("boat_id") == boat_id]
-    order = {"in_progress": 0, "ready": 1, "arrived": 2, "confirmed": 3, "late": 4, "done": 5, "no_show": 6, "cancelled": 7}
-    focus = sorted(bookings, key=lambda booking: (order.get(str(booking.get("status", "")), 99), str(booking.get("time", ""))))[0] if bookings else None
+    focus = None
+    if bookings:
+        def rank(booking: dict[str, object]) -> tuple[int, str]:
+            status = str(booking.get("status", "confirmed"))
+            warmup_state = str(booking.get("warmup_state", "pending"))
+            if status == "in_progress":
+                return (0, str(booking.get("time", "")))
+            if role in {"admin", "operator"}:
+                if status in {"confirmed", "late"}:
+                    return (1, str(booking.get("time", "")))
+                if status == "arrived" and warmup_state == "pending":
+                    return (2, str(booking.get("time", "")))
+                if status == "arrived":
+                    return (3, str(booking.get("time", "")))
+                if status == "ready":
+                    return (4, str(booking.get("time", "")))
+            elif role == "pilot":
+                if status == "ready":
+                    return (1, str(booking.get("time", "")))
+                if status == "arrived":
+                    return (2, str(booking.get("time", "")))
+                if status in {"confirmed", "late"}:
+                    return (3, str(booking.get("time", "")))
+            else:
+                if status == "ready":
+                    return (1, str(booking.get("time", "")))
+                if status == "arrived":
+                    return (2, str(booking.get("time", "")))
+                if status in {"confirmed", "late"}:
+                    return (3, str(booking.get("time", "")))
+            return (9, str(booking.get("time", "")))
+
+        focus = sorted(bookings, key=rank)[0]
     return {"date": target_date, "focus_booking": focus}
 
 

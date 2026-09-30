@@ -175,7 +175,7 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
               </div>
               <span className={getStatusTone(item.status)}>{STATUS_LABELS[item.status] || item.status}</span>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2 sm:grid-cols-3">
               <div className="game-stat p-3">
                 <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">План</div>
                 <div className="mt-1 text-sm font-black text-white">{item.planned_duration_minutes} мин</div>
@@ -183,6 +183,10 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
               <div className="game-stat p-3">
                 <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Осталось</div>
                 <div className="mt-1 text-sm font-black text-white">{formatDurationClock(item.remaining_seconds)}</div>
+              </div>
+              <div className="game-stat p-3">
+                <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Факт</div>
+                <div className="mt-1 text-sm font-black text-white">{item.actual_duration_seconds > 0 ? formatDurationClock(item.actual_duration_seconds) : "Ещё в процессе"}</div>
               </div>
             </div>
             <PilotRideControls session={session} booking={item} onUpdated={mergeItem} allowTimerControls compact />

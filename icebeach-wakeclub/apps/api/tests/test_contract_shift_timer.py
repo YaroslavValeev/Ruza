@@ -9,7 +9,8 @@ from fastapi.testclient import TestClient
 from apps.api.app.config import get_settings
 from apps.api.app.dependencies import get_sheet_wrapper
 from apps.api.app.main import app
-from apps.api.app.services.shift_timer import process_shift_reminders, run_timer_action, update_booking_prep
+from apps.api.app.services.bookings import update_booking_status
+from apps.api.app.services.shift_timer import get_shift_live, process_shift_reminders, run_timer_action, update_booking_prep
 
 from conftest import MockSheetWrapper, make_test_settings
 
@@ -101,6 +102,13 @@ def test_pilot_timer_flow_records_actual_vs_planned_minutes() -> None:
         club_id="ice_beach_ruza",
         now=datetime(2026, 6, 1, 9, 58, tzinfo=timezone.utc),
     )
+    update_booking_status(
+        sheet,
+        booking_id="bkg_timer_flow",
+        status_value="ready",
+        actor_staff_user_id="staff_001",
+        club_id="ice_beach_ruza",
+    )
     run_timer_action(
         sheet,
         settings,
@@ -175,6 +183,13 @@ def test_add_set_is_blocked_when_next_slot_is_taken() -> None:
         actor_staff_user_id="staff_001",
         club_id="ice_beach_ruza",
         now=datetime(2026, 6, 1, 9, 58, tzinfo=timezone.utc),
+    )
+    update_booking_status(
+        sheet,
+        booking_id="bkg_current",
+        status_value="ready",
+        actor_staff_user_id="staff_001",
+        club_id="ice_beach_ruza",
     )
     run_timer_action(
         sheet,
@@ -255,6 +270,45 @@ def test_shift_reminders_follow_t15_then_t5_rules() -> None:
     app.dependency_overrides.clear()
 
 
+def test_warmup_does_not_set_ready_without_explicit_handoff() -> None:
+    sheet = MockSheetWrapper()
+    client = _client(sheet)
+    _login(client)
+    created = client.post(
+        "/bookings",
+        json={
+            "booking_id": "bkg_handoff",
+            "client_id": "client_1",
+            "date": "2026-06-01",
+            "time": "10:00",
+            "boat_id": "boat_1",
+        },
+    )
+    assert created.status_code == 200
+    settings = make_test_settings()
+    item = update_booking_prep(
+        sheet,
+        settings,
+        booking_id="bkg_handoff",
+        arrival_action="arrived",
+        warmup_state="warmed_up",
+        actor_staff_user_id="staff_001",
+        club_id="ice_beach_ruza",
+        now=datetime(2026, 6, 1, 9, 50, tzinfo=timezone.utc),
+    )
+    assert item["status"] == "arrived"
+    assert item["warmup_state"] == "warmed_up"
+    handed_off = update_booking_status(
+        sheet,
+        booking_id="bkg_handoff",
+        status_value="ready",
+        actor_staff_user_id="staff_001",
+        club_id="ice_beach_ruza",
+    )
+    assert handed_off["status"] == "ready"
+    app.dependency_overrides.clear()
+
+
 def test_second_client_notice_is_skipped_after_arrival() -> None:
     sheet = MockSheetWrapper()
     client = _client(sheet)
@@ -307,3 +361,98 @@ def test_second_client_notice_is_skipped_after_arrival() -> None:
     )
     assert t5["client_notices_sent"] == 0
     app.dependency_overrides.clear()
+
+
+def test_shift_live_prefers_on_water_else_next_actionable_client() -> None:
+    sheet = MockSheetWrapper()
+    settings = make_test_settings()
+    sheet.tabs["bookings"].append(
+        {
+            "booking_id": "bkg_seed_ready",
+            "club_id": "ice_beach_ruza",
+            "client_id": "client_1",
+            "date": "2026-06-01",
+            "time": "10:00",
+            "boat_id": "boat_1",
+            "status": "ready",
+            "total_price": "12000",
+            "created_by": "staff_001",
+            "created_at": "2026-06-01T07:00:00Z",
+            "updated_at": "2026-06-01T07:00:00Z",
+            "coach_required": "false",
+            "coach_user_id": "",
+            "ride_type": "wakeboard",
+            "sets_count": "1",
+            "wetsuit_required": "false",
+            "wetsuit_size": "",
+            "wetsuit_gender": "",
+            "warmup_state": "pending",
+            "timer_state": "idle",
+            "timer_started_at": "",
+            "timer_anchor_at": "",
+            "elapsed_seconds": "0",
+            "actual_duration_seconds": "0",
+            "admin_notice_15_sent_at": "",
+            "admin_notice_5_sent_at": "",
+            "client_notice_15_sent_at": "",
+            "client_notice_5_sent_at": "",
+            "next_client_notified_at": "",
+            "notes": "",
+        }
+    )
+    sheet.tabs["bookings"].append(
+        {
+            "booking_id": "bkg_current_arrived",
+            "club_id": "ice_beach_ruza",
+            "client_id": "client_2",
+            "date": "2026-06-01",
+            "time": "15:00",
+            "boat_id": "boat_1",
+            "status": "arrived",
+            "total_price": "12000",
+            "created_by": "staff_001",
+            "created_at": "2026-06-01T14:00:00Z",
+            "updated_at": "2026-06-01T14:30:00Z",
+            "coach_required": "false",
+            "coach_user_id": "",
+            "ride_type": "wakeboard",
+            "sets_count": "1",
+            "wetsuit_required": "false",
+            "wetsuit_size": "",
+            "wetsuit_gender": "",
+            "warmup_state": "warmed_up",
+            "timer_state": "idle",
+            "timer_started_at": "",
+            "timer_anchor_at": "",
+            "elapsed_seconds": "0",
+            "actual_duration_seconds": "0",
+            "admin_notice_15_sent_at": "",
+            "admin_notice_5_sent_at": "",
+            "client_notice_15_sent_at": "",
+            "client_notice_5_sent_at": "",
+            "next_client_notified_at": "",
+            "notes": "",
+        }
+    )
+
+    operator_focus = get_shift_live(sheet, club_id="ice_beach_ruza", target_date="2026-06-01", role="operator")
+    assert operator_focus["focus_booking"]["booking_id"] == "bkg_current_arrived"
+
+    update_booking_status(
+        sheet,
+        booking_id="bkg_current_arrived",
+        status_value="ready",
+        actor_staff_user_id="staff_001",
+        club_id="ice_beach_ruza",
+    )
+    run_timer_action(
+        sheet,
+        settings,
+        booking_id="bkg_current_arrived",
+        action="start",
+        actor_staff_user_id="staff_pilot",
+        club_id="ice_beach_ruza",
+        now=datetime(2026, 6, 1, 15, 0, tzinfo=timezone.utc),
+    )
+    live_focus = get_shift_live(sheet, club_id="ice_beach_ruza", target_date="2026-06-01", role="operator")
+    assert live_focus["focus_booking"]["booking_id"] == "bkg_current_arrived"

@@ -44,6 +44,7 @@ def shift_live(
         sheet,
         club_id=user.club_id,
         target_date=target.isoformat(),
+        role=user.role,
         boat_id=boat_id,
     )
     focus = payload.get("focus_booking")

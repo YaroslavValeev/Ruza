@@ -54,6 +54,12 @@ export function getLiveStripHint(role: StaffRole, booking: BookingItem | null | 
     return "Сейчас важно отметить фактический приезд клиента.";
   }
   if (booking.status === "arrived") {
+    if (booking.warmup_state !== "pending") {
+      if (role === "coach" || role === "marketing_read") {
+        return "Подготовка отмечена. Ждём явную передачу пилоту.";
+      }
+      return "Подготовка отмечена. Теперь нужен явный handoff «Передать пилоту».";
+    }
     if (role === "coach" || role === "marketing_read") {
       return "Клиент на месте. Следующий шаг — отметить готовность к старту.";
     }

@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { runBookingTimerAction, updateBookingPrep, updateBookingStatus } from "../../api/client";
 import { BookingItem, StaffSession } from "../../types";
-import { getPrimaryTimerAction, getTimerActionLabel } from "../../lib/shift-timer";
+import { formatDurationClock, getPrimaryTimerAction, getTimerActionLabel } from "../../lib/shift-timer";
 import { emitShiftLiveRefresh } from "./LiveShiftStrip";
 
 type PilotRideControlsProps = {
@@ -96,7 +96,7 @@ export function PilotRideControls({
         </div>
       ) : null}
 
-      {allowTimerControls ? (
+      {allowTimerControls && timerAction ? (
         <div className="space-y-3">
           <button
             type="button"
@@ -139,6 +139,16 @@ export function PilotRideControls({
               </button>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {allowTimerControls && !timerAction && booking.actual_duration_seconds > 0 ? (
+        <div className="rounded-[24px] border border-cyan-300/14 bg-slate-950/70 px-4 py-4">
+          <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Фактическое время</div>
+          <div className="mt-2 text-lg font-black text-white">
+            {formatDurationClock(booking.actual_duration_seconds)} из {formatDurationClock(booking.planned_duration_minutes * 60)}
+          </div>
+          <div className="mt-1 text-sm text-cyan-100/70">Райд завершён мягко. План и факт сохранены отдельно, деньги не менялись.</div>
         </div>
       ) : null}
 
