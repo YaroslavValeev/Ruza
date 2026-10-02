@@ -8,6 +8,7 @@ from packages.sheets import SheetWrapper
 
 from .common import parse_bool, weekday_iso0
 from .operating_calendar import build_operating_slots, is_in_season, normalize_time_text
+from .ride_runtime import iter_booking_slots
 
 
 def get_availability_for_date(sheet: SheetWrapper, date_text: str, club_id: str) -> list[dict[str, Any]]:
@@ -56,8 +57,10 @@ def get_availability_for_date(sheet: SheetWrapper, date_text: str, club_id: str)
 
     booking_counter: dict[tuple[str, str], int] = defaultdict(int)
     for row in booking_rows:
-        key = (row.get("boat_id", ""), normalize_time_text(row.get("time")))
-        booking_counter[key] += 1
+        boat_id = row.get("boat_id", "")
+        for time_value in iter_booking_slots(row):
+            key = (boat_id, normalize_time_text(time_value))
+            booking_counter[key] += 1
 
     result: list[dict[str, Any]] = []
     for (boat_id, time_value), slot in sorted(slots.items(), key=lambda item: (item[1]["time"], item[1]["boat_id"])):

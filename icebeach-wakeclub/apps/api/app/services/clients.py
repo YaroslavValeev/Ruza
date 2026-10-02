@@ -31,6 +31,7 @@ def list_clients(sheet: SheetWrapper, club_id: str, query: str = "") -> list[dic
                 "client_id": row.get("client_id", ""),
                 "full_name": full_name,
                 "phone": phone,
+                "telegram_id": row.get("telegram_id", ""),
                 "consent_face": str(row.get("consent_face", "")).lower() in {"1", "true", "yes"},
                 "consent_voice": str(row.get("consent_voice", "")).lower() in {"1", "true", "yes"},
             }
@@ -48,6 +49,7 @@ def create_client(
     phone: str,
     consent_face: bool,
     consent_voice: bool,
+    telegram_id: str,
     actor: str,
 ) -> dict[str, str | bool]:
     normalized_phone = normalize_phone(phone)
@@ -62,6 +64,7 @@ def create_client(
             "client_id": row.get("client_id", ""),
             "full_name": row.get("full_name", ""),
             "phone": row.get("phone", ""),
+            "telegram_id": row.get("telegram_id", ""),
             "consent_face": str(row.get("consent_face", "")).lower() in {"1", "true", "yes"},
             "consent_voice": str(row.get("consent_voice", "")).lower() in {"1", "true", "yes"},
         }
@@ -73,6 +76,7 @@ def create_client(
         "club_id": club_id,
         "full_name": full_name.strip(),
         "phone": phone.strip(),
+        "telegram_id": telegram_id.strip(),
         "consent_face": consent_face,
         "consent_voice": consent_voice,
         "created_at": created_at,
@@ -89,6 +93,7 @@ def create_client(
         "client_id": client_id,
         "full_name": full_name.strip(),
         "phone": phone.strip(),
+        "telegram_id": telegram_id.strip(),
         "consent_face": consent_face,
         "consent_voice": consent_voice,
     }

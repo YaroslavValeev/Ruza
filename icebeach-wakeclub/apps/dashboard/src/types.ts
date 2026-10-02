@@ -6,6 +6,8 @@ export type RideType = "wakeboard" | "surf" | "skim";
 export type KpiPeriod = "day" | "week" | "month" | "season" | "custom";
 export type PaymentMethod = "cash" | "card_terminal" | "sbp" | "online";
 export type PaymentStatus = "unpaid" | "partially_paid" | "paid" | "overpaid" | "partially_refunded" | "refunded";
+export type WarmupState = "pending" | "warmed_up" | "no_warmup";
+export type RideTimerState = "idle" | "running" | "paused" | "completed";
 export type PreflightLevel = "PASS" | "WARN" | "BLOCKER";
 export type SmokeLevel = "PASS" | "FAIL";
 
@@ -103,6 +105,13 @@ export type PilotQueueItem = {
   status: BookingStatus;
   coach_required: boolean;
   ride_type?: RideType | null;
+  sets_count: number;
+  planned_duration_minutes: number;
+  warmup_state: WarmupState;
+  timer_state: RideTimerState;
+  elapsed_seconds: number;
+  remaining_seconds: number;
+  actual_duration_seconds: number;
 };
 
 export type AvailabilityItem = {
@@ -124,6 +133,7 @@ export type BookingCreateRequest = {
   coach_required?: boolean;
   coach_user_id?: string;
   ride_type?: RideType;
+  sets_count?: number;
   wetsuit_required?: boolean;
   wetsuit_size?: WetsuitSize;
   wetsuit_gender?: WetsuitGender;
@@ -149,9 +159,18 @@ export type BookingItem = {
   coach_required: boolean;
   coach_user_id?: string | null;
   ride_type?: RideType | null;
+  sets_count: number;
+  planned_duration_minutes: number;
   wetsuit_required: boolean;
   wetsuit_size?: WetsuitSize | null;
   wetsuit_gender?: WetsuitGender | null;
+  warmup_state: WarmupState;
+  timer_state: RideTimerState;
+  timer_started_at: string;
+  timer_anchor_at: string;
+  elapsed_seconds: number;
+  remaining_seconds: number;
+  actual_duration_seconds: number;
   total_price: number;
   payment_status: PaymentStatus;
   paid_amount_minor: number;
@@ -189,6 +208,7 @@ export type ClientItem = {
   client_id: string;
   full_name: string;
   phone: string;
+  telegram_id?: string;
   consent_face: boolean;
   consent_voice: boolean;
 };
@@ -196,6 +216,7 @@ export type ClientItem = {
 export type ClientCreateRequest = {
   full_name: string;
   phone: string;
+  telegram_id?: string;
   consent_face?: boolean;
   consent_voice?: boolean;
 };
@@ -284,6 +305,18 @@ export type ShiftToday = {
   checkins: CheckinItem[];
   summary: ShiftSummary;
 };
+
+export type ShiftLive = {
+  date: string;
+  focus_booking?: BookingItem | null;
+};
+
+export type BookingPrepUpdateRequest = {
+  arrival_action?: "arrived" | "late";
+  warmup_state?: WarmupState;
+};
+
+export type RideTimerAction = "start" | "pause" | "stop" | "add_set" | "notify_next_client";
 
 export type ClientStats = {
   client_id: string;

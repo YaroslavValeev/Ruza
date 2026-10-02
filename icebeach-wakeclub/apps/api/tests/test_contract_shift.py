@@ -61,8 +61,8 @@ def test_shift_cycle_booking_to_kpi() -> None:
     _login(pilot, staff_user_id="staff_pilot", phone="+79990000002")
     queue = pilot.get("/pilot/today?date=2026-06-01").json()
     assert queue[0]["status"] == "ready"
-    assert pilot.patch("/bookings/bkg_shift_1/status", json={"status": "in_progress"}).status_code == 200
-    assert pilot.patch("/bookings/bkg_shift_1/status", json={"status": "done"}).status_code == 200
+    assert pilot.post("/bookings/bkg_shift_1/timer-action", json={"action": "start"}).status_code == 200
+    assert pilot.post("/bookings/bkg_shift_1/timer-action", json={"action": "stop"}).status_code == 200
     forbidden_cancel = pilot.patch("/bookings/bkg_shift_1/status", json={"status": "cancelled"})
     assert forbidden_cancel.status_code in {403, 409}
 
@@ -209,7 +209,7 @@ def test_operator_cannot_cancel_in_progress() -> None:
 
     pilot = _make_client(mock_sheet)
     _login(pilot, staff_user_id="staff_pilot", phone="+79990000002")
-    assert pilot.patch("/bookings/bkg_live_1/status", json={"status": "in_progress"}).status_code == 200
+    assert pilot.post("/bookings/bkg_live_1/timer-action", json={"action": "start"}).status_code == 200
 
     denied = operator.patch("/bookings/bkg_live_1/status", json={"status": "cancelled"})
     assert denied.status_code == 409

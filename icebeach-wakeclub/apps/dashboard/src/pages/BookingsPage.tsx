@@ -12,6 +12,8 @@ import {
   updateBookingStatus,
 } from "../api/client";
 import { ConsentBadges } from "../components/ConsentBadges";
+import { PilotRideControls } from "../components/shift-timer/PilotRideControls";
+import { emitShiftLiveRefresh } from "../components/shift-timer/LiveShiftStrip";
 import { displayGenderForClient } from "../lib/gender";
 import {
   AvailabilityItem,
@@ -93,6 +95,15 @@ const SEASON_START = { month: 6, day: 1 };
 const SEASON_END = { month: 10, day: 1 };
 const OPERATING_HOURS_LABEL = "07:00-22:00";
 const SLOT_RULE_LABEL = "30 минут: 25 мин катание + 5 мин техпауза";
+
+function offsetSlotTime(timeText: string, slotOffset: number): string {
+  const [hourText, minuteText] = timeText.split(":");
+  const baseMinutes = Number(hourText) * 60 + Number(minuteText);
+  const shifted = baseMinutes + slotOffset * 30;
+  const hours = Math.floor(shifted / 60);
+  const minutes = shifted % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
 
 function formatIsoDate(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -178,6 +189,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
   const [time, setTime] = useState("");
   const [coachRequired, setCoachRequired] = useState(false);
   const [rideType, setRideType] = useState<RideType>(DEFAULT_RIDE_TYPE);
+  const [setsCount, setSetsCount] = useState(1);
   const [wetsuitRequired, setWetsuitRequired] = useState(false);
   const [wetsuitSize, setWetsuitSize] = useState<WetsuitSize>(DEFAULT_WETSUIT_SIZE);
   const [wetsuitGender, setWetsuitGender] = useState<WetsuitGender>(DEFAULT_WETSUIT_GENDER);
@@ -209,6 +221,12 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
 
   const selectedClient = clients.find((client) => client.client_id === selectedClientId) || null;
   const selectedSlot = availableSlotKey(boatId, time);
+
+  function mergeUpdatedBooking(updatedBooking: BookingItem) {
+    setBookings((currentBookings) => currentBookings.map((booking) => (
+      booking.booking_id === updatedBooking.booking_id ? { ...booking, ...updatedBooking } : booking
+    )));
+  }
 
   async function loadDayData(targetDate: string) {
     const requestId = dayRequestIdRef.current + 1;
@@ -281,8 +299,20 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
   }, [selectedClientId, session.token]);
 
   const availableSlots = useMemo(
-    () => availability.filter((slot) => slot.available > 0 && slot.status === "active"),
-    [availability],
+    () => availability.filter((slot) => {
+      if (slot.available <= 0 || slot.status !== "active") {
+        return false;
+      }
+      for (let index = 0; index < setsCount; index += 1) {
+        const timeCandidate = offsetSlotTime(slot.time, index);
+        const linkedSlot = availability.find((item) => item.boat_id === slot.boat_id && item.time === timeCandidate);
+        if (!linkedSlot || linkedSlot.status !== "active" || linkedSlot.available <= 0) {
+          return false;
+        }
+      }
+      return true;
+    }),
+    [availability, setsCount],
   );
 
   const filteredBookings = useMemo(
@@ -292,7 +322,8 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
 
   const bookingStats = useMemo(() => ({
     total: bookings.length,
-    waiting: bookings.filter((booking) => ["confirmed", "arrived", "ready", "late"].includes(booking.status)).length,
+    // "Ожидают" в верхнем счётчике = ещё не отмечен фактический приезд.
+    waiting: bookings.filter((booking) => ["confirmed", "late"].includes(booking.status)).length,
     onWater: bookings.filter((booking) => booking.status === "in_progress").length,
     done: bookings.filter((booking) => booking.status === "done").length,
   }), [bookings]);
@@ -346,6 +377,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
         boat_id: boatId,
         coach_required: coachRequired,
         ride_type: rideType,
+        sets_count: setsCount,
         wetsuit_required: wetsuitRequired,
         wetsuit_size: wetsuitRequired ? wetsuitSize : undefined,
         wetsuit_gender: wetsuitRequired ? wetsuitGender : undefined,
@@ -359,9 +391,11 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
       setDiscount(0);
       setCoachRequired(false);
       setRideType(DEFAULT_RIDE_TYPE);
+      setSetsCount(1);
       setWetsuitRequired(false);
       setWetsuitSize(DEFAULT_WETSUIT_SIZE);
       setWetsuitGender(DEFAULT_WETSUIT_GENDER);
+      emitShiftLiveRefresh();
       await loadDayData(date);
     } catch (err) {
       setToast({ type: "error", message: (err as Error).message });
@@ -374,8 +408,10 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
     setToast(null);
     setLoading(true);
     try {
-      await updateBookingStatus(bookingId, status, session.token);
+      const updatedBooking = await updateBookingStatus(bookingId, status, session.token);
+      mergeUpdatedBooking(updatedBooking);
       setToast({ type: "success", message: `Статус обновлён: ${getStatusLabel(status)}` });
+      emitShiftLiveRefresh();
       await loadDayData(date);
     } catch (err) {
       setToast({ type: "error", message: (err as Error).message });
@@ -415,15 +451,19 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
     }
   };
 
-  const handleCheckin = async (status: "arrived" | "ready") => {
+  const handleCheckin = async (status: "arrived" | "late") => {
     if (!checkinPhone.trim()) {
       setToast({ type: "error", message: "Введите телефон для check-in" });
       return;
     }
     setLoading(true);
     try {
-      await createCheckin({ method: "phone", phone: checkinPhone.trim(), date, status }, session.token);
-      setToast({ type: "success", message: status === "arrived" ? "Приезд отмечен" : "Готов к старту" });
+      const checkin = await createCheckin({ method: "phone", phone: checkinPhone.trim(), date, status }, session.token);
+      setBookings((currentBookings) => currentBookings.map((booking) => (
+        booking.booking_id === checkin.booking_id ? { ...booking, status: checkin.status as BookingStatus } : booking
+      )));
+      setToast({ type: "success", message: status === "arrived" ? "Приезд отмечен" : "Отмечено, что клиент ещё не приехал" });
+      emitShiftLiveRefresh();
       await loadDayData(date);
     } catch (err) {
       setToast({ type: "error", message: (err as Error).message });
@@ -479,8 +519,8 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
             <button type="button" className="game-button-secondary" disabled={loading} onClick={() => void handleCheckin("arrived")}>
               Приехал
             </button>
-            <button type="button" className="game-button" disabled={loading} onClick={() => void handleCheckin("ready")}>
-              Готов
+            <button type="button" className="game-button" disabled={loading} onClick={() => void handleCheckin("late")}>
+              Не приехал
             </button>
           </div>
           {checkinClient ? (
@@ -683,6 +723,23 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
                   </button>
                 ))}
               </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-cyan-100/70">Количество сетов</label>
+                  <select value={setsCount} onChange={(e) => setSetsCount(Number(e.target.value) || 1)} className="game-input">
+                    {[1, 2, 3, 4].map((count) => (
+                      <option key={count} value={count}>
+                        {count} {count === 1 ? "сет" : count < 5 ? "сета" : "сетов"} • {count * 25} мин
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="game-card border-cyan-300/15 p-3">
+                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">План по времени</div>
+                  <div className="mt-2 text-sm font-black text-white">{setsCount * 25} мин на воде</div>
+                  <div className="mt-1 text-xs text-cyan-100/70">Таймер и top strip будут считать это базовой длительностью.</div>
+                </div>
+              </div>
             </div>
 
             <div className="game-card space-y-3">
@@ -844,7 +901,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
                 <span className={`${getStatusBadge(booking.status)} max-w-[11rem] sm:max-w-[14rem]`}>{getStatusLabel(booking.status)}</span>
               </div>
 
-              <div className={`grid gap-2 ${compactList ? "sm:grid-cols-2" : "sm:grid-cols-4"}`}>
+              <div className={`grid gap-2 ${compactList ? "sm:grid-cols-2" : "sm:grid-cols-5"}`}>
                 <div className="game-stat p-3">
                   <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Дисциплина</div>
                   <div className="mt-1 text-sm font-black text-white">{getRideTypeLabel(booking.ride_type)}</div>
@@ -860,6 +917,15 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
                 <div className="game-stat p-3">
                   <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Цена</div>
                   <div className="mt-1 text-sm font-black text-white">{booking.total_price} ₽</div>
+                </div>
+                <div className="game-stat p-3">
+                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Сеты / время</div>
+                  <div className="mt-1 text-sm font-black text-white">
+                    {booking.sets_count} • {booking.planned_duration_minutes} мин
+                  </div>
+                  <div className="mt-1 text-xs text-cyan-100/70">
+                    {booking.actual_duration_seconds > 0 ? `Факт ${Math.max(Math.round(booking.actual_duration_seconds / 60), 1)} мин` : "Факт появится после завершения"}
+                  </div>
                 </div>
               </div>
 
@@ -912,18 +978,24 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
               {booking.notes ? <div className="rounded-2xl border border-cyan-200/10 bg-slate-950/70 px-3 py-3 text-sm text-slate-300">{booking.notes}</div> : null}
 
               {!readOnly ? (
-              <div className="flex flex-wrap gap-2">
-                {(OPERATOR_ACTIONS[booking.status] ?? []).map((nextStatus) => (
-                  <button
-                    key={nextStatus}
-                    type="button"
-                    onClick={() => void onStatusChange(booking.booking_id, nextStatus)}
-                    className="game-button-secondary px-3 text-xs"
-                  >
-                    {getActionLabel(nextStatus)}
-                  </button>
-                ))}
-              </div>
+                <div className="space-y-3">
+                  <PilotRideControls
+                    session={session}
+                    booking={booking}
+                    onUpdated={mergeUpdatedBooking}
+                    allowCancel
+                    compact={compactList}
+                  />
+                  {booking.status === "arrived" && booking.warmup_state !== "pending" ? (
+                    <button
+                      type="button"
+                      onClick={() => void onStatusChange(booking.booking_id, "ready")}
+                      className="game-button w-full"
+                    >
+                      Передать пилоту
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
             </article>
           ))}

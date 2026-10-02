@@ -15,19 +15,21 @@ def _make_client(mock_sheet: MockSheetWrapper) -> TestClient:
     return TestClient(app)
 
 
-def _login(client: TestClient, staff_user_id: str = "staff_001", phone: str = "+79990000001") -> None:
+def _login(client: TestClient, staff_user_id: str = "staff_001", phone: str = "+79990000001"):
     request_code = client.post("/auth/request-code", json={"staff_user_id": staff_user_id, "phone": phone})
     assert request_code.status_code == 200
     code = request_code.json()["debug_code"]
     verify = client.post("/auth/verify-code", json={"staff_user_id": staff_user_id, "code": code})
     assert verify.status_code == 200
+    return verify
 
 
 def test_auth_code_flow_and_me() -> None:
     mock_sheet = MockSheetWrapper()
     client = _make_client(mock_sheet)
 
-    _login(client)
+    verify = _login(client)
+    assert verify.cookies.get("icebeach_session_present") == "1"
 
     response = client.get("/auth/me")
     assert response.status_code == 200
@@ -158,9 +160,9 @@ def test_booking_status_transition_and_pilot_queue() -> None:
     assert payload[0]["client_name"] == "Client One"
     assert payload[0]["status"] == "ready"
 
-    in_progress = pilot_client.patch("/bookings/bkg_test_2/status", json={"status": "in_progress"})
+    in_progress = pilot_client.post("/bookings/bkg_test_2/timer-action", json={"action": "start"})
     assert in_progress.status_code == 200
-    done = pilot_client.patch("/bookings/bkg_test_2/status", json={"status": "done"})
+    done = pilot_client.post("/bookings/bkg_test_2/timer-action", json={"action": "stop"})
     assert done.status_code == 200
 
     app.dependency_overrides.clear()

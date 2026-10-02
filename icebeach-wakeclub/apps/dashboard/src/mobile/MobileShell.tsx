@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth, getMobileRouteForRole } from "../auth/session";
 import { ApiHealthBadge } from "../components/ApiHealthBadge";
+import { LiveShiftStrip } from "../components/shift-timer/LiveShiftStrip";
 import { StaffRole, StaffSession } from "../types";
 import { canAccessMobilePath } from "../utils/routes";
 
@@ -70,6 +71,10 @@ export function MobileShell({ session }: MobileShellProps): JSX.Element {
           </div>
         ) : null}
       </header>
+
+      <div className="px-4 pt-3">
+        <LiveShiftStrip session={session} compact />
+      </div>
 
       <main className="mobile-main flex-1 overflow-y-auto px-4 py-4 pb-[max(5.5rem,env(safe-area-inset-bottom))]">
         <Outlet />

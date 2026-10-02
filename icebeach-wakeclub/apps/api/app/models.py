@@ -14,6 +14,8 @@ RideType = Literal["wakeboard", "surf", "skim"]
 PaymentKind = Literal["charge", "refund"]
 PaymentStatus = Literal["pending", "succeeded", "failed", "cancelled"]
 PaymentMethod = Literal["cash", "card_terminal", "sbp", "online"]
+WarmupState = Literal["pending", "warmed_up", "no_warmup"]
+RideTimerState = Literal["idle", "running", "paused", "completed"]
 KpiPeriod = Literal["day", "week", "month", "season", "custom"]
 PreflightLevel = Literal["PASS", "WARN", "BLOCKER"]
 SmokeLevel = Literal["PASS", "FAIL"]
@@ -100,6 +102,7 @@ class BookingCreateRequest(BaseModel):
     coach_required: bool = False
     coach_user_id: str | None = None
     ride_type: RideType = "wakeboard"
+    sets_count: int = Field(default=1, ge=1, le=6)
     wetsuit_required: bool = False
     wetsuit_size: WetsuitSize | None = None
     wetsuit_gender: WetsuitGender | None = None
@@ -136,9 +139,18 @@ class BookingItem(BaseModel):
     coach_required: bool
     coach_user_id: str | None = None
     ride_type: RideType = "wakeboard"
+    sets_count: int = 1
+    planned_duration_minutes: int = 25
     wetsuit_required: bool = False
     wetsuit_size: WetsuitSize | None = None
     wetsuit_gender: WetsuitGender | None = None
+    warmup_state: WarmupState = "pending"
+    timer_state: RideTimerState = "idle"
+    timer_started_at: str = ""
+    timer_anchor_at: str = ""
+    elapsed_seconds: int = 0
+    remaining_seconds: int = 1500
+    actual_duration_seconds: int = 0
     total_price: int
     payment_status: Literal["unpaid", "partially_paid", "paid", "overpaid", "partially_refunded", "refunded"] = "unpaid"
     paid_amount_minor: int = 0
@@ -240,10 +252,26 @@ class BookingStatusUpdateRequest(BaseModel):
     status: BookingStatus
 
 
+class BookingPrepUpdateRequest(BaseModel):
+    arrival_action: Literal["arrived", "late"] | None = None
+    warmup_state: WarmupState | None = None
+
+    @model_validator(mode="after")
+    def require_change(self) -> "BookingPrepUpdateRequest":
+        if not self.arrival_action and self.warmup_state is None:
+            raise ValueError("arrival_action or warmup_state is required")
+        return self
+
+
+class RideTimerActionRequest(BaseModel):
+    action: Literal["start", "pause", "stop", "add_set", "notify_next_client"]
+
+
 class ClientItem(BaseModel):
     client_id: str
     full_name: str
     phone: str
+    telegram_id: str = ""
     consent_face: bool = False
     consent_voice: bool = False
 
@@ -251,6 +279,7 @@ class ClientItem(BaseModel):
 class ClientCreateRequest(BaseModel):
     full_name: str = Field(min_length=1)
     phone: str = Field(min_length=5)
+    telegram_id: str = ""
     consent_face: bool = False
     consent_voice: bool = False
 
@@ -265,6 +294,13 @@ class PilotQueueItem(BaseModel):
     status: BookingStatus
     coach_required: bool
     ride_type: RideType = "wakeboard"
+    sets_count: int = 1
+    planned_duration_minutes: int = 25
+    warmup_state: WarmupState = "pending"
+    timer_state: RideTimerState = "idle"
+    elapsed_seconds: int = 0
+    remaining_seconds: int = 1500
+    actual_duration_seconds: int = 0
 
 
 class KpiRideBreakdownItem(BaseModel):
@@ -353,6 +389,16 @@ class ShiftTodayResponse(BaseModel):
     bookings: list[BookingItem]
     checkins: list[CheckinItem]
     summary: ShiftSummary
+
+
+class ShiftLiveResponse(BaseModel):
+    date: date
+    focus_booking: BookingItem | None = None
+
+
+class ShiftReminderRunResponse(BaseModel):
+    admin_notices_sent: int
+    client_notices_sent: int
 
 
 class DailyBriefKpiSlice(BaseModel):

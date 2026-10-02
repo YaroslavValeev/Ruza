@@ -90,6 +90,42 @@ def _tab_has_headers(sheet: SheetWrapper, tab_name: str) -> bool:
     return bool(values and values[0])
 
 
+def _column_letter(column_number: int) -> str:
+    result = []
+    while column_number > 0:
+        column_number, rem = divmod(column_number - 1, 26)
+        result.append(chr(65 + rem))
+    return "".join(reversed(result))
+
+
+def _append_missing_headers(sheet: SheetWrapper, tab_name: str, required: tuple[str, ...]) -> None:
+    """Add missing header cells at the end of row 1. Do not rewrite existing cells."""
+    values = sheet._fetch_values(tab_name)  # noqa: SLF001
+    current = list(values[0]) if values and values[0] else []
+    if not any(str(cell).strip() for cell in current):
+        has_data = any(any(str(cell).strip() for cell in row) for row in values)
+        if has_data:
+            print(f"SKIP tab={tab_name} (no header row, data present)")
+            return
+        _write_header_row(sheet, tab_name, required)
+        return
+    missing = [column for column in required if column not in current]
+    if not missing:
+        print(f"SKIP tab={tab_name} (schema current)")
+        return
+    start_col = len(current) + 1
+    sheet._execute_with_retries(  # noqa: SLF001
+        lambda: sheet.service.spreadsheets().values().update(
+            spreadsheetId=sheet.spreadsheet_id,
+            range=f"{tab_name}!{_column_letter(start_col)}1",
+            valueInputOption="RAW",
+            body={"values": [missing]},
+        )
+    )
+    sheet._tab_cache.pop(tab_name, None)  # noqa: SLF001
+    print(f"MIGRATED tab={tab_name} added={','.join(missing)}")
+
+
 def _ensure_header_columns(sheet: SheetWrapper, tab_name: str, required: tuple[str, ...]) -> None:
     values = sheet._fetch_values(tab_name)  # noqa: SLF001
     current = list(values[0]) if values and values[0] else []
@@ -116,6 +152,12 @@ def bootstrap(*, seed_kpi: bool = True) -> int:
             _write_header_row(sheet, tab_name, schema.required_columns)
         else:
             _ensure_header_columns(sheet, tab_name, schema.required_columns)
+
+    # clients is a base tab. Existing workbooks may lack telegram_id; append that header only.
+    if "clients" in existing:
+        _append_missing_headers(sheet, "clients", TAB_SCHEMAS["clients"].required_columns)
+    else:
+        print("SKIP tab=clients (tab missing)")
 
     if seed_kpi:
         rows = sheet.read_tab("kpi_targets")

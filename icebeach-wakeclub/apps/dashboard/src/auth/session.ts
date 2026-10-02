@@ -19,12 +19,57 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const SESSION_PRESENCE_COOKIE = "icebeach_session_present";
+
+let bootstrapSessionRequest: Promise<StaffSession | null> | null = null;
 
 function normalizeSession(session: StaffSession): StaffSession {
   return {
     ...session,
     token: session.token?.trim() || undefined,
   };
+}
+
+function hasSessionHint(): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  return document.cookie
+    .split(";")
+    .map((chunk) => chunk.trim())
+    .includes(`${SESSION_PRESENCE_COOKIE}=1`);
+}
+
+function clearSessionHint(): void {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.cookie = `${SESSION_PRESENCE_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax`;
+}
+
+async function bootstrapSession(): Promise<StaffSession | null> {
+  if (!hasSessionHint()) {
+    return null;
+  }
+
+  if (!bootstrapSessionRequest) {
+    bootstrapSessionRequest = getCurrentSession()
+      .then((session) => normalizeSession(session))
+      .catch((error) => {
+        if (isApiError(error, 401) || isApiError(error, 403)) {
+          clearSessionHint();
+          return null;
+        }
+        throw error;
+      })
+      .finally(() => {
+        bootstrapSessionRequest = null;
+      });
+  }
+
+  return bootstrapSessionRequest;
 }
 
 export function getDefaultRouteForRole(role: StaffRole): string {
@@ -81,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
       setSession(null);
       setStatus("anonymous");
       if (isApiError(error, 401)) {
+        clearSessionHint();
         setIssue(null);
       }
     }
@@ -108,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
   );
 
   const signOut = useCallback(async () => {
+    clearSessionHint();
     setSession(null);
     setStatus("anonymous");
     setIssue(null);
@@ -119,12 +166,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
   }, []);
 
   useEffect(() => {
-    void refreshSession();
-  }, [refreshSession]);
+    let cancelled = false;
+    setStatus("loading");
+    void bootstrapSession()
+      .then((current) => {
+        if (cancelled) {
+          return;
+        }
+        applySession(current);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        if (isApiError(error, 403)) {
+          setSession(null);
+          setStatus("anonymous");
+          setIssue("forbidden");
+          return;
+        }
+        setSession(null);
+        setStatus("anonymous");
+        if (isApiError(error, 401)) {
+          clearSessionHint();
+          setIssue(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applySession]);
 
   useEffect(() => {
     return subscribeAuthFailure((statusCode) => {
       if (statusCode === 401) {
+        clearSessionHint();
         setSession(null);
         setStatus("anonymous");
         setIssue(null);

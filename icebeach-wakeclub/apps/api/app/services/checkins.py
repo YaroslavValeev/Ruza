@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi import HTTPException, status
@@ -10,6 +10,7 @@ from packages.sheets import SheetWrapper
 from ..models import CheckinCreateRequest, CheckinStatus
 from .bookings import update_booking_status
 from .common import parse_bool, phones_match
+from .ride_runtime import resolve_club_timezone, slot_start_local
 
 
 def _utc_now_iso() -> str:
@@ -179,7 +180,8 @@ def mark_late_checkins(
     minutes_before: int = 10,
 ) -> dict[str, int]:
     now = datetime.now(timezone.utc)
-    target = date.fromisoformat(target_date)
+    club_row = next((item for item in sheet.read_tab("clubs") if item.get("club_id") == club_id), None)
+    zone = resolve_club_timezone((club_row or {}).get("timezone"))
     marked = 0
 
     bookings = [
@@ -201,8 +203,7 @@ def mark_late_checkins(
             continue
 
         time_text = booking.get("time", "00:00")
-        hour, minute = (int(part) for part in time_text.split(":"))
-        slot_start = datetime(target.year, target.month, target.day, hour, minute, tzinfo=timezone.utc)
+        slot_start = slot_start_local(target_date, time_text, zone)
         if now >= slot_start - timedelta(minutes=minutes_before):
             update_booking_status(
                 sheet,

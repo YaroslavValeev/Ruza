@@ -145,8 +145,10 @@ def test_kpi_counts_done_sessions_only() -> None:
     _login(operator)
     operator.patch("/bookings/bkg_kpi_1/status", json={"status": "arrived"})
     operator.patch("/bookings/bkg_kpi_1/status", json={"status": "ready"})
-    operator.patch("/bookings/bkg_kpi_1/status", json={"status": "in_progress"})
-    operator.patch("/bookings/bkg_kpi_1/status", json={"status": "done"})
+    pilot = _make_client(mock_sheet)
+    _login(pilot, staff_user_id="staff_pilot", phone="+79990000002")
+    assert pilot.post("/bookings/bkg_kpi_1/timer-action", json={"action": "start"}).status_code == 200
+    assert pilot.post("/bookings/bkg_kpi_1/timer-action", json={"action": "stop"}).status_code == 200
 
     filled = client.get("/kpi/summary?period=day&date_from=2026-06-01").json()
     assert filled["sessions_count"] == 1
@@ -232,3 +234,94 @@ def test_boats_list_and_pilot_cannot_change_foreign_boat() -> None:
     own_boats = pilot.get("/boats").json()
     assert [row["boat_id"] for row in own_boats] == ["boat_1"]
     app.dependency_overrides.clear()
+
+
+def test_operator_cannot_start_ride_via_booking_status_api() -> None:
+    mock_sheet = MockSheetWrapper()
+    operator = _make_client(mock_sheet)
+    _login(operator)
+    created = operator.post(
+        "/bookings",
+        json={
+            "booking_id": "bkg_operator_start",
+            "client_id": "client_1",
+            "date": "2026-06-01",
+            "time": "10:00",
+            "boat_id": "boat_1",
+        },
+    )
+    assert created.status_code == 200
+    assert operator.post(
+        "/checkins",
+        json={"method": "phone", "phone": "+79990000011", "date": "2026-06-01", "status": "arrived", "booking_id": "bkg_operator_start"},
+    ).status_code == 200
+    assert operator.post(
+        "/checkins",
+        json={"method": "phone", "phone": "+79990000011", "date": "2026-06-01", "status": "ready", "booking_id": "bkg_operator_start"},
+    ).status_code == 200
+
+    forbidden = operator.patch("/bookings/bkg_operator_start/status", json={"status": "in_progress"})
+    assert forbidden.status_code == 403
+    current = operator.get("/bookings?date=2026-06-01").json()
+    assert next(item for item in current if item["booking_id"] == "bkg_operator_start")["status"] == "ready"
+    app.dependency_overrides.clear()
+
+
+def test_pilot_cannot_skip_ready_to_done() -> None:
+    mock_sheet = MockSheetWrapper()
+    operator = _make_client(mock_sheet)
+    _login(operator)
+    created = operator.post(
+        "/bookings",
+        json={
+            "booking_id": "bkg_skip_done",
+            "client_id": "client_1",
+            "date": "2026-06-01",
+            "time": "10:00",
+            "boat_id": "boat_1",
+        },
+    )
+    assert created.status_code == 200
+    assert operator.post(
+        "/checkins",
+        json={"method": "phone", "phone": "+79990000011", "date": "2026-06-01", "status": "arrived", "booking_id": "bkg_skip_done"},
+    ).status_code == 200
+    assert operator.post(
+        "/checkins",
+        json={"method": "phone", "phone": "+79990000011", "date": "2026-06-01", "status": "ready", "booking_id": "bkg_skip_done"},
+    ).status_code == 200
+
+    pilot = _make_client(mock_sheet)
+    _login(pilot, staff_user_id="staff_pilot", phone="+79990000002")
+    skipped = pilot.patch("/bookings/bkg_skip_done/status", json={"status": "done"})
+    assert skipped.status_code == 409
+    current = pilot.get("/pilot/today?date=2026-06-01").json()
+    assert next(item for item in current if item["booking_id"] == "bkg_skip_done")["status"] == "ready"
+    app.dependency_overrides.clear()
+
+
+def test_admin_cannot_skip_timer_via_status_api() -> None:
+    mock_sheet = MockSheetWrapper()
+    admin = _make_client(mock_sheet)
+    _login(admin, staff_user_id="staff_admin", phone="+79990000000")
+    created = admin.post(
+        "/bookings",
+        json={
+            "booking_id": "bkg_admin_timer",
+            "client_id": "client_1",
+            "date": "2026-06-01",
+            "time": "10:00",
+            "boat_id": "boat_1",
+        },
+    )
+    assert created.status_code == 200
+    assert admin.patch("/bookings/bkg_admin_timer/status", json={"status": "arrived"}).status_code == 200
+    assert admin.patch("/bookings/bkg_admin_timer/status", json={"status": "ready"}).status_code == 200
+    blocked = admin.patch("/bookings/bkg_admin_timer/status", json={"status": "in_progress"})
+    assert blocked.status_code == 409
+    blocked_done = admin.patch("/bookings/bkg_admin_timer/status", json={"status": "done"})
+    assert blocked_done.status_code == 409
+    current = admin.get("/bookings?date=2026-06-01").json()
+    assert next(item for item in current if item["booking_id"] == "bkg_admin_timer")["status"] == "ready"
+    app.dependency_overrides.clear()
+

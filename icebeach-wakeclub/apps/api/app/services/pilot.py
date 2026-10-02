@@ -6,6 +6,7 @@ from packages.sheets import SheetWrapper
 
 from ..models import RideType
 from .common import parse_bool
+from .ride_runtime import compute_elapsed_seconds, compute_remaining_seconds, parse_actual_duration_seconds, parse_sets_count, planned_duration_minutes, timer_state
 
 ACTIVE_PILOT_STATUSES = {"confirmed", "arrived", "ready", "in_progress", "late"}
 
@@ -48,6 +49,13 @@ def get_pilot_queue(
             "status": r.get("status", ""),
             "coach_required": parse_bool(r.get("coach_required")),
             "ride_type": r.get("ride_type") or "wakeboard",
+            "sets_count": parse_sets_count(r),
+            "planned_duration_minutes": planned_duration_minutes(r),
+            "warmup_state": r.get("warmup_state", "pending") or "pending",
+            "timer_state": timer_state(r),
+            "elapsed_seconds": compute_elapsed_seconds(r),
+            "remaining_seconds": compute_remaining_seconds(r),
+            "actual_duration_seconds": parse_actual_duration_seconds(r),
         }
         for r in rows
     ]
