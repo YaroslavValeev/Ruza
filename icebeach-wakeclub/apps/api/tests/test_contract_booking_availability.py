@@ -160,9 +160,9 @@ def test_booking_status_transition_and_pilot_queue() -> None:
     assert payload[0]["client_name"] == "Client One"
     assert payload[0]["status"] == "ready"
 
-    in_progress = pilot_client.patch("/bookings/bkg_test_2/status", json={"status": "in_progress"})
+    in_progress = pilot_client.post("/bookings/bkg_test_2/timer-action", json={"action": "start"})
     assert in_progress.status_code == 200
-    done = pilot_client.patch("/bookings/bkg_test_2/status", json={"status": "done"})
+    done = pilot_client.post("/bookings/bkg_test_2/timer-action", json={"action": "stop"})
     assert done.status_code == 200
 
     app.dependency_overrides.clear()

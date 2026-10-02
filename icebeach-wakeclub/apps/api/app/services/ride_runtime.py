@@ -1,11 +1,28 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from .common import parse_utc_instant
 
 SET_DURATION_MINUTES = 25
 SLOT_SPAN_MINUTES = 30
+DEFAULT_CLUB_TIMEZONE = "Europe/Moscow"
+
+
+def resolve_club_timezone(timezone_name: str | None) -> ZoneInfo:
+    name = (timezone_name or "").strip() or DEFAULT_CLUB_TIMEZONE
+    try:
+        return ZoneInfo(name)
+    except Exception:
+        return ZoneInfo(DEFAULT_CLUB_TIMEZONE)
+
+
+def slot_start_local(date_text: str, time_text: str, zone: ZoneInfo) -> datetime:
+    """Sheet slot date/time is club wall time, not UTC."""
+    target = date.fromisoformat(date_text)
+    hour_text, minute_text = (time_text or "00:00").split(":")[:2]
+    return datetime.combine(target, time(hour=int(hour_text), minute=int(minute_text)), tzinfo=zone)
 
 
 def parse_sets_count(row: dict[str, str]) -> int:

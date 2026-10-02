@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+CLUB_TZ = ZoneInfo("Europe/Moscow")
 
 import pytest
 from fastapi import HTTPException
@@ -237,7 +240,7 @@ def test_shift_reminders_follow_t15_then_t5_rules() -> None:
         settings,
         club_id="ice_beach_ruza",
         actor_staff_user_id="system-agent",
-        now=datetime(2026, 6, 1, 9, 45, tzinfo=timezone.utc),
+        now=datetime(2026, 6, 1, 9, 45, tzinfo=CLUB_TZ),
     )
     assert t15["admin_notices_sent"] == 1
     assert t15["client_notices_sent"] == 0
@@ -250,7 +253,7 @@ def test_shift_reminders_follow_t15_then_t5_rules() -> None:
         warmup_state=None,
         actor_staff_user_id="staff_001",
         club_id="ice_beach_ruza",
-        now=datetime(2026, 6, 1, 9, 46, tzinfo=timezone.utc),
+        now=datetime(2026, 6, 1, 9, 46, tzinfo=CLUB_TZ),
     )
     assert item["status"] == "late"
     row = next(entry for entry in sheet.read_tab("bookings") if entry["booking_id"] == "bkg_reminder")
@@ -261,7 +264,7 @@ def test_shift_reminders_follow_t15_then_t5_rules() -> None:
         settings,
         club_id="ice_beach_ruza",
         actor_staff_user_id="system-agent",
-        now=datetime(2026, 6, 1, 9, 55, tzinfo=timezone.utc),
+        now=datetime(2026, 6, 1, 9, 55, tzinfo=CLUB_TZ),
     )
     assert t5["admin_notices_sent"] == 1
     assert t5["client_notices_sent"] == 1
@@ -330,7 +333,7 @@ def test_second_client_notice_is_skipped_after_arrival() -> None:
         settings,
         club_id="ice_beach_ruza",
         actor_staff_user_id="system-agent",
-        now=datetime(2026, 6, 1, 9, 45, tzinfo=timezone.utc),
+        now=datetime(2026, 6, 1, 9, 45, tzinfo=CLUB_TZ),
     )
     update_booking_prep(
         sheet,
@@ -340,7 +343,7 @@ def test_second_client_notice_is_skipped_after_arrival() -> None:
         warmup_state=None,
         actor_staff_user_id="staff_001",
         club_id="ice_beach_ruza",
-        now=datetime(2026, 6, 1, 9, 46, tzinfo=timezone.utc),
+        now=datetime(2026, 6, 1, 9, 46, tzinfo=CLUB_TZ),
     )
     update_booking_prep(
         sheet,
@@ -350,14 +353,14 @@ def test_second_client_notice_is_skipped_after_arrival() -> None:
         warmup_state=None,
         actor_staff_user_id="staff_001",
         club_id="ice_beach_ruza",
-        now=datetime(2026, 6, 1, 9, 53, tzinfo=timezone.utc),
+        now=datetime(2026, 6, 1, 9, 53, tzinfo=CLUB_TZ),
     )
     t5 = process_shift_reminders(
         sheet,
         settings,
         club_id="ice_beach_ruza",
         actor_staff_user_id="system-agent",
-        now=datetime(2026, 6, 1, 9, 55, tzinfo=timezone.utc),
+        now=datetime(2026, 6, 1, 9, 55, tzinfo=CLUB_TZ),
     )
     assert t5["client_notices_sent"] == 0
     app.dependency_overrides.clear()

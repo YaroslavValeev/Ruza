@@ -85,6 +85,11 @@ def patch_booking_status(
                 detail="Pilot can only start and finish rides",
             )
         _assert_pilot_booking_access(sheet, booking_id=booking_id, user=user)
+    if payload.status in PILOT_ALLOWED_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ride start and finish are only available through the timer",
+        )
     return BookingItem(
         **update_booking_status(
             sheet,

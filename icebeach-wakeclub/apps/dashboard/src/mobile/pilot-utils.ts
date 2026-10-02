@@ -1,9 +1,6 @@
 import { BookingStatus, RideType } from "../types";
 
-export const PILOT_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
-  ready: ["in_progress"],
-  in_progress: ["done"],
-};
+export const PILOT_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {};
 
 export const STATUS_LABELS: Partial<Record<BookingStatus, string>> = {
   confirmed: "Подтверждена",

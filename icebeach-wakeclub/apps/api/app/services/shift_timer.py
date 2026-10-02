@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 
@@ -10,7 +10,7 @@ from ..config import Settings
 from .availability import get_availability_for_date
 from .bookings import get_booking_row, list_bookings, update_booking_status
 from .notifications import send_admin_notice, send_client_notice
-from .ride_runtime import compute_elapsed_seconds, iter_booking_slots, offset_time_text, parse_sets_count
+from .ride_runtime import compute_elapsed_seconds, iter_booking_slots, offset_time_text, parse_sets_count, resolve_club_timezone, slot_start_local
 
 
 def _now(now: datetime | None = None) -> datetime:
@@ -56,10 +56,13 @@ def _client_row(sheet: SheetWrapper, *, club_id: str, client_id: str) -> dict[st
     return client
 
 
-def _slot_start(row: dict[str, str]) -> datetime:
-    target_date = date.fromisoformat(row.get("date", ""))
-    hour, minute = (int(part) for part in row.get("time", "00:00").split(":"))
-    return datetime.combine(target_date, time(hour=hour, minute=minute, tzinfo=timezone.utc))
+def _club_zone(sheet: SheetWrapper, club_id: str):
+    row = next((item for item in sheet.read_tab("clubs") if item.get("club_id") == club_id), None)
+    return resolve_club_timezone((row or {}).get("timezone"))
+
+
+def _slot_start(row: dict[str, str], zone) -> datetime:
+    return slot_start_local(row.get("date", ""), row.get("time", "00:00"), zone)
 
 
 def _next_slot_available(sheet: SheetWrapper, *, row: dict[str, str], club_id: str) -> bool:
@@ -138,7 +141,7 @@ def update_booking_prep(
                 )
                 row = get_booking_row(sheet, booking_id=booking_id, club_id=club_id)
                 current_status = row.get("status", "confirmed")
-            minutes_to_start = int((_slot_start(row) - current_now).total_seconds() // 60)
+            minutes_to_start = int((_slot_start(row, _club_zone(sheet, club_id)) - current_now).total_seconds() // 60)
             if minutes_to_start <= 15 and not row.get("client_notice_15_sent_at"):
                 client = _client_row(sheet, club_id=club_id, client_id=row.get("client_id", ""))
                 send_client_notice(
@@ -193,6 +196,7 @@ def run_timer_action(
             status_value="in_progress",
             actor_staff_user_id=actor_staff_user_id,
             club_id=club_id,
+            allow_ride_runtime=True,
         )
         runtime_patch.update(
             {
@@ -236,6 +240,7 @@ def run_timer_action(
             status_value="done",
             actor_staff_user_id=actor_staff_user_id,
             club_id=club_id,
+            allow_ride_runtime=True,
         )
     elif action == "add_set":
         if booking_status != "in_progress":
@@ -244,20 +249,22 @@ def run_timer_action(
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Next slot is not free for an extra set")
         runtime_patch["sets_count"] = parse_sets_count(row) + 1
     elif action == "notify_next_client":
-        next_client_booking = _next_client_candidate(sheet, row=row, club_id=club_id)
-        if next_client_booking is None or not _next_slot_available(sheet, row=row, club_id=club_id):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No earlier start notice can be sent for the next client")
-        client = _client_row(sheet, club_id=club_id, client_id=next_client_booking.get("client_id", ""))
-        send_client_notice(
-            sheet,
-            settings,
-            booking_id=next_client_booking.get("booking_id", ""),
-            client_row=client,
-            actor=actor_staff_user_id,
-            title="Можно подойти раньше",
-            message=f"Следующий свободный старт освободился раньше. Если вам удобно, подойдите к старту к {offset_time_text(row.get('time', '00:00'), parse_sets_count(row))}.",
-        )
-        runtime_patch["next_client_notified_at"] = current_now.isoformat()
+        # One successful notice per booking. A repeat click must not send Telegram again.
+        if not str(row.get("next_client_notified_at") or "").strip():
+            next_client_booking = _next_client_candidate(sheet, row=row, club_id=club_id)
+            if next_client_booking is None or not _next_slot_available(sheet, row=row, club_id=club_id):
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No earlier start notice can be sent for the next client")
+            client = _client_row(sheet, club_id=club_id, client_id=next_client_booking.get("client_id", ""))
+            send_client_notice(
+                sheet,
+                settings,
+                booking_id=next_client_booking.get("booking_id", ""),
+                client_row=client,
+                actor=actor_staff_user_id,
+                title="Можно подойти раньше",
+                message=f"Следующий свободный старт освободился раньше. Если вам удобно, подойдите к старту к {offset_time_text(row.get('time', '00:00'), parse_sets_count(row))}.",
+            )
+            runtime_patch["next_client_notified_at"] = current_now.isoformat()
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported timer action")
 
@@ -327,7 +334,8 @@ def process_shift_reminders(
     now: datetime | None = None,
 ) -> dict[str, int]:
     current_now = _now(now)
-    target_date = current_now.date().isoformat()
+    zone = _club_zone(sheet, club_id)
+    target_date = current_now.astimezone(zone).date().isoformat()
     admin_notices = 0
     client_notices = 0
 
@@ -341,7 +349,7 @@ def process_shift_reminders(
 
     for row in rows:
         booking_id = row.get("booking_id", "")
-        minutes_to_start = int((_slot_start(row) - current_now).total_seconds() // 60)
+        minutes_to_start = int((_slot_start(row, zone) - current_now).total_seconds() // 60)
         runtime_patch: dict[str, str] = {}
         if 0 <= minutes_to_start <= 15 and row.get("status") == "confirmed" and not row.get("admin_notice_15_sent_at"):
             send_admin_notice(

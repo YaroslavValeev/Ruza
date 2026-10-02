@@ -24,6 +24,7 @@ from .ride_runtime import (
 )
 
 FINAL_BOOKING_STATUSES = {"done", "cancelled", "no_show"}
+RIDE_TIMER_ONLY_STATUSES = {"in_progress", "done"}
 ACTIVE_BOOKING_STATUSES = {"confirmed", "arrived", "ready", "in_progress", "late"}
 ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "confirmed": {"arrived", "late", "cancelled", "no_show"},
@@ -318,10 +319,16 @@ def update_booking_status(
     status_value: BookingStatus,
     actor_staff_user_id: str,
     club_id: str,
+    allow_ride_runtime: bool = False,
 ) -> dict[str, str | int | bool]:
     row = get_booking_row(sheet, booking_id=booking_id, club_id=club_id)
 
     current_status = row.get("status", "confirmed")
+    if status_value in RIDE_TIMER_ONLY_STATUSES and not allow_ride_runtime and current_status != status_value:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ride start and finish are only available through the timer",
+        )
     if current_status == status_value:
         clients = {client.get("client_id", ""): client for client in sheet.read_tab("clients") if client.get("club_id") == club_id}
         payments = [
