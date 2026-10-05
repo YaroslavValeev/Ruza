@@ -69,17 +69,22 @@ def test_production_settings_require_https_phone_provider(monkeypatch) -> None:
     monkeypatch.setenv("ALLOW_LEGACY_STAFF_LOGIN", "false")
     monkeypatch.setenv("ALLOW_MANUAL_OTP_DELIVERY", "false")
     monkeypatch.setenv("SESSION_COOKIE_SECURE", "true")
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "https://dashboard.icebeach.ru")
+    monkeypatch.setenv("CORS_ALLOW_ORIGIN_REGEX", "")
     monkeypatch.setenv("SPREADSHEET_ID", "test-sheet")
     monkeypatch.setenv("SESSION_SECRET", "test-secret")
     monkeypatch.setenv("GOOGLE_SERVICE_ACCOUNT_JSON", str(Path(__file__).resolve()))
     monkeypatch.delenv("OTP_DELIVERY_WEBHOOK_URL", raising=False)
     monkeypatch.delenv("OTP_DELIVERY_WEBHOOK_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
 
     try:
         get_settings()
         raise AssertionError("expected RuntimeError for missing production OTP provider")
     except RuntimeError as exc:
-        assert "OTP_DELIVERY_WEBHOOK_URL" in str(exc)
+        message = str(exc)
+        assert "TELEGRAM_BOT_TOKEN" in message
+        assert "OTP_DELIVERY_WEBHOOK_URL" in message
 
     monkeypatch.setenv("OTP_DELIVERY_WEBHOOK_URL", "http://otp.example/send")
     monkeypatch.setenv("OTP_DELIVERY_WEBHOOK_TOKEN", "provider-secret")
@@ -97,12 +102,37 @@ def test_production_settings_require_https_phone_provider(monkeypatch) -> None:
     assert settings.allow_manual_otp_delivery is False
 
 
+def test_production_settings_accept_telegram_otp_without_webhook(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("AUTH_DEBUG_CODE_IN_RESPONSE", "false")
+    monkeypatch.setenv("ALLOW_LEGACY_STAFF_LOGIN", "false")
+    monkeypatch.setenv("ALLOW_MANUAL_OTP_DELIVERY", "false")
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "true")
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "https://dashboard.icebeach.ru")
+    monkeypatch.setenv("CORS_ALLOW_ORIGIN_REGEX", "")
+    monkeypatch.setenv("SPREADSHEET_ID", "test-sheet")
+    monkeypatch.setenv("SESSION_SECRET", "test-secret")
+    monkeypatch.setenv("GOOGLE_SERVICE_ACCOUNT_JSON", str(Path(__file__).resolve()))
+    monkeypatch.setenv("INTAKE_SPREADSHEET_ID", "intake-sheet")
+    monkeypatch.setenv("AGENTS_SECRET", "agents-secret")
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456:ABC-DEF")
+    monkeypatch.delenv("OTP_DELIVERY_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("OTP_DELIVERY_WEBHOOK_TOKEN", raising=False)
+
+    settings = get_settings()
+    assert settings.telegram_bot_token == "123456:ABC-DEF"
+    assert settings.otp_delivery_webhook_url is None
+    assert settings.allow_manual_otp_delivery is False
+
+
 def test_production_settings_require_intake_and_agents_secret(monkeypatch) -> None:
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("AUTH_DEBUG_CODE_IN_RESPONSE", "false")
     monkeypatch.setenv("ALLOW_LEGACY_STAFF_LOGIN", "false")
     monkeypatch.setenv("ALLOW_MANUAL_OTP_DELIVERY", "false")
     monkeypatch.setenv("SESSION_COOKIE_SECURE", "true")
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "https://dashboard.icebeach.ru")
+    monkeypatch.setenv("CORS_ALLOW_ORIGIN_REGEX", "")
     monkeypatch.setenv("SPREADSHEET_ID", "test-sheet")
     monkeypatch.setenv("SESSION_SECRET", "test-secret")
     monkeypatch.setenv("GOOGLE_SERVICE_ACCOUNT_JSON", str(Path(__file__).resolve()))
@@ -128,3 +158,61 @@ def test_production_settings_require_intake_and_agents_secret(monkeypatch) -> No
     settings = get_settings()
     assert settings.intake_spreadsheet_id == "intake-sheet"
     assert settings.agents_secret == "agents-secret"
+
+
+def test_request_code_is_rate_limited_by_phone_before_staff_lookup() -> None:
+    mock_sheet = MockSheetWrapper()
+    app.dependency_overrides[get_sheet_wrapper] = lambda: mock_sheet
+    app.dependency_overrides[get_settings] = make_test_settings
+    client = TestClient(app)
+    unknown_phone = "+79991110000"
+    for _ in range(5):
+        missing = client.post("/auth/request-code", json={"phone": unknown_phone})
+        assert missing.status_code == 401
+        assert "not found" in missing.json()["detail"].lower()
+    blocked = client.post("/auth/request-code", json={"phone": "8 (999) 111-00-00"})
+    assert blocked.status_code == 429
+    app.dependency_overrides.clear()
+
+
+def test_production_settings_reject_default_lan_cors(monkeypatch) -> None:
+    from apps.api.app.config import DEFAULT_LAN_CORS_REGEX
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("AUTH_DEBUG_CODE_IN_RESPONSE", "false")
+    monkeypatch.setenv("ALLOW_LEGACY_STAFF_LOGIN", "false")
+    monkeypatch.setenv("ALLOW_MANUAL_OTP_DELIVERY", "false")
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "true")
+    monkeypatch.setenv("SPREADSHEET_ID", "test-sheet")
+    monkeypatch.setenv("SESSION_SECRET", "test-secret")
+    monkeypatch.setenv("GOOGLE_SERVICE_ACCOUNT_JSON", str(Path(__file__).resolve()))
+    monkeypatch.setenv("OTP_DELIVERY_WEBHOOK_URL", "https://otp.example/send")
+    monkeypatch.setenv("OTP_DELIVERY_WEBHOOK_TOKEN", "provider-secret")
+    monkeypatch.setenv("INTAKE_SPREADSHEET_ID", "intake-sheet")
+    monkeypatch.setenv("AGENTS_SECRET", "agents-secret")
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "https://dashboard.icebeach.ru")
+    monkeypatch.delenv("CORS_ALLOW_ORIGIN_REGEX", raising=False)
+    try:
+        get_settings()
+        raise AssertionError("expected RuntimeError for default LAN CORS regex")
+    except RuntimeError as exc:
+        assert "LAN" in str(exc)
+
+    monkeypatch.setenv("CORS_ALLOW_ORIGIN_REGEX", DEFAULT_LAN_CORS_REGEX)
+    try:
+        get_settings()
+        raise AssertionError("expected RuntimeError for explicit default LAN CORS regex")
+    except RuntimeError as exc:
+        assert "LAN" in str(exc)
+
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("CORS_ALLOW_ORIGIN_REGEX", "")
+    try:
+        get_settings()
+        raise AssertionError("expected RuntimeError for localhost CORS origins")
+    except RuntimeError as exc:
+        assert "localhost" in str(exc)
+
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "https://dashboard.icebeach.ru")
+    settings = get_settings()
+    assert settings.cors_allow_origin_regex is None

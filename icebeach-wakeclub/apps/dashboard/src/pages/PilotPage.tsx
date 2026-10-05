@@ -387,7 +387,7 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                 session={session}
                 booking={item}
                 onUpdated={mergeItem}
-                allowTimerControls
+                allowTimerControls={session.role === "pilot" || session.role === "admin"}
               />
             </article>
           );

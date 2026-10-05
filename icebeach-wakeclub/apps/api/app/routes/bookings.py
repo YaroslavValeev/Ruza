@@ -40,6 +40,9 @@ def get_bookings(
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
 ) -> list[BookingItem]:
     coach_filter = user.staff_user_id if user.role == "coach" else None
+    boat_filter = None
+    if user.role == "pilot":
+        boat_filter = get_pilot_boat_id(sheet, staff_user_id=user.staff_user_id, club_id=user.club_id) or ""
     return [
         BookingItem(**item)
         for item in list_bookings(
@@ -47,6 +50,7 @@ def get_bookings(
             club_id=user.club_id,
             target_date=date_value.isoformat(),
             coach_user_id=coach_filter,
+            boat_id=boat_filter,
         )
     ]
 
@@ -128,11 +132,12 @@ def patch_booking_prep(
 def post_timer_action(
     booking_id: str,
     payload: RideTimerActionRequest,
-    user: AuthUser = Depends(require_roles("pilot")),
+    user: AuthUser = Depends(require_roles("admin", "pilot")),
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
     settings: Settings = Depends(get_settings),
 ) -> BookingItem:
-    _assert_pilot_booking_access(sheet, booking_id=booking_id, user=user)
+    if user.role == "pilot":
+        _assert_pilot_booking_access(sheet, booking_id=booking_id, user=user)
     return BookingItem(
         **run_timer_action(
             sheet,

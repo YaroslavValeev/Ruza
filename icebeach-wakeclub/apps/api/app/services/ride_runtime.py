@@ -77,3 +77,12 @@ def offset_time_text(time_text: str, slot_offset: int) -> str:
 
 def iter_booking_slots(row: dict[str, str]) -> list[str]:
     return [offset_time_text(str(row.get("time", "00:00")), index) for index in range(parse_sets_count(row))]
+
+
+def club_local_date(timezone_name: str | None, *, now: datetime | None = None) -> date:
+    """Club wall-clock date. Blank or unknown zones use Europe/Moscow, not container UTC."""
+    zone = resolve_club_timezone(timezone_name)
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current.astimezone(zone).date()

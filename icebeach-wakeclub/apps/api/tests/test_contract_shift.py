@@ -288,3 +288,100 @@ def test_production_settings_reject_debug_otp(monkeypatch) -> None:
         raise AssertionError("expected RuntimeError for debug OTP in production")
     except RuntimeError as exc:
         assert "AUTH_DEBUG_CODE_IN_RESPONSE" in str(exc)
+
+
+def test_coach_shift_today_is_limited_to_own_sessions() -> None:
+    mock_sheet = MockSheetWrapper()
+    for booking_id, client_id, coach_id, coach_required in (
+        ("bkg_coach", "client_1", "staff_coach", "true"),
+        ("bkg_other", "client_2", "", "false"),
+    ):
+        mock_sheet.append_row(
+            "bookings",
+            {
+                "booking_id": booking_id,
+                "club_id": "ice_beach_ruza",
+                "client_id": client_id,
+                "date": "2026-06-01",
+                "time": "10:00" if booking_id == "bkg_coach" else "11:00",
+                "boat_id": "boat_1",
+                "status": "confirmed",
+                "coach_required": coach_required,
+                "coach_user_id": coach_id,
+                "sets_count": "1",
+                "total_price": "12000",
+            },
+        )
+    mock_sheet.append_row(
+        "checkins",
+        {
+            "checkin_id": "chk_other",
+            "club_id": "ice_beach_ruza",
+            "booking_id": "bkg_other",
+            "client_id": "client_2",
+            "method": "manual",
+            "status": "arrived",
+            "ts": "2026-06-01T08:00:00+00:00",
+        },
+    )
+    client = _make_client(mock_sheet)
+    _login(client, staff_user_id="staff_coach", phone="+79990000003")
+    response = client.get("/shift/today?date=2026-06-01")
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["booking_id"] for item in body["bookings"]] == ["bkg_coach"]
+    assert body["checkins"] == []
+    assert body["summary"]["total_bookings"] == 1
+    app.dependency_overrides.clear()
+
+
+def test_marketing_shift_live_omits_client_phone() -> None:
+    mock_sheet = MockSheetWrapper()
+    mock_sheet.append_row(
+        "bookings",
+        {
+            "booking_id": "bkg_live_phone",
+            "club_id": "ice_beach_ruza",
+            "client_id": "client_1",
+            "date": "2026-06-01",
+            "time": "10:00",
+            "boat_id": "boat_1",
+            "status": "ready",
+            "coach_required": "false",
+            "sets_count": "1",
+            "total_price": "12000",
+        },
+    )
+    client = _make_client(mock_sheet)
+    _login(client, staff_user_id="staff_marketing", phone="+79990000004")
+    response = client.get("/shift/live?date=2026-06-01")
+    assert response.status_code == 200
+    focus = response.json()["focus_booking"]
+    assert focus["booking_id"] == "bkg_live_phone"
+    assert focus["client_name"] == "Client One"
+    assert focus["client_phone"] == ""
+    app.dependency_overrides.clear()
+
+
+def test_shift_today_defaults_to_club_timezone_not_utc(monkeypatch) -> None:
+    from datetime import datetime as real_datetime
+    from datetime import timezone as real_timezone
+
+    class FrozenDateTime(real_datetime):
+        @classmethod
+        def now(cls, tz=None):
+            base = real_datetime(2026, 10, 4, 22, 30, tzinfo=real_timezone.utc)
+            return base if tz is None else base.astimezone(tz)
+
+    monkeypatch.setattr("apps.api.app.services.ride_runtime.datetime", FrozenDateTime)
+    mock_sheet = MockSheetWrapper()
+    mock_sheet.tabs["clubs"][0]["timezone"] = ""
+    client = _make_client(mock_sheet)
+    _login(client, staff_user_id="staff_admin", phone="+79990000000")
+    today = client.get("/shift/today")
+    live = client.get("/shift/live")
+    assert today.status_code == 200
+    assert live.status_code == 200
+    assert today.json()["date"] == "2026-10-05"
+    assert live.json()["date"] == "2026-10-05"
+    app.dependency_overrides.clear()

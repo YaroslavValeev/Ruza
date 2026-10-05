@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 import os
 import sys
 from pathlib import Path
@@ -53,3 +55,12 @@ def make_test_settings() -> Settings:
         allow_manual_otp_delivery=True,
         public_club_id="ice_beach_ruza",
     )
+
+
+@pytest.fixture(autouse=True)
+def _reset_phone_rate_limits():
+    from apps.api.app.services.phone_rate_limit import reset_phone_rate_limits
+
+    reset_phone_rate_limits()
+    yield
+    reset_phone_rate_limits()

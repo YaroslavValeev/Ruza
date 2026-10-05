@@ -9,6 +9,7 @@ from ..dependencies import get_intake_sheet_wrapper, get_sheet_wrapper
 from ..models import AvailabilityItem, PublicBookingRequest, PublicBookingRequestResponse
 from ..services.availability import get_availability_for_date
 from ..services.intake import create_canonical_booking_request, lead_id_for_external, sync_intake_leads
+from ..services.phone_rate_limit import enforce_phone_rate_limit
 
 
 router = APIRouter(prefix="/public", tags=["public"])
@@ -30,6 +31,7 @@ def public_booking_request(
     target_sheet: SheetWrapper = Depends(get_sheet_wrapper),
     settings: Settings = Depends(get_settings),
 ) -> PublicBookingRequestResponse:
+    enforce_phone_rate_limit(payload.phone, settings, scope="public-booking-request")
     request_id = create_canonical_booking_request(
         source_sheet,
         payload,

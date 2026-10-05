@@ -983,6 +983,7 @@ export function BookingsPage({ session }: BookingsPageProps): JSX.Element {
                     session={session}
                     booking={booking}
                     onUpdated={mergeUpdatedBooking}
+                    allowTimerControls={session.role === "admin"}
                     allowCancel
                     compact={compactList}
                   />

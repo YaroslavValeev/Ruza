@@ -285,6 +285,7 @@ def list_bookings(
     club_id: str,
     target_date: str,
     coach_user_id: str | None = None,
+    boat_id: str | None = None,
 ) -> list[dict[str, str | int | bool]]:
     clients = {row.get("client_id", ""): row for row in sheet.read_tab("clients") if row.get("club_id") == club_id}
     rows = [
@@ -298,6 +299,8 @@ def list_bookings(
             for row in rows
             if parse_bool(row.get("coach_required")) and row.get("coach_user_id") == coach_user_id
         ]
+    if boat_id is not None:
+        rows = [row for row in rows if row.get("boat_id") == boat_id]
     rows.sort(key=lambda row: (row.get("time", ""), row.get("boat_id", ""), row.get("booking_id", "")))
     payments = [row for row in sheet.read_tab("payments") if row.get("club_id") == club_id]
     summaries = payment_summaries_by_booking(rows, payments)

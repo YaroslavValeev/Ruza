@@ -13,6 +13,7 @@ from ..dependencies import get_sheet_wrapper
 from ..models import LoginCodeRequest, LoginCodeResponse, LoginRequest, LoginVerifyRequest, SessionResponse
 from ..services.common import generate_auth_code, hash_auth_code, parse_utc_instant, phones_match
 from ..services.otp_delivery import OtpDeliveryError, deliver_login_code
+from ..services.phone_rate_limit import enforce_phone_rate_limit
 from ..services.pilot import get_pilot_boat_id
 
 
@@ -118,6 +119,7 @@ def request_login_code(
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
     settings: Settings = Depends(get_settings),
 ) -> LoginCodeResponse:
+    enforce_phone_rate_limit(payload.phone, settings, scope="auth-request-code")
     user = _resolve_staff_user(sheet, staff_user_id=payload.staff_user_id, phone=payload.phone)
     staff_user_id = user["staff_user_id"]
 

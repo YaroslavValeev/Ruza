@@ -102,8 +102,6 @@ for key in \
   ALLOW_LEGACY_STAFF_LOGIN \
   AUTH_DEBUG_CODE_IN_RESPONSE \
   ALLOW_MANUAL_OTP_DELIVERY \
-  OTP_DELIVERY_WEBHOOK_URL \
-  OTP_DELIVERY_WEBHOOK_TOKEN \
   CORS_ALLOW_ORIGINS \
   AGENTS_SECRET \
   PUBLIC_CLUB_ID; do
@@ -116,13 +114,34 @@ require_exact SESSION_COOKIE_SECURE true
 require_exact ALLOW_LEGACY_STAFF_LOGIN false
 require_exact AUTH_DEBUG_CODE_IN_RESPONSE false
 require_exact ALLOW_MANUAL_OTP_DELIVERY false
-require_https OTP_DELIVERY_WEBHOOK_URL
+
+webhook="$(value OTP_DELIVERY_WEBHOOK_URL)"
+webhook_token="$(value OTP_DELIVERY_WEBHOOK_TOKEN)"
+telegram="$(value TELEGRAM_BOT_TOKEN)"
+if [[ -n "${webhook}" || -n "${webhook_token}" ]]; then
+  require_value OTP_DELIVERY_WEBHOOK_URL
+  block_placeholder OTP_DELIVERY_WEBHOOK_URL
+  require_value OTP_DELIVERY_WEBHOOK_TOKEN
+  block_placeholder OTP_DELIVERY_WEBHOOK_TOKEN
+  require_https OTP_DELIVERY_WEBHOOK_URL
+elif [[ -n "${telegram}" ]]; then
+  pass OTP_DELIVERY "telegram bot token configured"
+else
+  blocker OTP_DELIVERY "set TELEGRAM_BOT_TOKEN or a real HTTPS OTP webhook"
+fi
 
 CORS="$(value CORS_ALLOW_ORIGINS)"
 if [[ "${CORS}" =~ localhost|127\.0\.0\.1|http:// ]]; then
   blocker CORS_ALLOW_ORIGINS "production origins must be HTTPS public origins, not localhost/http"
 else
   pass CORS_ALLOW_ORIGINS "no localhost/http origins"
+fi
+
+DEFAULT_LAN_CORS='^https?://(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$'
+if [[ ! -v 'ENV_MAP[CORS_ALLOW_ORIGIN_REGEX]' || "$(value CORS_ALLOW_ORIGIN_REGEX)" == "${DEFAULT_LAN_CORS}" ]]; then
+  blocker CORS_ALLOW_ORIGIN_REGEX "production must not use the default LAN origin regex; set it empty or to a non-default value"
+else
+  pass CORS_ALLOW_ORIGIN_REGEX "default LAN origin regex is not active"
 fi
 
 if [[ "$(value SESSION_SECRET | wc -c)" -le 32 ]]; then

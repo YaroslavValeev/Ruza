@@ -249,3 +249,59 @@ def test_checkin_mark_late() -> None:
     assert late_booking["status"] == "late"
 
     app.dependency_overrides.clear()
+
+
+def test_pilot_bookings_are_limited_to_assigned_boat() -> None:
+    mock_sheet = MockSheetWrapper()
+    mock_sheet.append_row(
+        "boats",
+        {
+            "boat_id": "boat_2",
+            "club_id": "ice_beach_ruza",
+            "boat_name": "Axis B",
+            "capacity_default": "1",
+            "pilot_user_id": "staff_other",
+            "is_active": "true",
+        },
+    )
+    mock_sheet.append_row(
+        "bookings",
+        {
+            "booking_id": "bkg_own",
+            "club_id": "ice_beach_ruza",
+            "client_id": "client_1",
+            "date": "2026-06-01",
+            "time": "10:00",
+            "boat_id": "boat_1",
+            "status": "confirmed",
+            "coach_required": "false",
+            "coach_user_id": "",
+            "sets_count": "1",
+            "total_price": "12000",
+        },
+    )
+    mock_sheet.append_row(
+        "bookings",
+        {
+            "booking_id": "bkg_other",
+            "club_id": "ice_beach_ruza",
+            "client_id": "client_2",
+            "date": "2026-06-01",
+            "time": "10:30",
+            "boat_id": "boat_2",
+            "status": "confirmed",
+            "coach_required": "false",
+            "coach_user_id": "",
+            "sets_count": "1",
+            "total_price": "12000",
+        },
+    )
+    client = _make_client(mock_sheet)
+    _login(client, staff_user_id="staff_pilot", phone="+79990000002")
+    response = client.get("/bookings?date=2026-06-01")
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["booking_id"] for item in body] == ["bkg_own"]
+    assert body[0]["client_phone"] == "+79990000011"
+    assert all(item["client_phone"] != "+79990000012" for item in body)
+    app.dependency_overrides.clear()

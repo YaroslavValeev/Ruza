@@ -91,7 +91,11 @@ def get_settings() -> Settings:
     cors_allow_origins = _parse_csv(
         os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
     )
-    cors_allow_origin_regex = os.getenv("CORS_ALLOW_ORIGIN_REGEX", DEFAULT_LAN_CORS_REGEX).strip() or None
+    raw_cors_regex = os.getenv("CORS_ALLOW_ORIGIN_REGEX")
+    if raw_cors_regex is None:
+        cors_allow_origin_regex = DEFAULT_LAN_CORS_REGEX
+    else:
+        cors_allow_origin_regex = raw_cors_regex.strip() or None
 
     environment = os.getenv("APP_ENV", "local").strip() or "local"
     debug_auth_codes_in_response = _truthy_env("AUTH_DEBUG_CODE_IN_RESPONSE", "false")
@@ -108,6 +112,7 @@ def get_settings() -> Settings:
     agents_secret = os.getenv("AGENTS_SECRET", "").strip() or None
     otp_delivery_webhook_url = os.getenv("OTP_DELIVERY_WEBHOOK_URL", "").strip() or None
     otp_delivery_webhook_token = os.getenv("OTP_DELIVERY_WEBHOOK_TOKEN", "").strip() or None
+    telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or None
     allow_manual_otp_delivery = _truthy_env(
         "ALLOW_MANUAL_OTP_DELIVERY",
         "false" if environment == "production" else "true",
@@ -115,16 +120,36 @@ def get_settings() -> Settings:
     if environment == "production":
         if allow_manual_otp_delivery:
             raise RuntimeError("ALLOW_MANUAL_OTP_DELIVERY cannot be true when APP_ENV=production")
-        if not otp_delivery_webhook_url:
-            raise RuntimeError("OTP_DELIVERY_WEBHOOK_URL is required when APP_ENV=production")
-        if not otp_delivery_webhook_url.lower().startswith("https://"):
-            raise RuntimeError("OTP_DELIVERY_WEBHOOK_URL must use HTTPS when APP_ENV=production")
-        if not otp_delivery_webhook_token:
-            raise RuntimeError("OTP_DELIVERY_WEBHOOK_TOKEN is required when APP_ENV=production")
+        if otp_delivery_webhook_url or otp_delivery_webhook_token:
+            if not otp_delivery_webhook_url:
+                raise RuntimeError("OTP_DELIVERY_WEBHOOK_URL is required when APP_ENV=production")
+            if not otp_delivery_webhook_url.lower().startswith("https://"):
+                raise RuntimeError("OTP_DELIVERY_WEBHOOK_URL must use HTTPS when APP_ENV=production")
+            if not otp_delivery_webhook_token:
+                raise RuntimeError("OTP_DELIVERY_WEBHOOK_TOKEN is required when APP_ENV=production")
+        elif telegram_bot_token:
+            pass
+        else:
+            raise RuntimeError(
+                "TELEGRAM_BOT_TOKEN or OTP_DELIVERY_WEBHOOK_URL is required when APP_ENV=production"
+            )
         if not intake_spreadsheet_id:
             raise RuntimeError("INTAKE_SPREADSHEET_ID is required when APP_ENV=production")
         if not agents_secret:
             raise RuntimeError("AGENTS_SECRET is required when APP_ENV=production")
+        unsafe_origins = [
+            origin
+            for origin in cors_allow_origins
+            if origin.lower().startswith("http://") or "localhost" in origin.lower() or "127.0.0.1" in origin.lower()
+        ]
+        if unsafe_origins:
+            raise RuntimeError(
+                "CORS_ALLOW_ORIGINS must be HTTPS public origins when APP_ENV=production, not localhost/http"
+            )
+        if raw_cors_regex is None or raw_cors_regex.strip() == DEFAULT_LAN_CORS_REGEX:
+            raise RuntimeError(
+                "CORS_ALLOW_ORIGIN_REGEX default LAN origin regex cannot be used when APP_ENV=production"
+            )
 
     return Settings(
         spreadsheet_id=spreadsheet_id,
@@ -148,7 +173,7 @@ def get_settings() -> Settings:
         environment=environment,
         agents_secret=agents_secret,
         agents_staff_user_id=os.getenv("AGENTS_STAFF_USER_ID", "system-agent").strip() or "system-agent",
-        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or None,
+        telegram_bot_token=telegram_bot_token,
         telegram_owner_chat_id=os.getenv("TELEGRAM_OWNER_CHAT_ID", "").strip() or None,
         otp_delivery_webhook_url=otp_delivery_webhook_url,
         otp_delivery_webhook_token=otp_delivery_webhook_token,

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from datetime import date
-
 from packages.sheets import SheetWrapper
 
 from ..models import RideType
 from .common import parse_bool
 from .ride_runtime import compute_elapsed_seconds, compute_remaining_seconds, parse_actual_duration_seconds, parse_sets_count, planned_duration_minutes, timer_state
+from .shift import club_local_today
 
 ACTIVE_PILOT_STATUSES = {"confirmed", "arrived", "ready", "in_progress", "late"}
 
@@ -23,7 +22,7 @@ def get_pilot_queue(
         start_text = date_from
         end_text = date_to
     else:
-        date_text = target_date or date.today().isoformat()
+        date_text = target_date or club_local_today(sheet, club_id).isoformat()
         start_text = date_text
         end_text = date_text
 

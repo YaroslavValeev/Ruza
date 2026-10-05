@@ -101,8 +101,6 @@ foreach ($key in @(
   'ALLOW_LEGACY_STAFF_LOGIN',
   'AUTH_DEBUG_CODE_IN_RESPONSE',
   'ALLOW_MANUAL_OTP_DELIVERY',
-  'OTP_DELIVERY_WEBHOOK_URL',
-  'OTP_DELIVERY_WEBHOOK_TOKEN',
   'CORS_ALLOW_ORIGINS',
   'AGENTS_SECRET',
   'PUBLIC_CLUB_ID'
@@ -116,13 +114,34 @@ Require-Exact $envMap 'SESSION_COOKIE_SECURE' 'true'
 Require-Exact $envMap 'ALLOW_LEGACY_STAFF_LOGIN' 'false'
 Require-Exact $envMap 'AUTH_DEBUG_CODE_IN_RESPONSE' 'false'
 Require-Exact $envMap 'ALLOW_MANUAL_OTP_DELIVERY' 'false'
-Require-Https $envMap 'OTP_DELIVERY_WEBHOOK_URL'
+
+$webhook = Value $envMap 'OTP_DELIVERY_WEBHOOK_URL'
+$webhookToken = Value $envMap 'OTP_DELIVERY_WEBHOOK_TOKEN'
+$telegram = Value $envMap 'TELEGRAM_BOT_TOKEN'
+if ($webhook -or $webhookToken) {
+  Require-Value $envMap 'OTP_DELIVERY_WEBHOOK_URL'
+  Block-Placeholder $envMap 'OTP_DELIVERY_WEBHOOK_URL'
+  Require-Value $envMap 'OTP_DELIVERY_WEBHOOK_TOKEN'
+  Block-Placeholder $envMap 'OTP_DELIVERY_WEBHOOK_TOKEN'
+  Require-Https $envMap 'OTP_DELIVERY_WEBHOOK_URL'
+} elseif ($telegram) {
+  Pass 'OTP_DELIVERY' 'telegram bot token configured'
+} else {
+  Blocker 'OTP_DELIVERY' 'set TELEGRAM_BOT_TOKEN or a real HTTPS OTP webhook'
+}
 
 $cors = Value $envMap 'CORS_ALLOW_ORIGINS'
 if ($cors -match 'localhost|127\.0\.0\.1|http://') {
   Blocker 'CORS_ALLOW_ORIGINS' 'production origins must be HTTPS public origins, not localhost/http'
 } else {
   Pass 'CORS_ALLOW_ORIGINS' 'no localhost/http origins'
+}
+
+$defaultLanCors = '^https?://(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$'
+if (-not $envMap.ContainsKey('CORS_ALLOW_ORIGIN_REGEX') -or (Value $envMap 'CORS_ALLOW_ORIGIN_REGEX') -eq $defaultLanCors) {
+  Blocker 'CORS_ALLOW_ORIGIN_REGEX' 'production must not use the default LAN origin regex; set it empty or to a non-default value'
+} else {
+  Pass 'CORS_ALLOW_ORIGIN_REGEX' 'default LAN origin regex is not active'
 }
 
 if ((Value $envMap 'SESSION_SECRET').Length -lt 32) {

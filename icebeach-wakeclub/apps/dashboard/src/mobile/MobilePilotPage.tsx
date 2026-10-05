@@ -156,7 +156,7 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
             </div>
           ) : null}
 
-          <PilotRideControls session={session} booking={focusRide} onUpdated={mergeItem} allowTimerControls compact />
+          <PilotRideControls session={session} booking={focusRide} onUpdated={mergeItem} allowTimerControls={session.role === "pilot" || session.role === "admin"} compact />
         </section>
       ) : needsBoatId ? null : (
         <section className="game-panel text-sm text-slate-300">На выбранную дату активных заездов нет.</section>
@@ -189,7 +189,7 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
                 <div className="mt-1 text-sm font-black text-white">{item.status === "done" || item.actual_duration_seconds > 0 ? formatDurationClock(item.actual_duration_seconds) : "Ещё в процессе"}</div>
               </div>
             </div>
-            <PilotRideControls session={session} booking={item} onUpdated={mergeItem} allowTimerControls compact />
+            <PilotRideControls session={session} booking={item} onUpdated={mergeItem} allowTimerControls={session.role === "pilot" || session.role === "admin"} compact />
           </article>
         ))}
       </section>
