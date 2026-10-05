@@ -1,27 +1,44 @@
 # Ruza / Club Ops production v1 audit
 
-Audit date: 2026-09-18
-Current release candidate: `v1.0.0-rc.19`
-Current PR: `https://github.com/YaroslavValeev/Ruza/pull/4`
+Audit date: 2026-10-05
+Current release (main tip): `bd77c197` — Merge PR #7 (`ruza/access-timezone-admin-rides`)
+Previous release candidate tag: `v1.0.0-rc.19` → `51180f3` (behind main; do not treat as production tip)
+Stale PR #1: closed as `not_planned` by AGM (historical only)
 
 ## Executive status
 
-Ruza is ready for a controlled local pilot and staging preparation.
-Ruza is not production v1 yet because production-only gates still require external access and real-world proof:
-HTTPS production, real OTP provider, Timeweb staging/prod rollout, backup restore into a separate spreadsheet, alerting, iOS Safari smoke, and one real shift without P0 incident.
+Ruza **main** includes PR #7: access limits, phone rate-limit, timezone handling, admin ride timer, Telegram OTP allowed in production when `TELEGRAM_BOT_TOKEN` is set (SMS webhook may be empty), and CI `npm audit --omit=dev --audit-level=low`.
+
+Production VPS exists and runs docker compose at `/opt/icebeach` (`icebeach-api-1`, `icebeach-dashboard-1`), detached clean at `bd77c197` — **this audit does not authorize a new deploy**.
+
+Ruza is ready for controlled local pilot and VPS operations discipline.
+Ruza is **not** Cash-cow 10/10 / full production v1 GO until remaining **EXTERNAL** gates below are proven by the Owner (or designated operator) on real HTTPS + real shift data.
+
+Out of scope: Turism. Do not rotate secrets in this docs pass. Do not merge this PR to main from an agent; Owner decides. Do not deploy from this PR.
+
+## What landed in PR #7 (on main)
+
+| Area | Status on main |
+|---|---|
+| Access limits / phone rate-limit | In code + tests |
+| Timezone / local shift date behavior | In code + tests |
+| Admin ride timer | In code + dashboard |
+| Telegram OTP in production | Allowed when `TELEGRAM_BOT_TOKEN` set; phone webhook optional |
+| CI dashboard audit | `npm audit --omit=dev --audit-level=low` |
+| Production env guards | Accept Telegram OTP path OR HTTPS webhook |
 
 ## Subagent ownership map
 
 | Area | Owner | Current status | Next proof |
 |---|---|---|---|
-| Git / Release | Release lead | PASS local/PR | Merge PR only after final review, tag final release |
-| Backend | Backend lead | PASS local/CI | Staging smoke on deployed URL |
-| Frontend / Mobile UX | Frontend lead | PASS local / PARTIAL external | Android and iOS Safari smoke evidence |
-| Integrations | Integrations lead | PARTIAL | Site/TG intake schedule enabled in production |
-| Data / Google Sheets | Data lead | PASS local/live-local | Backup restore-test to separate sheet |
-| Security / Auth | Security lead | PARTIAL | Real OTP provider and HTTPS cookie in staging/prod |
+| Git / Release | Release lead | PASS on main `bd77c197` | Optional annotated tag `v1.0.0-rc.20` on main tip after Owner GO; open docs PR only |
+| Backend | Backend lead | PASS local/CI | Staging/prod smoke on deployed URL after Owner deploy GO |
+| Frontend / Mobile UX | Frontend lead | PASS local / PARTIAL external | Android and iOS Safari smoke evidence on HTTPS |
+| Integrations | Integrations lead | PARTIAL | Site/TG intake schedule enabled and proven live |
+| Data / Google Sheets | Data lead | PASS local/live-local | Backup restore-test to separate spreadsheet |
+| Security / Auth | Security lead | PARTIAL → Telegram path available | Prove Telegram OTP (or HTTPS SMS webhook) under production HTTPS cookies |
 | QA / E2E | QA lead | PASS local/CI | Staging and production E2E |
-| DevOps / Timeweb | DevOps lead | PARTIAL | Timeweb staging, server healthcheck, monitoring, rollback drill |
+| DevOps / VPS | DevOps lead | PARTIAL (compose VPS live) | HTTPS proof, healthcheck schedule, monitoring, rollback drill — Owner GO only |
 | Operations / SOP | Ops lead | PASS docs | Dry-run and real shift sign-off |
 | Privacy | Privacy lead | PARTIAL | Production privacy/security acceptance |
 
@@ -29,33 +46,32 @@ HTTPS production, real OTP provider, Timeweb staging/prod rollout, backup restor
 
 | Requirement | Status | Evidence | Remaining action |
 |---|---|---|---|
-| Сверить local / GitHub main / PR / WIP | PASS | `scripts/production-v1-local-audit.ps1` verifies local HEAD, PR #4 head, GitHub CI and merge state | Keep PR updated until merge |
-| Не потерять полезные изменения | PASS | All current work is committed in PR #4; working tree clean before this audit update | Re-run clean-tree guard before deploy |
-| Разделить изменения на логические PR | PARTIAL | Current production-v1 work is in one draft PR #4 | If reviewer requests smaller slices, split before merge |
-| Получить release candidate SHA | PASS | Tag `v1.0.0-rc.19` must point at the same HEAD verified by `scripts/production-v1-local-audit.ps1` | Create final tag after merge |
-| Вернуть полный test gate | PASS | GitHub checks `api-tests`, `dashboard-build`, `production-env-guard-linux`, `production-env-guard-windows`, `clean-release-tree-guard-linux`, `clean-release-tree-guard-windows`, `staging-proof-guard-linux`, `staging-proof-guard-windows`, `server-healthcheck-guard-linux`, `restore-backup-guard-linux`, `restore-backup-guard-windows`, `mobile-readiness-guard-linux`, `mobile-readiness-guard-windows`, `rollback-guard-linux` are required on PR #4; local pytest/build/audit commands are documented | Re-run after each commit |
-| Запретить production deploy из dirty tree | PASS | `scripts/server/assert-clean-release-tree.sh`; `scripts/server/assert-clean-release-tree.ps1`; `scripts/test-clean-release-tree.ps1`; `scripts/server/test-clean-release-tree.sh`; deploy script calls Linux guard before `docker run` | Use guard in Timeweb deploy path |
-| Запретить production deploy с debug/local env | PASS | `scripts/validate-production-env.ps1`; `scripts/server/validate-production-env.sh`; `scripts/test-production-env-guards.ps1`; `scripts/server/test-production-env-guards.sh`; `deploy-api.sh` calls env guard before `docker run` | Fill real `.env.docker` and run guard on Timeweb |
-| Доказать staging/prod URL до GO | PASS local / BLOCKED_EXTERNAL | `scripts/staging-proof.ps1`, `scripts/server/staging-proof.sh`, `scripts/test-staging-proof.ps1`, `scripts/server/test-staging-proof.sh` validate proof-gate behavior without external side effects | Run proof against real HTTPS staging/prod URL |
-| Monitoring healthcheck готов к установке | PASS local / BLOCKED_EXTERNAL | `scripts/server/healthcheck.sh`, `scripts/server/test-healthcheck.sh`; CI job `server-healthcheck-guard-linux` validates healthcheck/log/alert behavior | Install on server scheduler and connect real alert channel |
-| Intake from site / Telegram / public / manual into one operational intake | PARTIAL | `apps/api/app/services/intake.py`; `POST /public/booking-request`; `POST /intake/sync`; docs `INTAKE_SYNC.md` | Enable real site/TG writers and production scheduler |
-| Intake fields exist | PASS | `packages/sheets/schema.py` requires `external_source`, `external_record_id`, `received_at`, `sync_status`, `sync_error`, `converted_booking_id` in `leads` | Keep schema preflight green |
-| Duplicate external delivery does not duplicate lead | PASS | `apps/api/tests/test_contract_intake.py`; `scripts/intake-e2e-local.ps1` live/local proof | Run production proof after deployment |
-| Real OTP delivery | PARTIAL | `apps/api/app/services/otp_delivery.py` supports phone webhook and Telegram fallback; production config rejects manual OTP | Configure real `OTP_DELIVERY_WEBHOOK_URL` and token |
-| Secure cookie / HTTPS / CORS / session expiry / logout / audit | PARTIAL | Production config requires secure cookie; CORS env supported; auth routes write audit; local session/logout tests exist | Prove under HTTPS staging/prod |
-| Rate limiting login | PASS local | Auth code rate-limit settings and tests in auth contract suite | Verify on production logs |
-| Payment ledger | PASS local | `payments` and `payment_closures` schema, API routes, service, tests | Owner decision recorded: manual Google Sheets ledger only; keep staff SOP aligned, no provider integration in v1 |
-| KPI does not count booking price as paid revenue | PASS local | `test_contract_payments.py::test_payment_rbac_and_kpi_real_money` asserts unpaid booking has `net_revenue_minor=0` and paid/refund values come from `payments` | Re-run on staging with real sheet |
-| Staging then production | BLOCKED_EXTERNAL | Timeweb runbooks exist | Requires Timeweb access and owner GO |
-| Preflight / smoke | PASS local | `scripts/preflight-local.ps1`; `scripts/smoke-local.ps1` | Run on staging/prod URLs |
-| Backup | PASS dry-run | `scripts/backup-sheets.ps1` | Schedule production backup |
-| Restore-test | PASS local / BLOCKED_EXTERNAL | `scripts/restore-sheets-backup.ps1` supports dry-run and explicit write restore; `scripts/test_restore_sheets_backup.py` validates dry-run/hash/write guard | Requires separate target spreadsheet for real `-Write` restore |
-| Monitoring / alerting | PARTIAL | `scripts/server/healthcheck.sh` can be scheduled on VPS and can POST alert webhooks; behavior covered by `scripts/server/test-healthcheck.sh` and CI | Install scheduler on staging/prod and connect real alert channel |
-| Rollback drill | PASS local / BLOCKED_EXTERNAL | `scripts/server/rollback-api.sh` supports default dry-run and explicit `--execute`; `scripts/server/test-rollback-api.sh` validates rollback plan, dirty-tree block, execute deploy and healthcheck hooks | Execute on staging |
-| Mobile/PWA readiness | PASS local / BLOCKED_EXTERNAL | `scripts/mobile_readiness.py`; `scripts/test-mobile-readiness.ps1`; CI validates iOS meta, manifest, service worker, safe-area, mobile routes, same-origin `/api`, dashboard nginx `/api` proxy, and no visible `Игрок/игровой` copy | Run real iOS Safari HTTPS smoke |
-| Dry-run shift | PASS local | Smoke and manual local mobile checks exercised core flow | Repeat with final staging SHA |
-| Controlled real shift | BLOCKED_EXTERNAL | SOP/runbook exists | Requires real date, staff, and business GO |
-| Android and iOS Safari | PARTIAL | Android LAN smoke was manually verified by owner; mobile/PWA readiness is now guarded locally and in CI | iOS Safari must be checked on HTTPS staging/prod |
+| Сверить local / GitHub main / PR / WIP | PASS | main tip `bd77c197` = Merge PR #7 | Keep docs branches rebased on `origin/main` |
+| Не потерять полезные изменения | PASS | PR #7 merged; working tree policy unchanged | Re-run clean-tree guard before any deploy |
+| Разделить изменения на логические PR | PASS for code slice | PR #7 merged; this docs PR is plan-only | Keep Turism and unrelated product slices out |
+| Получить release candidate SHA | PASS main / TAG lag | Tag `v1.0.0-rc.19` points at `51180f3` (behind main) | Owner may create `v1.0.0-rc.20` on `bd77c197` (optional; not done in this docs PR unless explicitly allowed) |
+| Вернуть полный test gate | PASS | GitHub CI jobs including dashboard `npm audit --omit=dev` | Re-run after each commit |
+| Запретить production deploy из dirty tree | PASS | clean-tree guards + deploy scripts | Use guard on VPS path |
+| Запретить production deploy с debug/local env | PASS | env guards accept Telegram OTP **or** HTTPS webhook | Keep `ALLOW_MANUAL_OTP_DELIVERY=false` in production |
+| Доказать staging/prod URL до GO | PASS local / **EXTERNAL** | staging-proof scripts validate behavior without side effects | Run proof against real HTTPS URL |
+| Monitoring healthcheck готов к установке | PASS local / **EXTERNAL** | healthcheck script + CI guard | Install on VPS scheduler + real alert channel |
+| Intake from site / Telegram / public / manual | PARTIAL | intake service + public booking-request + sync docs | Enable real writers and production schedule |
+| Duplicate external delivery does not duplicate lead | PASS | contract + local e2e | Production proof after deploy |
+| Real OTP delivery | PARTIAL → Telegram path on main | `otp_delivery.py` + production config: webhook **or** `TELEGRAM_BOT_TOKEN` | Prove delivery for staff with `telegram_id` (webhook may be empty) |
+| Secure cookie / HTTPS / CORS / session | PARTIAL / **EXTERNAL** | production config requires secure cookie | Prove under HTTPS |
+| Rate limiting login | PASS local | phone rate-limit service + auth tests | Verify on production logs |
+| Payment ledger | PASS local | payments schema/API/tests; Owner: manual Sheets ledger only | Keep SOP aligned; no provider in v1 |
+| KPI paid revenue from payments | PASS local | contract test | Re-run on staging with real sheet |
+| Staging then production | **EXTERNAL** | VPS compose at `/opt/icebeach` already used | Owner GO for checkout/tag/rebuild; no agent deploy |
+| Preflight / smoke | PASS local | preflight + smoke scripts | Run on staging/prod URLs |
+| Backup | PASS dry-run | backup script | Schedule production backup |
+| Restore-test | PASS local / **EXTERNAL** | restore dry-run + write guard | Separate target spreadsheet for real `-Write` |
+| Monitoring / alerting | PARTIAL / **EXTERNAL** | healthcheck can POST alerts | Install scheduler + connect channel |
+| Rollback drill | PASS local / **EXTERNAL** | rollback script dry-run/execute | Execute on staging with Owner GO |
+| Mobile/PWA readiness | PASS local / **EXTERNAL** | mobile readiness guards in CI | Real iOS Safari HTTPS smoke |
+| Dry-run shift | PASS local | local mobile checks | Repeat with final staging SHA |
+| Controlled real shift | **EXTERNAL** | SOP exists | Real date, staff, business GO |
+| Android and iOS Safari | PARTIAL / **EXTERNAL** | Android LAN smoke by Owner historically | iOS Safari on HTTPS |
 
 ## Current go/no-go
 
@@ -67,18 +83,17 @@ GO if:
 - operator, pilot and admin can log in locally;
 - Google Sheets tabs stay green.
 
-### Production v1
+### Production v1 / Cash-cow 10/10
 
-NO-GO until:
-- PR #4 is reviewed, merged, and final tag is created;
-- production/staging is available over HTTPS;
-- `scripts/staging-proof.ps1` passes on staging/prod URL;
-- real OTP delivery is configured and tested;
-- intake sync runs from real site/TG sources without duplicates;
-- paid revenue reconciliation is tested on real data;
-- backup restore-test, scheduled monitoring, alerting and rollback drill are complete;
-- Android and iOS Safari pass the main scenario;
-- one real shift completes without P0.
+NO-GO until **EXTERNAL** gates:
+- HTTPS production (or staging) URL proven with `staging-proof`;
+- Telegram OTP (or HTTPS SMS webhook) proven for real staff phones/`telegram_id`;
+- intake sync from real site/TG sources without duplicates;
+- paid revenue reconciliation on real data;
+- backup restore-test, scheduled monitoring, alerting, rollback drill;
+- Android and iOS Safari main scenario;
+- one real shift without P0;
+- Owner GO for any new tag/deploy (agents must not deploy).
 
 ## Commands for final local proof
 
@@ -101,15 +116,16 @@ From `icebeach-wakeclub`:
 python -m pytest -q
 cd .\apps\dashboard
 npm run build
-npm audit --audit-level=low
+npm audit --omit=dev --audit-level=low
 ```
 
-## Owner actions before production v1
+## Owner actions before production v1 GO
 
-1. Choose OTP provider and issue production webhook credentials.
-2. Confirm Timeweb deployment mode: App Platform or VPS.
-3. Provide staging/prod domains.
+1. Confirm OTP path in production: `TELEGRAM_BOT_TOKEN` (webhook may be empty) **or** HTTPS SMS webhook + token.
+2. Confirm VPS docker compose at `/opt/icebeach` remains the primary deploy path (Timeweb App Platform optional).
+3. Provide/confirm staging/prod HTTPS domains.
 4. Provide a separate Google Spreadsheet for restore-test.
 5. Confirm real site/TG intake writer ownership and schedule.
 6. Run Android and iOS Safari smoke on HTTPS.
 7. Pick dry-run and first real-shift dates.
+8. Optionally tag `v1.0.0-rc.20` on `bd77c197` after docs merge — Owner only.

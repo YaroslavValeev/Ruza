@@ -2,6 +2,14 @@
 
 Копируй блоки по порядку. Метки: **[PowerShell]** — Windows, **[Linux]** — VPS/Ubuntu.
 
+**Актуализация 2026-10-05:** основной production-like контур — **VPS + docker compose**
+в `/opt/icebeach` (контейнеры `icebeach-api-1`, `icebeach-dashboard-1`). Host (Owner):
+`root@4169037-ep26382`. Checkout для обновлений: `origin/main` или **новый** annotated tag
+на нужный SHA (например будущий `v1.0.0-rc.20`). Tag `v1.0.0-rc.19` → `51180f3` **отстаёт**
+от main `bd77c197` и не должен быть единственной целью checkout. Этот документ не является
+разрешением на deploy — только Owner GO. Секреты не ротировать из агентских сессий.
+
+
 ---
 
 ## 0. Что поднять
@@ -9,7 +17,7 @@
 | Вариант | Когда |
 |---------|--------|
 | **A. Timeweb App Platform** | Быстрый staging без SSH (GitHub + Dockerfile) |
-| **B. VPS + Docker** | Полный контроль, nginx, SSL, API + dashboard |
+| **B. VPS + Docker compose (primary)** | `/opt/icebeach`, nginx, SSL, API + dashboard |
 
 Dockerfile API: `icebeach-wakeclub/Dockerfile`  
 Порт API: **8000**  
@@ -37,9 +45,15 @@ Write-Host "GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 скопирован в буфе�
 ```powershell
 cd "F:\Проекты MyWave\NEW2026\Ruza"
 git status --short --branch
+git fetch origin
+git rev-parse HEAD origin/main
 git tag --points-at HEAD
-git push origin codex/v1-payment-ledger-20260824
-git push origin v1.0.0-rc.19
+# push branch / tags только с ALLOW_GIT_PUSH=1 и после Owner GO
+$env:ALLOW_GIT_PUSH=1
+git push origin HEAD
+# optional, Owner only:
+# git tag -a v1.0.0-rc.20 bd77c197 -m "Ruza RC20: main after PR #7"
+# git push origin v1.0.0-rc.20
 ```
 
 ---
@@ -66,8 +80,10 @@ SESSION_COOKIE_SECURE=true
 ALLOW_LEGACY_STAFF_LOGIN=false
 AUTH_DEBUG_CODE_IN_RESPONSE=false
 ALLOW_MANUAL_OTP_DELIVERY=false
-OTP_DELIVERY_WEBHOOK_URL=https://<sms-provider>/send
-OTP_DELIVERY_WEBHOOK_TOKEN=<секрет_провайдера>
+# Production OTP: TELEGRAM_BOT_TOKEN и/или HTTPS SMS webhook
+TELEGRAM_BOT_TOKEN=<если_используете_telegram>
+OTP_DELIVERY_WEBHOOK_URL=
+OTP_DELIVERY_WEBHOOK_TOKEN=
 OTP_DELIVERY_TIMEOUT_SECONDS=8
 DISABLE_SYSTEM_PROXY_FOR_GOOGLE=true
 SHEETS_TAB_CACHE_TTL_SECONDS=15
@@ -119,9 +135,14 @@ mkdir -p /opt/icebeach
 **[Linux]**
 ```bash
 cd /opt/icebeach
-git clone https://github.com/YaroslavValeev/Ruza.git .
+# если репозиторий ещё не клонирован:
+# git clone https://github.com/YaroslavValeev/Ruza.git .
 git fetch --tags origin
-git checkout v1.0.0-rc.19
+# предпочтительно: tip main или новый tag, указывающий на нужный SHA
+git checkout --detach origin/main
+# альтернатива после Owner tag GO:
+# git checkout v1.0.0-rc.20
+# НЕ использовать v1.0.0-rc.19 как единственную цель: он указывает на 51180f3 (behind main)
 ```
 
 ### 3.3 Production env на сервере
@@ -154,8 +175,10 @@ SESSION_COOKIE_NAME=icebeach_session
 ALLOW_LEGACY_STAFF_LOGIN=false
 AUTH_DEBUG_CODE_IN_RESPONSE=false
 ALLOW_MANUAL_OTP_DELIVERY=false
-OTP_DELIVERY_WEBHOOK_URL=https://sms-provider.example/send
-OTP_DELIVERY_WEBHOOK_TOKEN=ЗАМЕНИТЕ_НА_СЕКРЕТ_ПРОВАЙДЕРА
+# Production OTP: либо HTTPS SMS webhook+token, либо TELEGRAM_BOT_TOKEN (webhook может быть пустым)
+TELEGRAM_BOT_TOKEN=
+OTP_DELIVERY_WEBHOOK_URL=
+OTP_DELIVERY_WEBHOOK_TOKEN=
 OTP_DELIVERY_TIMEOUT_SECONDS=8
 DISABLE_SYSTEM_PROXY_FOR_GOOGLE=true
 SHEETS_TAB_CACHE_TTL_SECONDS=15
@@ -170,7 +193,7 @@ API_PORT=8000
 openssl rand -hex 32
 ```
 
-### 3.4 Запуск API + Dashboard (docker compose)
+### 3.4 Запуск API + Dashboard (docker compose) — primary на VPS `/opt/icebeach`
 
 Dashboard собирается с `VITE_API_BASE_URL=/api`: браузер ходит на тот же HTTPS-домен,
 а dashboard nginx проксирует `/api/` в backend container. Это уменьшает CORS/cookie
@@ -233,11 +256,13 @@ docker compose --env-file .env.docker up -d --force-recreate api dashboard
 ```bash
 cd /opt/icebeach
 git fetch --tags origin
-git checkout v1.0.0-rc.19
+git checkout --detach origin/main
+# или: git checkout v1.0.0-rc.<new>   # только если tag указывает на нужный SHA
 bash scripts/server/assert-clean-release-tree.sh
 bash scripts/server/validate-production-env.sh .env.docker
 docker compose --env-file .env.docker up --build -d
 docker compose ps
+# ожидаемые сервисы: icebeach-api-1, icebeach-dashboard-1
 curl -sS https://dashboard.example.com/api/health
 ```
 

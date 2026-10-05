@@ -2,20 +2,25 @@
 
 Этот файл фиксирует проверяемые ворота перед production v1. Он не заменяет CI и release tag.
 
+Актуализация: **2026-10-05** (main `bd77c197`, merged PR #7).
+Turism — вне scope. Ротация секретов — только Owner вручную. Deploy/merge на main — только Owner GO.
+
 ## 1. Source code / release
 
 PASS только если:
 - `git status --porcelain` пустой;
 - backend tests проходят;
 - dashboard build проходит;
-- dashboard dependency audit проходит без low-or-higher findings;
-- release tag указывает на тот же SHA, который прошел CI;
+- dashboard dependency audit проходит без low-or-higher findings на **production deps**:
+  `npm audit --omit=dev --audit-level=low` (как в `.github/workflows/ci.yml`);
+- release tag указывает на тот же SHA, который прошел CI
+  (текущий tip main: `bd77c197`; tag `v1.0.0-rc.19` → `51180f3` **отстаёт** от main);
 - production deploy запускается только через clean-tree guard:
   `scripts/server/assert-clean-release-tree.ps1` на Windows/local и
-  `scripts/server/assert-clean-release-tree.sh` на Linux/Timeweb;
+  `scripts/server/assert-clean-release-tree.sh` на Linux/VPS;
 - CI проверяет, что clean-tree guard принимает чистый release checkout и блокирует
   dirty working tree на Linux и Windows;
-- CI проверяет dashboard dependency audit через `npm audit --audit-level=low`;
+- CI проверяет dashboard dependency audit через `npm audit --omit=dev --audit-level=low`;
 - CI проверяет поведение staging/prod proof-gate для HTTPS, dashboard, health,
   CORS credentials, authenticated preflight и OTP debug leakage без внешних side effects;
 - CI проверяет server healthcheck для monitoring/alerting без внешних side effects;
@@ -26,7 +31,7 @@ PASS только если:
   слов `Игрок/игровой` в dashboard copy;
 - production env проходит machine-check:
   `scripts/validate-production-env.ps1` на Windows/local и
-  `scripts/server/validate-production-env.sh` на Linux/Timeweb;
+  `scripts/server/validate-production-env.sh` на Linux/VPS;
 - CI проверяет, что env guard принимает production-like env и блокирует debug/local env
   на Linux и Windows.
 
@@ -39,7 +44,7 @@ $env:PYTHONPATH=(Get-Location).Path
 python -m pytest -q
 cd .\apps\dashboard
 npm run build
-npm audit --audit-level=low
+npm audit --omit=dev --audit-level=low
 powershell -ExecutionPolicy Bypass -File ..\..\..\scripts\server\assert-clean-release-tree.ps1
 ```
 
@@ -50,7 +55,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\production-v1-local-audit.ps1
 ```
 
 Скрипт проверяет clean tree, PR SHA, CI, remote tag, evidence docs, backend tests, dashboard build и dashboard dependency audit.
-Внешние ворота (`Timeweb`, real OTP, live intake, restore-write, monitoring, iOS Safari, real shift)
+Внешние ворота (`HTTPS`, real OTP proof, live intake, restore-write, monitoring, iOS Safari, real shift)
 выводятся как `EXTERNAL` и не должны трактоваться как закрытые локально.
 
 Staging/prod proof после публикации URL:
@@ -81,7 +86,8 @@ Production env перед staging/deploy:
 powershell -ExecutionPolicy Bypass -File .\scripts\validate-production-env.ps1 -EnvFile .\.env.docker
 ```
 
-На Linux/Timeweb тот же gate выполняется автоматически внутри `scripts/server/deploy-api.sh`.
+На Linux/VPS тот же gate выполняется автоматически внутри `scripts/server/deploy-api.sh`
+и должен выполняться перед `docker compose` на `/opt/icebeach`.
 
 Проверка поведения guard без секретов:
 
@@ -119,11 +125,27 @@ powershell -ExecutionPolicy Bypass -File .\scripts\intake-e2e-local.ps1
 PASS только если команда завершилась строкой `SUMMARY failures=0` и показала
 ровно один lead в `RuzaTab.leads` для выбранного `external_record_id`.
 
-## 3. Payment ledger
+## 3. Auth / OTP (production path)
+
+Canonical order in `otp_delivery.py`:
+1. Phone HTTPS webhook (`OTP_DELIVERY_WEBHOOK_URL` + token), if configured;
+2. Else Telegram bot (`TELEGRAM_BOT_TOKEN`) to staff `telegram_id`;
+3. Else manual — **local/test only** (`ALLOW_MANUAL_OTP_DELIVERY` must be `false` in production).
+
+Production config / env guards (post PR #7):
+- `ALLOW_MANUAL_OTP_DELIVERY=false` always in production;
+- **either** a real HTTPS SMS webhook + token, **or** `TELEGRAM_BOT_TOKEN` set;
+- SMS webhook may be empty when Telegram bot token is present;
+- debug OTP / legacy staff login remain forbidden in production.
+
+PASS production OTP only after EXTERNAL proof that a real staff login receives a code
+via Telegram (or SMS webhook) under HTTPS cookies — not merely that env validates.
+
+## 4. Payment ledger
 
 KPI production v1 считает поступления из `payments`, а не только `bookings.total_price`.
 
-Owner decision для PR #4: платежи в Ruza остаются ручным ledger в Google Sheets.
+Owner decision: платежи в Ruza остаются ручным ledger в Google Sheets.
 В scope v1 не входят card acquiring, внешний payment provider, provider webhooks
 и lifecycle статусов от провайдера. Поля `provider` и `external_payment_id`
 сохраняются как audit/metadata-only.
@@ -143,7 +165,7 @@ PASS только если платежи и возвраты проходят `
 увеличивать количество сессий и стоимость завершённых заездов, но не должна
 увеличивать `payments_gross_minor` и `net_revenue_minor` в KPI.
 
-## 4. Backup / restore
+## 5. Backup / restore
 
 Перед staging/prod:
 
@@ -162,7 +184,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-restore-sheets-backup.ps
 python scripts/test_restore_sheets_backup.py
 ```
 
-## 5. Mobile / PWA / iOS readiness
+## 6. Mobile / PWA / iOS readiness
 
 Локально и в CI проверяются предпосылки для Android/iOS PWA:
 - `viewport-fit=cover`, Apple PWA meta, manifest и touch icon;
@@ -183,7 +205,14 @@ python scripts/mobile_readiness.py
 Это не заменяет реальный iOS Safari smoke по HTTPS. PASS production v1 только
 после ручного прохода основного сценария на iPhone/iPad с HTTPS staging/prod URL.
 
-## 6. Staging / production gates
+## 7. Staging / production gates (VPS docker compose)
+
+Primary production-like path: **VPS + docker compose** at `/opt/icebeach`
+(containers `icebeach-api-1`, `icebeach-dashboard-1`). Timeweb App Platform remains
+an optional alternative documented in `SERVER_COMMANDS.md`.
+
+Checkout for updates should track **`origin/main` or a new annotated tag** that
+points at the intended SHA — not only historical `v1.0.0-rc.19`.
 
 Monitoring healthcheck после deploy:
 
@@ -219,13 +248,13 @@ bash scripts/server/rollback-api.sh \
   --execute
 ```
 
-Пока не считать v1 завершенным без:
-- staging HTTPS;
-- production HTTPS;
+Пока не считать v1 / Cash-cow 10/10 завершённым без EXTERNAL:
+- staging/production HTTPS;
 - green `scripts/staging-proof.ps1` на staging/prod URL;
-- production-ready OTP webhook;
+- production OTP proof (Telegram bot token path **or** HTTPS SMS webhook);
 - backup restore-test на отдельной таблице;
 - monitoring + alerting;
 - rollback drill;
 - Android и iOS Safari smoke;
-- одна реальная смена без P0.
+- одна реальная смена без P0;
+- Owner GO на tag/deploy (агенты не деплоят).
