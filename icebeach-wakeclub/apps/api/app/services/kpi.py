@@ -98,7 +98,9 @@ def get_kpi_summary(
     date_from: str | None = None,
     date_to: str | None = None,
 ) -> dict[str, int | float | str | list[dict[str, int | float | str]]]:
-    today = date.today()
+    from .shift import club_local_today
+
+    today = club_local_today(sheet, club_id)
     start, end = _get_period_bounds(period, today=today, date_from=date_from, date_to=date_to)
     start_text = start.isoformat()
     end_text = end.isoformat()

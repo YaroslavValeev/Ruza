@@ -125,6 +125,13 @@ else
   pass CORS_ALLOW_ORIGINS "no localhost/http origins"
 fi
 
+DEFAULT_LAN_CORS='^https?://(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$'
+if [[ ! -v 'ENV_MAP[CORS_ALLOW_ORIGIN_REGEX]' || "$(value CORS_ALLOW_ORIGIN_REGEX)" == "${DEFAULT_LAN_CORS}" ]]; then
+  blocker CORS_ALLOW_ORIGIN_REGEX "production must not use the default LAN origin regex; set it empty or to a non-default value"
+else
+  pass CORS_ALLOW_ORIGIN_REGEX "default LAN origin regex is not active"
+fi
+
 if [[ "$(value SESSION_SECRET | wc -c)" -le 32 ]]; then
   blocker SESSION_SECRET "must be at least 32 characters"
 else

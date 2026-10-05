@@ -322,6 +322,9 @@ def get_shift_live(
             return (9, str(booking.get("time", "")))
 
         focus = sorted(bookings, key=rank)[0]
+    if role == "marketing_read" and focus is not None:
+        focus = dict(focus)
+        focus["client_phone"] = ""
     return {"date": target_date, "focus_booking": focus}
 
 

@@ -23,6 +23,7 @@ from ..services.checkins import mark_late_checkins
 from ..services.daily_brief import build_daily_brief
 from ..services.preflight import run_preflight_check
 from ..services.intake import sync_intake_leads
+from ..services.shift import club_local_today
 from ..services.shift_timer import process_shift_reminders
 
 
@@ -47,24 +48,27 @@ def agents_intake_sync(
 
 @router.get("/preflight", response_model=PreflightSummaryResponse, dependencies=[Depends(verify_agents_secret)])
 def agents_preflight(
-    date_value: date = Query(default_factory=date.today, alias="date"),
+    date_value: date | None = Query(default=None, alias="date"),
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
+    settings: Settings = Depends(get_settings),
 ) -> PreflightSummaryResponse:
-    return PreflightSummaryResponse(**run_preflight_check(sheet, target_date=date_value.isoformat()))
+    resolved = date_value or club_local_today(sheet, settings.public_club_id)
+    return PreflightSummaryResponse(**run_preflight_check(sheet, target_date=resolved.isoformat()))
 
 
 @router.post("/mark-late", response_model=MarkLateResponse, dependencies=[Depends(verify_agents_secret)])
 def agents_mark_late(
-    date_value: date = Query(default_factory=date.today, alias="date"),
+    date_value: date | None = Query(default=None, alias="date"),
     minutes_before: int = Query(default=10, ge=1, le=120),
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
     settings: Settings = Depends(get_settings),
 ) -> MarkLateResponse:
     club_id = settings.public_club_id
+    resolved = date_value or club_local_today(sheet, club_id)
     result = mark_late_checkins(
         sheet,
         club_id=club_id,
-        target_date=date_value.isoformat(),
+        target_date=resolved.isoformat(),
         actor_staff_user_id=settings.agents_staff_user_id,
         minutes_before=minutes_before,
     )
@@ -73,25 +77,27 @@ def agents_mark_late(
 
 @router.post("/snapshot", response_model=AnalyticsSnapshotResponse, dependencies=[Depends(verify_agents_secret)])
 def agents_snapshot(
-    date_value: date = Query(default_factory=date.today, alias="date"),
+    date_value: date | None = Query(default=None, alias="date"),
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
     settings: Settings = Depends(get_settings),
 ) -> AnalyticsSnapshotResponse:
-    result = write_analytics_snapshot(sheet, club_id=settings.public_club_id, target_date=date_value.isoformat())
+    resolved = date_value or club_local_today(sheet, settings.public_club_id)
+    result = write_analytics_snapshot(sheet, club_id=settings.public_club_id, target_date=resolved.isoformat())
     return AnalyticsSnapshotResponse(**result)
 
 
 @router.get("/daily-brief", response_model=DailyBriefResponse, dependencies=[Depends(verify_agents_secret)])
 def agents_daily_brief(
     mode: str = Query(default="morning", pattern="^(morning|evening)$"),
-    date_value: date = Query(default_factory=date.today, alias="date"),
+    date_value: date | None = Query(default=None, alias="date"),
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
     settings: Settings = Depends(get_settings),
 ) -> DailyBriefResponse:
+    resolved = date_value or club_local_today(sheet, settings.public_club_id)
     brief = build_daily_brief(
         sheet,
         club_id=settings.public_club_id,
-        target_date=date_value.isoformat(),
+        target_date=resolved.isoformat(),
         mode=mode,
     )
     summary = brief["summary"]
@@ -100,7 +106,7 @@ def agents_daily_brief(
     assert isinstance(kpi, dict)
     return DailyBriefResponse(
         mode=str(brief["mode"]),
-        date=date_value,
+        date=resolved,
         club_id=str(brief["club_id"]),
         title=str(brief["title"]),
         text=str(brief["text"]),

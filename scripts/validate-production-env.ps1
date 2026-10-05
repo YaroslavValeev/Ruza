@@ -125,6 +125,13 @@ if ($cors -match 'localhost|127\.0\.0\.1|http://') {
   Pass 'CORS_ALLOW_ORIGINS' 'no localhost/http origins'
 }
 
+$defaultLanCors = '^https?://(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$'
+if (-not $envMap.ContainsKey('CORS_ALLOW_ORIGIN_REGEX') -or (Value $envMap 'CORS_ALLOW_ORIGIN_REGEX') -eq $defaultLanCors) {
+  Blocker 'CORS_ALLOW_ORIGIN_REGEX' 'production must not use the default LAN origin regex; set it empty or to a non-default value'
+} else {
+  Pass 'CORS_ALLOW_ORIGIN_REGEX' 'default LAN origin regex is not active'
+}
+
 if ((Value $envMap 'SESSION_SECRET').Length -lt 32) {
   Blocker 'SESSION_SECRET' 'must be at least 32 characters'
 } else {

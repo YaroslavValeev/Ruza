@@ -171,3 +171,26 @@ def test_public_booking_request_fails_when_operational_lead_is_not_created() -> 
     assert body["detail"]["message"] == "Не удалось принять заявку: операционный лид не создан."
     assert body["detail"]["sync_errors"] == ["row 2: RuntimeError"]
     app.dependency_overrides.clear()
+
+
+def test_public_booking_request_is_rate_limited_by_phone() -> None:
+    source = MockSheetWrapper({"Ruza": []})
+    target = MockSheetWrapper()
+    app.dependency_overrides[get_intake_sheet_wrapper] = lambda: source
+    app.dependency_overrides[get_sheet_wrapper] = lambda: target
+    app.dependency_overrides[get_settings] = make_test_settings
+    client = TestClient(app)
+    payload = {
+        "full_name": "Мария Райдер",
+        "phone": "+7 999 222-33-44",
+        "date": "2026-06-15",
+        "time": "12:30",
+        "ride_type": "surf",
+    }
+    for _ in range(5):
+        response = client.post("/public/booking-request", json=payload)
+        assert response.status_code == 200
+    blocked = client.post("/public/booking-request", json={**payload, "phone": "89992223344"})
+    assert blocked.status_code == 429
+    assert len(source.tabs["Ruza"]) == 5
+    app.dependency_overrides.clear()
