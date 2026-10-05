@@ -7,8 +7,8 @@
 
 - **Backend:** Python 3.11, FastAPI, Google Sheets API
 - **Frontend:** React 18, Vite 5, Tailwind CSS
-- **Auth:** RBAC по `staff_users` в Sheets, cookie session + SMS-код
-- **Deploy:** Docker → Timeweb App Platform (staging)
+- **Auth:** RBAC по `staff_users` в Sheets, cookie session + OTP (SMS webhook и/или Telegram bot в production)
+- **Deploy:** Docker Compose на VPS (`/opt/icebeach`, primary); Timeweb App Platform — опциональный staging
 
 ## Source of Truth
 
@@ -136,6 +136,8 @@ Ruza/
 - **[docs/MYWAVE_NORTH_STAR.md](docs/MYWAVE_NORTH_STAR.md)** — путеводная звезда команды (стратегия MyWave → приоритеты Ruza)
 - [docs/SHEETS_SCHEMA.md](docs/SHEETS_SCHEMA.md) — контракт табов
 - **[docs/SERVER_COMMANDS.md](docs/SERVER_COMMANDS.md)** — команды для VPS / Timeweb / Docker
+- **[docs/RELEASE_PLAN.md](docs/RELEASE_PLAN.md)** — живой план релиза / Cash-cow backlog
+- [docs/PRODUCTION_V1_AUDIT.md](docs/PRODUCTION_V1_AUDIT.md) — audit production v1
 - [docs/STAGING_DEPLOY.md](docs/STAGING_DEPLOY.md) — staging runbook
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/TEST_PLAN.md](docs/TEST_PLAN.md)

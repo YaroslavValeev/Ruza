@@ -1,6 +1,6 @@
 # Quality review — стадия Ruza / Ice Beach
 
-Дата: 2026-09-16
+Дата: 2026-09-16 (обновление секции: 2026-10-05)
 Контур: **MyWave Training / Cash-cow** (`booking → check-in → pilot → KPI`)
 
 ## 1. На какой мы стадии
@@ -84,3 +84,15 @@
 5. `scripts/production-v1-local-audit.ps1` без local blockers
 6. На staging: 2× smoke + preflight без blockers
 7. После закрытия работ: ротация секретов человеком, затем production OTP provider
+
+## 6. Обновление 2026-10-05 (после merge PR #7)
+
+- **main tip:** `bd77c197` (Merge PR #7). В коде: access limits, phone rate-limit, timezone, admin ride timer, Telegram OTP в production при `TELEGRAM_BOT_TOKEN`, CI `npm audit --omit=dev --audit-level=low`.
+- **Production VPS:** docker compose `/opt/icebeach` (`icebeach-api-1`, `icebeach-dashboard-1`), detached clean at `bd77c197`. Этот docs-pass **не** деплоит и **не** мержит.
+- **Tag lag:** `v1.0.0-rc.19` → `51180f3` (behind main). Новый RC-tag — только Owner GO.
+- **Stale PR #1:** closed `not_planned` (AGM) — не reopen без Owner.
+- **OTP wording:** production path = Telegram bot **или** HTTPS SMS webhook; manual OTP запрещён в production. Webhook может быть пустым, если задан `TELEGRAM_BOT_TOKEN`.
+- **EXTERNAL remaining (честно):** HTTPS proof, live OTP proof, live intake, restore-write, monitoring/alerting, rollback drill, iOS Safari HTTPS, реальная смена без P0.
+- **Out of scope:** Turism. Secrets rotation — Owner only, не в этом PR.
+- Живой план: [`docs/RELEASE_PLAN.md`](RELEASE_PLAN.md).
+
