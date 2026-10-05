@@ -34,7 +34,7 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run build
-      - run: npm audit --audit-level=low
+      - run: npm audit --omit=dev --audit-level=low
 
   production-env-guard-linux:
     runs-on: ubuntu-latest

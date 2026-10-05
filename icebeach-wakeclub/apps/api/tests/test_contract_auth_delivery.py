@@ -76,12 +76,15 @@ def test_production_settings_require_https_phone_provider(monkeypatch) -> None:
     monkeypatch.setenv("GOOGLE_SERVICE_ACCOUNT_JSON", str(Path(__file__).resolve()))
     monkeypatch.delenv("OTP_DELIVERY_WEBHOOK_URL", raising=False)
     monkeypatch.delenv("OTP_DELIVERY_WEBHOOK_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
 
     try:
         get_settings()
         raise AssertionError("expected RuntimeError for missing production OTP provider")
     except RuntimeError as exc:
-        assert "OTP_DELIVERY_WEBHOOK_URL" in str(exc)
+        message = str(exc)
+        assert "TELEGRAM_BOT_TOKEN" in message
+        assert "OTP_DELIVERY_WEBHOOK_URL" in message
 
     monkeypatch.setenv("OTP_DELIVERY_WEBHOOK_URL", "http://otp.example/send")
     monkeypatch.setenv("OTP_DELIVERY_WEBHOOK_TOKEN", "provider-secret")
@@ -96,6 +99,29 @@ def test_production_settings_require_https_phone_provider(monkeypatch) -> None:
     monkeypatch.setenv("AGENTS_SECRET", "agents-secret")
     settings = get_settings()
     assert settings.otp_delivery_webhook_url == "https://otp.example/send"
+    assert settings.allow_manual_otp_delivery is False
+
+
+def test_production_settings_accept_telegram_otp_without_webhook(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("AUTH_DEBUG_CODE_IN_RESPONSE", "false")
+    monkeypatch.setenv("ALLOW_LEGACY_STAFF_LOGIN", "false")
+    monkeypatch.setenv("ALLOW_MANUAL_OTP_DELIVERY", "false")
+    monkeypatch.setenv("SESSION_COOKIE_SECURE", "true")
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "https://dashboard.icebeach.ru")
+    monkeypatch.setenv("CORS_ALLOW_ORIGIN_REGEX", "")
+    monkeypatch.setenv("SPREADSHEET_ID", "test-sheet")
+    monkeypatch.setenv("SESSION_SECRET", "test-secret")
+    monkeypatch.setenv("GOOGLE_SERVICE_ACCOUNT_JSON", str(Path(__file__).resolve()))
+    monkeypatch.setenv("INTAKE_SPREADSHEET_ID", "intake-sheet")
+    monkeypatch.setenv("AGENTS_SECRET", "agents-secret")
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456:ABC-DEF")
+    monkeypatch.delenv("OTP_DELIVERY_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("OTP_DELIVERY_WEBHOOK_TOKEN", raising=False)
+
+    settings = get_settings()
+    assert settings.telegram_bot_token == "123456:ABC-DEF"
+    assert settings.otp_delivery_webhook_url is None
     assert settings.allow_manual_otp_delivery is False
 
 

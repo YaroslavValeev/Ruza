@@ -112,6 +112,7 @@ def get_settings() -> Settings:
     agents_secret = os.getenv("AGENTS_SECRET", "").strip() or None
     otp_delivery_webhook_url = os.getenv("OTP_DELIVERY_WEBHOOK_URL", "").strip() or None
     otp_delivery_webhook_token = os.getenv("OTP_DELIVERY_WEBHOOK_TOKEN", "").strip() or None
+    telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or None
     allow_manual_otp_delivery = _truthy_env(
         "ALLOW_MANUAL_OTP_DELIVERY",
         "false" if environment == "production" else "true",
@@ -119,12 +120,19 @@ def get_settings() -> Settings:
     if environment == "production":
         if allow_manual_otp_delivery:
             raise RuntimeError("ALLOW_MANUAL_OTP_DELIVERY cannot be true when APP_ENV=production")
-        if not otp_delivery_webhook_url:
-            raise RuntimeError("OTP_DELIVERY_WEBHOOK_URL is required when APP_ENV=production")
-        if not otp_delivery_webhook_url.lower().startswith("https://"):
-            raise RuntimeError("OTP_DELIVERY_WEBHOOK_URL must use HTTPS when APP_ENV=production")
-        if not otp_delivery_webhook_token:
-            raise RuntimeError("OTP_DELIVERY_WEBHOOK_TOKEN is required when APP_ENV=production")
+        if otp_delivery_webhook_url or otp_delivery_webhook_token:
+            if not otp_delivery_webhook_url:
+                raise RuntimeError("OTP_DELIVERY_WEBHOOK_URL is required when APP_ENV=production")
+            if not otp_delivery_webhook_url.lower().startswith("https://"):
+                raise RuntimeError("OTP_DELIVERY_WEBHOOK_URL must use HTTPS when APP_ENV=production")
+            if not otp_delivery_webhook_token:
+                raise RuntimeError("OTP_DELIVERY_WEBHOOK_TOKEN is required when APP_ENV=production")
+        elif telegram_bot_token:
+            pass
+        else:
+            raise RuntimeError(
+                "TELEGRAM_BOT_TOKEN or OTP_DELIVERY_WEBHOOK_URL is required when APP_ENV=production"
+            )
         if not intake_spreadsheet_id:
             raise RuntimeError("INTAKE_SPREADSHEET_ID is required when APP_ENV=production")
         if not agents_secret:
@@ -165,7 +173,7 @@ def get_settings() -> Settings:
         environment=environment,
         agents_secret=agents_secret,
         agents_staff_user_id=os.getenv("AGENTS_STAFF_USER_ID", "system-agent").strip() or "system-agent",
-        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or None,
+        telegram_bot_token=telegram_bot_token,
         telegram_owner_chat_id=os.getenv("TELEGRAM_OWNER_CHAT_ID", "").strip() or None,
         otp_delivery_webhook_url=otp_delivery_webhook_url,
         otp_delivery_webhook_token=otp_delivery_webhook_token,
