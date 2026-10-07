@@ -1,6 +1,6 @@
 # Ruza release plan (living)
 
-Last updated: **2026-10-05**  
+Last updated: **2026-10-07 MSK**  
 Source of truth for status: [`PRODUCTION_V1_AUDIT.md`](PRODUCTION_V1_AUDIT.md), gates: [`PRODUCTION_V1_GATES.md`](PRODUCTION_V1_GATES.md), VPS commands: [`SERVER_COMMANDS.md`](SERVER_COMMANDS.md).
 
 ## Policy (non-negotiable for agents)
@@ -21,6 +21,8 @@ Source of truth for status: [`PRODUCTION_V1_AUDIT.md`](PRODUCTION_V1_AUDIT.md), 
 | Telegram OTP | Allowed in production when `TELEGRAM_BOT_TOKEN` set; SMS webhook may be empty |
 | Tag `v1.0.0-rc.19` | Points at `51180f3` (**behind** main) |
 | Stale PR #1 | Closed `not_planned` by AGM |
+| Public URL | `https://ruza.mywavewake.ru` — nginx + Let's Encrypt, cert до 2027-01-04, auto-renew (2026-10-06) |
+| Restore guard | `restore_sheets_backup.py --write` refuses empty target and `SPREADSHEET_ID` / `INTAKE_SPREADSHEET_ID` (override `--allow-prod-target` + typed confirmation) |
 
 ## Done (Cash-cow core on main)
 
@@ -45,14 +47,16 @@ Execute in order unless Owner reprioritizes. Items marked **EXTERNAL** need Owne
    git tag -a v1.0.0-rc.20 bd77c197 -m "Ruza RC20: main after PR #7 (access, OTP telegram, CI omit=dev)"
    $env:ALLOW_GIT_PUSH=1; git push origin v1.0.0-rc.20
    ```
-3. **EXTERNAL — HTTPS proof** — run `scripts/staging-proof.ps1` against real dashboard/API HTTPS URL.
-4. **EXTERNAL — OTP proof** — real staff login via Telegram (`telegram_id` + `TELEGRAM_BOT_TOKEN`) or HTTPS SMS webhook; cookies on HTTPS.
-5. **EXTERNAL — monitoring** — schedule `scripts/server/healthcheck.sh` on VPS + alert channel.
-6. **EXTERNAL — backup restore-write** — separate spreadsheet; `-Write` once with Owner GO.
-7. **EXTERNAL — rollback drill** — dry-run then `--execute` on staging-like checkout.
+3. ✅ **EXTERNAL — HTTPS proof** — DONE 2026-10-06/07: `https://ruza.mywavewake.ru` (nginx + Let's Encrypt, cert до 2027-01-04, auto-renew); `scripts/staging-proof.ps1` с Windows → `blockers=0` (без Xray VPN; `curl --ssl-no-revoke` на Windows schannel).
+4. ✅ **EXTERNAL — OTP proof** — DONE: live Telegram OTP на prod, `delivery_channel=telegram`, `debug_code=null`, `verify-code` и `/auth/me` OK.
+5. ✅ **EXTERNAL — monitoring** — DONE (internal): `/usr/local/bin/ruza-healthcheck-alert.sh` по cron каждые 5 мин, Telegram DM через Ruza bot только при смене состояния (`/var/lib/ruza/health.state`); тест `rc=0`, recovery-сообщение получено. **Open:** внешний uptime monitor.
+6. ✅ **EXTERNAL — backup restore-write** — DONE 2026-10-07: backup восстановлен в отдельную тестовую таблицу, 15/15 вкладок совпали (строки и значения); dry-run hash OK. Перед этим Sheets migration: backup `20261007T144730Z`, +12 колонок `bookings`, +`clients.telegram_id`; preflight `2026-09-30` → `blockers=0`.
+7. ◐ **EXTERNAL — rollback drill** — dry-run DONE (`ROLLBACK_PLAN_OK target=v1.0.0-rc.19`); `--execute` **только с Owner GO** (не запускался).
 8. **EXTERNAL — intake live** — site/TG writers + scheduler; prove no duplicate leads.
 9. **EXTERNAL — mobile** — Android + **iOS Safari** main scenario on HTTPS.
 10. **EXTERNAL — dry-run shift then real shift** — SOP; no P0.
+
+Known by design: даты вне сезона (`06-01..10-01`, захардкожено в `operating_calendar.py`) дают blocker availability в preflight; настраиваемый сезон — на паузе по решению Owner.
 
 Definition of Cash-cow **10/10**: items 3–10 green with evidence links in audit; Owner signs GO.
 
@@ -78,3 +82,4 @@ VPS update after Owner GO (see `SERVER_COMMANDS.md` §4): fetch, checkout `origi
 | Date | Change |
 |---|---|
 | 2026-10-05 | Initial living plan after PR #7 merge; EXTERNAL gates listed honestly; tag rc.19 lag noted |
+| 2026-10-07 | EXTERNAL evidence 2026-10-06/07: HTTPS, Telegram OTP, healthcheck alerting, rollback dry-run, staging-proof, Sheets migration, restore-write into test sheet; restore `--write` prod-target guard |

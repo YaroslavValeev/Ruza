@@ -2,7 +2,10 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$BackupDir,
   [string]$TargetSpreadsheetId = "",
-  [switch]$Write
+  [switch]$Write,
+  # Disaster recovery only: allow -Write into SPREADSHEET_ID / INTAKE_SPREADSHEET_ID.
+  # The Python script still asks to type 'OVERWRITE <ENV_NAME>' interactively.
+  [switch]$AllowProdTarget
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,5 +20,9 @@ if ($TargetSpreadsheetId.Trim()) {
 if ($Write) {
   $argsList += "--write"
 }
+if ($AllowProdTarget) {
+  $argsList += "--allow-prod-target"
+}
 
 python @argsList
+exit $LASTEXITCODE
