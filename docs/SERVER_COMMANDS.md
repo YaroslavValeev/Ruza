@@ -171,8 +171,8 @@ manual OTP, insecure cookie, localhost CORS или placeholder values.
 Заполните (пример содержимого):
 ```env
 APP_ENV=production
-SPREADSHEET_ID=1Jos8absjdLueLoWXZDJS67PRHXfrQ-fnTq-yiXk2_18
-INTAKE_SPREADSHEET_ID=1kyNQVjeLLe4Ra6oWuf84fHqSjUlWXI8MakVMOrCgic0
+SPREADSHEET_ID=<PROD_SPREADSHEET_ID>
+INTAKE_SPREADSHEET_ID=<INTAKE_SPREADSHEET_ID>
 INTAKE_TAB_NAME=Ruza
 SESSION_SECRET=ЗАМЕНИТЕ_НА_OPENSSL_RAND
 SESSION_COOKIE_SECURE=true
@@ -310,78 +310,64 @@ Cron каждые 5 минут (вариант с generic webhook):
 #### Telegram alert на смену состояния (prod, установлено 2026-10-06/07)
 
 На prod используется обёртка `/usr/local/bin/ruza-healthcheck-alert.sh`: запускает
-`scripts/server/healthcheck.sh`, хранит последнее состояние (`OK`/`FAIL`) в
+`scripts/server/healthcheck.sh`, хранит последнее состояние (`ok`/`fail`) в
 `/var/lib/ruza/health.state` и шлёт Telegram DM через Ruza bot **только при смене
-состояния** (падение и восстановление). Токен бота и chat id читаются из
-`/opt/icebeach/.env.docker` (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_OWNER_CHAT_ID`) — в скрипт
-и в git токен не вписывается. Evidence: тестовый прогон `rc=0`, recovery-сообщение получено.
+состояния** (падение и восстановление). Токен бота читается из
+`/opt/icebeach/.env.docker` (`TELEGRAM_BOT_TOKEN`) — в скрипт и в git токен не вписывается;
+chat id получателя (Owner) зашит в скрипт. Cron-вывод — в `/var/log/ruza/healthcheck.cron.out`.
 
-Эталонное содержимое (если копия на VPS — `cat /usr/local/bin/ruza-healthcheck-alert.sh` —
-отличается, источник истины — VPS; обновите этот блок):
+Установка на VPS (точно как выполнено на prod):
 
 **[Linux]**
 ```bash
-install -d -m 0755 /var/lib/ruza /var/log/ruza
-cat > /usr/local/bin/ruza-healthcheck-alert.sh <<'SCRIPT'
+mkdir -p /var/lib/ruza /var/log/ruza
+cat > /usr/local/bin/ruza-healthcheck-alert.sh <<'EOF'
 #!/usr/bin/env bash
-# Ruza healthcheck -> Telegram DM only on state change (OK <-> FAIL).
 set -uo pipefail
-
-APP_DIR="/opt/icebeach"
-ENV_FILE="${APP_DIR}/.env.docker"
-BASE_URL="https://ruza.mywavewake.ru"
-STATE_FILE="/var/lib/ruza/health.state"
-LOG_FILE="/var/log/ruza/healthcheck.log"
-
-read_env() {
-  # Read one KEY=value from .env.docker without sourcing the whole file.
-  grep -E "^$1=" "${ENV_FILE}" | tail -n 1 | cut -d= -f2- | tr -d '\r' | sed -e 's/^"//' -e 's/"$//'
-}
-
-mkdir -p "$(dirname "${STATE_FILE}")" "$(dirname "${LOG_FILE}")"
-
-output="$(cd "${APP_DIR}" && bash scripts/server/healthcheck.sh \
-  --api-url "${BASE_URL}/api" \
-  --dashboard-url "${BASE_URL}" \
-  --log-file "${LOG_FILE}" 2>&1)"
-rc=$?
-if [[ ${rc} -eq 0 ]]; then current="OK"; else current="FAIL"; fi
-
-previous="$(cat "${STATE_FILE}" 2>/dev/null || echo UNKNOWN)"
-if [[ "${current}" != "${previous}" ]]; then
-  if [[ "${current}" == "OK" ]]; then
-    text="✅ Ruza OK: ${BASE_URL} healthcheck recovered"
+cd /opt/icebeach
+STATE=/var/lib/ruza/health.state
+OUT=$(bash scripts/server/healthcheck.sh \
+  --api-url "https://ruza.mywavewake.ru/api" \
+  --dashboard-url "https://ruza.mywavewake.ru" \
+  --log-file /var/log/ruza/healthcheck.log 2>&1)
+RC=$?
+NEW=$([ "$RC" -eq 0 ] && echo ok || echo fail)
+OLD=$(cat "$STATE" 2>/dev/null || echo ok)
+echo "$NEW" > "$STATE"
+if [ "$NEW" != "$OLD" ]; then
+  TOKEN=$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.docker | cut -d= -f2-)
+  if [ "$NEW" = fail ]; then
+    TEXT="🔴 Ruza недоступна
+$(echo "$OUT" | grep -E 'BLOCKER|SUMMARY')"
   else
-    text="🔴 Ruza FAIL (rc=${rc}): $(printf '%s\n' "${output}" | grep -E '^\[BLOCKER\]|^SUMMARY' | head -n 5)"
+    TEXT="🟢 Ruza снова работает"
   fi
-  token="$(read_env TELEGRAM_BOT_TOKEN)"
-  chat_id="$(read_env TELEGRAM_OWNER_CHAT_ID)"
-  if [[ -n "${token}" && -n "${chat_id}" ]]; then
-    # URL with the token goes via curl config on stdin, not argv (not visible in ps).
-    if printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "${token}" | \
-      curl -fsS --max-time 10 --config - \
-        --data-urlencode "chat_id=${chat_id}" \
-        --data-urlencode "text=${text}" >/dev/null; then
-      echo "${current}" > "${STATE_FILE}"
-    fi
-  fi
+  curl -sS --max-time 10 "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+    --data-urlencode "chat_id=510686579" --data-urlencode "text=${TEXT}" >/dev/null
 fi
+exit "$RC"
+EOF
+chmod +x /usr/local/bin/ruza-healthcheck-alert.sh
 
-exit "${rc}"
-SCRIPT
-chmod 0755 /usr/local/bin/ruza-healthcheck-alert.sh
-
-# тестовый прогон: rc=0 и (при смене состояния) сообщение в Telegram
-/usr/local/bin/ruza-healthcheck-alert.sh; echo "rc=$?"; cat /var/lib/ruza/health.state
-
-# cron каждые 5 минут
-(crontab -l 2>/dev/null | grep -v ruza-healthcheck-alert; echo '*/5 * * * * /usr/local/bin/ruza-healthcheck-alert.sh >/dev/null 2>&1') | crontab -
-crontab -l | grep ruza-healthcheck-alert
+# cron каждые 5 минут (заменяет прежние healthcheck-строки в crontab root)
+(crontab -l 2>/dev/null | grep -v 'healthcheck' ; echo '*/5 * * * * /usr/local/bin/ruza-healthcheck-alert.sh >> /var/log/ruza/healthcheck.cron.out 2>&1') | crontab -
+crontab -l
 ```
 
-Состояние сохраняется только после успешной отправки, поэтому при сбое Telegram алерт
-повторится на следующем прогоне. Это внутренний мониторинг на том же VPS; внешний
-uptime monitor (если VPS целиком недоступен) — **OPEN**.
+Тест recovery-алерта (имитируем прошлое состояние `fail`):
+
+```bash
+echo fail > /var/lib/ruza/health.state; /usr/local/bin/ruza-healthcheck-alert.sh; echo "rc=$?"
+cat /var/lib/ruza/health.state
+```
+
+Ожидаемо: `rc=0`, в state — `ok`, в Telegram приходит DM `🟢 Ruza снова работает`.
+Evidence 2026-10-07 MSK: именно так и прошло.
+
+Состояние записывается на каждом прогоне (до отправки), поэтому при сбое доставки в
+Telegram повторного алерта не будет — смотрите `/var/log/ruza/healthcheck.log` и
+`healthcheck.cron.out`. Это внутренний мониторинг на том же VPS; внешний uptime monitor
+(если VPS целиком недоступен) — **OPEN**.
 
 ### Rollback drill
 
