@@ -2,7 +2,8 @@
 
 Этот файл фиксирует проверяемые ворота перед production v1. Он не заменяет CI и release tag.
 
-Актуализация: **2026-10-05** (main `bd77c197`, merged PR #7).
+Актуализация: **2026-10-07 MSK** — добавлены EXTERNAL evidence 2026-10-06/07 (см. §8);
+база кода: main `d909083` (после PR #7).
 Turism — вне scope. Ротация секретов — только Owner вручную. Deploy/merge на main — только Owner GO.
 
 ## 1. Source code / release
@@ -177,12 +178,25 @@ powershell -ExecutionPolicy Bypass -File .\scripts\restore-sheets-backup.ps1 -Ba
 `restore-sheets-backup.ps1` без `-Write` выполняет dry-run и проверяет integrity hash.
 Запись в тестовую таблицу выполняется только с явным `-Write -TargetSpreadsheetId <id>`.
 
+Guard на запись (`scripts/restore_sheets_backup.py --write`):
+- пустой `--target-spreadsheet-id` → отказ (`RESTORE_REFUSED`, exit code 2);
+- target равен `SPREADSHEET_ID` или `INTAKE_SPREADSHEET_ID` (env + app settings, включая
+  repo `.env`, который грузит `apps.api.app.config`) → отказ, exit code 2, без обращений к Google;
+- если app settings не загружаются (нет зависимостей API / `PYTHONPATH`) → отказ (fail-closed);
+- disaster recovery в prod-таблицу — только явным `--allow-prod-target`
+  (`-AllowProdTarget` в `.ps1`) **и** вводом фразы `OVERWRITE SPREADSHEET_ID`
+  (или `OVERWRITE INTAKE_SPREADSHEET_ID`) в интерактивном терминале; без TTY — отказ.
+  Использовать только с Owner GO и после свежего `backup-sheets.ps1`.
+
 Проверка поведения restore guard без Google Sheets:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\test-restore-sheets-backup.ps1
 python scripts/test_restore_sheets_backup.py
 ```
+
+Guard на prod-target покрыт pytest:
+`icebeach-wakeclub/apps/api/tests/test_restore_sheets_backup_guard.py` (входит в backend tests).
 
 ## 6. Mobile / PWA / iOS readiness
 
@@ -248,13 +262,35 @@ bash scripts/server/rollback-api.sh \
   --execute
 ```
 
-Пока не считать v1 / Cash-cow 10/10 завершённым без EXTERNAL:
-- staging/production HTTPS;
-- green `scripts/staging-proof.ps1` на staging/prod URL;
-- production OTP proof (Telegram bot token path **or** HTTPS SMS webhook);
-- backup restore-test на отдельной таблице;
-- monitoring + alerting;
-- rollback drill;
-- Android и iOS Safari smoke;
-- одна реальная смена без P0;
+Пока не считать v1 / Cash-cow 10/10 завершённым без EXTERNAL (статус на 2026-10-07 MSK, детали в §8):
+- staging/production HTTPS — **PASS** 2026-10-06;
+- green `scripts/staging-proof.ps1` на staging/prod URL — **PASS** (`blockers=0`);
+- production OTP proof (Telegram bot token path **or** HTTPS SMS webhook) — **PASS** (Telegram);
+- backup restore-test на отдельной таблице — **PASS** 2026-10-07;
+- monitoring + alerting — **PASS (internal cron + Telegram)**; внешний uptime monitor — **OPEN**;
+- rollback drill — dry-run **PASS**; `--execute` — **OPEN** (только с Owner GO);
+- Android и iOS Safari smoke — **OPEN**;
+- live intake без дублей — **OPEN**;
+- одна реальная смена без P0 (сначала dry-run смены) — **OPEN**;
 - Owner GO на tag/deploy (агенты не деплоят).
+
+## 8. EXTERNAL evidence 2026-10-06/07 (MSK)
+
+Все времена — MSK (UTC+3). Секреты, токены и id таблиц в этот файл не вносятся.
+
+| Gate | Статус | Evidence |
+|---|---|---|
+| HTTPS | PASS | `https://ruza.mywavewake.ru` через nginx + Let's Encrypt (certbot). Сертификат действует до **2027-01-04**, auto-renew (certbot). |
+| Production OTP | PASS | Live Telegram OTP на prod: `request-code` → `delivery_channel=telegram`, `debug_code=null`; `verify-code` OK; `/auth/me` OK под HTTPS-cookie. |
+| Monitoring + alerting | PASS (internal) | `/usr/local/bin/ruza-healthcheck-alert.sh` по cron каждые 5 минут; обёртка над `scripts/server/healthcheck.sh`; Telegram DM через Ruza bot **только при смене состояния**; состояние в `/var/lib/ruza/health.state`. Тестовый прогон `rc=0`, recovery-сообщение получено. Скрипт: `SERVER_COMMANDS.md` → «Telegram alert на смену состояния». |
+| Rollback drill | PARTIAL | Dry-run `rollback-api.sh --target-tag v1.0.0-rc.19` → `ROLLBACK_PLAN_OK target=v1.0.0-rc.19`. `--execute` **не запускался** (только с Owner GO). |
+| Staging/prod proof | PASS | `scripts/staging-proof.ps1` с Windows против prod URL → `SUMMARY blockers=0`. Примечания: Xray VPN давал TLS timeouts (запускать без VPN/в обход); `curl` на Windows (schannel) требует `--ssl-no-revoke`. |
+| Sheets schema migration | PASS | Перед миграцией backup `20261007T144730Z` (UTC; 17:47 MSK). Добавлены 12 колонок в `bookings` и `clients.telegram_id` (append справа, существующие колонки не двигались). Preflight на дату `2026-09-30` → `blockers=0`. Даты вне сезона дают blocker availability **by design**: сезон захардкожен `06-01..10-01` (`operating_calendar.py`); работа над настраиваемым сезоном поставлена Owner на паузу. |
+| Backup restore-write | PASS | Backup восстановлен (`--write`) в **отдельную тестовую таблицу** (не prod); все 15 вкладок совпали по количеству строк и значениям; dry-run integrity hash check OK. С этого PR `--write` в `SPREADSHEET_ID`/`INTAKE_SPREADSHEET_ID` блокируется guard'ом (§5). |
+
+Осталось (OPEN):
+- iOS Safari и Android smoke основного сценария по HTTPS;
+- live intake (сайт/TG) без дублей лидов;
+- реальный dry-run смены, затем реальная смена без P0;
+- rollback `--execute` — только с Owner GO;
+- внешний uptime monitor (независимо от VPS cron).

@@ -9,6 +9,11 @@
 от main `bd77c197` и не должен быть единственной целью checkout. Этот документ не является
 разрешением на deploy — только Owner GO. Секреты не ротировать из агентских сессий.
 
+**Актуализация 2026-10-07 MSK:** публичный URL — `https://ruza.mywavewake.ru` (nginx +
+Let's Encrypt, cert до 2027-01-04, auto-renew). Evidence по воротам — в
+[PRODUCTION_V1_GATES.md](PRODUCTION_V1_GATES.md) §8. Ниже `dashboard.example.com` в
+шаблонах соответствует `ruza.mywavewake.ru`.
+
 
 ---
 
@@ -166,8 +171,8 @@ manual OTP, insecure cookie, localhost CORS или placeholder values.
 Заполните (пример содержимого):
 ```env
 APP_ENV=production
-SPREADSHEET_ID=1Jos8absjdLueLoWXZDJS67PRHXfrQ-fnTq-yiXk2_18
-INTAKE_SPREADSHEET_ID=1kyNQVjeLLe4Ra6oWuf84fHqSjUlWXI8MakVMOrCgic0
+SPREADSHEET_ID=<PROD_SPREADSHEET_ID>
+INTAKE_SPREADSHEET_ID=<INTAKE_SPREADSHEET_ID>
 INTAKE_TAB_NAME=Ruza
 SESSION_SECRET=ЗАМЕНИТЕ_НА_OPENSSL_RAND
 SESSION_COOKIE_SECURE=true
@@ -239,6 +244,14 @@ nginx -t && systemctl reload nginx
 certbot --nginx -d dashboard.example.com
 ```
 
+Проверка сертификата и auto-renew (prod: `ruza.mywavewake.ru`, expires 2027-01-04):
+
+```bash
+certbot certificates
+certbot renew --dry-run
+systemctl list-timers | grep -i certbot
+```
+
 После SSL обновите `CORS_ALLOW_ORIGINS` в `.env.docker` и перезапустите API:
 ```bash
 cd /opt/icebeach
@@ -288,11 +301,73 @@ bash scripts/server/healthcheck.sh \
   --log-file "/var/log/ruza/healthcheck.log"
 ```
 
-Cron каждые 5 минут:
+Cron каждые 5 минут (вариант с generic webhook):
 
 ```bash
 (crontab -l 2>/dev/null; echo '*/5 * * * * cd /opt/icebeach && bash scripts/server/healthcheck.sh --api-url "https://dashboard.example.com/api" --dashboard-url "https://dashboard.example.com" --log-file "/var/log/ruza/healthcheck.log" --alert-webhook-url "https://alert-webhook.example/ruza"') | crontab -
 ```
+
+#### Telegram alert на смену состояния (prod, установлено 2026-10-06/07)
+
+На prod используется обёртка `/usr/local/bin/ruza-healthcheck-alert.sh`: запускает
+`scripts/server/healthcheck.sh`, хранит последнее состояние (`ok`/`fail`) в
+`/var/lib/ruza/health.state` и шлёт Telegram DM через Ruza bot **только при смене
+состояния** (падение и восстановление). Токен бота читается из
+`/opt/icebeach/.env.docker` (`TELEGRAM_BOT_TOKEN`) — в скрипт и в git токен не вписывается;
+chat id получателя (Owner) зашит в скрипт. Cron-вывод — в `/var/log/ruza/healthcheck.cron.out`.
+
+Установка на VPS (точно как выполнено на prod):
+
+**[Linux]**
+```bash
+mkdir -p /var/lib/ruza /var/log/ruza
+cat > /usr/local/bin/ruza-healthcheck-alert.sh <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+cd /opt/icebeach
+STATE=/var/lib/ruza/health.state
+OUT=$(bash scripts/server/healthcheck.sh \
+  --api-url "https://ruza.mywavewake.ru/api" \
+  --dashboard-url "https://ruza.mywavewake.ru" \
+  --log-file /var/log/ruza/healthcheck.log 2>&1)
+RC=$?
+NEW=$([ "$RC" -eq 0 ] && echo ok || echo fail)
+OLD=$(cat "$STATE" 2>/dev/null || echo ok)
+echo "$NEW" > "$STATE"
+if [ "$NEW" != "$OLD" ]; then
+  TOKEN=$(grep -E '^TELEGRAM_BOT_TOKEN=' .env.docker | cut -d= -f2-)
+  if [ "$NEW" = fail ]; then
+    TEXT="🔴 Ruza недоступна
+$(echo "$OUT" | grep -E 'BLOCKER|SUMMARY')"
+  else
+    TEXT="🟢 Ruza снова работает"
+  fi
+  curl -sS --max-time 10 "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+    --data-urlencode "chat_id=510686579" --data-urlencode "text=${TEXT}" >/dev/null
+fi
+exit "$RC"
+EOF
+chmod +x /usr/local/bin/ruza-healthcheck-alert.sh
+
+# cron каждые 5 минут (заменяет прежние healthcheck-строки в crontab root)
+(crontab -l 2>/dev/null | grep -v 'healthcheck' ; echo '*/5 * * * * /usr/local/bin/ruza-healthcheck-alert.sh >> /var/log/ruza/healthcheck.cron.out 2>&1') | crontab -
+crontab -l
+```
+
+Тест recovery-алерта (имитируем прошлое состояние `fail`):
+
+```bash
+echo fail > /var/lib/ruza/health.state; /usr/local/bin/ruza-healthcheck-alert.sh; echo "rc=$?"
+cat /var/lib/ruza/health.state
+```
+
+Ожидаемо: `rc=0`, в state — `ok`, в Telegram приходит DM `🟢 Ruza снова работает`.
+Evidence 2026-10-07 MSK: именно так и прошло.
+
+Состояние записывается на каждом прогоне (до отправки), поэтому при сбое доставки в
+Telegram повторного алерта не будет — смотрите `/var/log/ruza/healthcheck.log` и
+`healthcheck.cron.out`. Это внутренний мониторинг на том же VPS; внешний uptime monitor
+(если VPS целиком недоступен) — **OPEN**.
 
 ### Rollback drill
 
@@ -303,6 +378,9 @@ Dry-run rollback plan:
 cd /opt/icebeach
 bash scripts/server/rollback-api.sh --target-tag "v1.0.0-rc.<previous>"
 ```
+
+Evidence 2026-10-07 MSK: dry-run на prod `--target-tag "v1.0.0-rc.19"` →
+`ROLLBACK_PLAN_OK target=v1.0.0-rc.19`. `--execute` **не запускался** — только с Owner GO.
 
 Execute rollback only after dry-run is clean:
 
@@ -349,6 +427,38 @@ cd "F:\Проекты MyWave\NEW2026\Ruza"
 
 Для удалённого HTTPS staging используйте `scripts/staging-proof.ps1` с
 `-ApiBaseUrl "https://dashboard.example.com/api"` и `-DashboardUrl "https://dashboard.example.com"`.
+
+Prod proof (evidence 2026-10-07 MSK: `SUMMARY blockers=0`):
+
+**[PowerShell]**
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\staging-proof.ps1 `
+  -ApiBaseUrl "https://ruza.mywavewake.ru/api" `
+  -DashboardUrl "https://ruza.mywavewake.ru" `
+  -Date "2026-09-30"   # любая дата внутри сезона
+# ручная проверка с Windows: schannel без доступа к CRL/OCSP падает — нужен --ssl-no-revoke
+curl.exe --ssl-no-revoke -sS https://ruza.mywavewake.ru/api/health
+```
+
+Если включён Xray VPN, запросы к prod давали TLS timeouts — выключить VPN или
+добавить домен в обход и повторить.
+
+Preflight: даты вне сезона (`06-01..10-01`, захардкожено) дают blocker availability by design;
+для proof выбирайте дату внутри сезона (evidence: `2026-09-30` → `blockers=0`).
+
+### Restore backup (только в отдельную таблицу)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\restore-sheets-backup.ps1 -BackupDir .\backups\sheets\<timestamp>
+powershell -ExecutionPolicy Bypass -File .\scripts\restore-sheets-backup.ps1 -BackupDir .\backups\sheets\<timestamp> `
+  -Write -TargetSpreadsheetId "<id_отдельной_тестовой_таблицы>"
+```
+
+`--write` отказывает (exit 2, `RESTORE_REFUSED`), если target пустой или совпадает с
+`SPREADSHEET_ID` / `INTAKE_SPREADSHEET_ID`. Disaster recovery в prod — только с Owner GO:
+`-AllowProdTarget` + ввод `OVERWRITE SPREADSHEET_ID` (или `OVERWRITE INTAKE_SPREADSHEET_ID`)
+в интерактивном терминале. Evidence 2026-10-07: restore-write в отдельную тестовую таблицу,
+15/15 вкладок совпали по строкам и значениям.
 
 ---
 
