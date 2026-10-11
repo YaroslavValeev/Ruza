@@ -12,12 +12,13 @@
 from __future__ import annotations
 
 import sys
+import os
 from datetime import date
 
 import httpx
 
-BASE = "http://127.0.0.1:8000"
-TODAY = date.today().isoformat()
+BASE = os.environ.get("DEMO_API_BASE", "http://127.0.0.1:8000")
+TODAY = os.environ.get("DEMO_DATE", date.today().isoformat())
 
 
 def _fail(code: str, message: str) -> None:
@@ -87,15 +88,15 @@ def main() -> None:
             pilot = _login(client, "+79990000002")
             _pass("login.pilot", pilot.get("role", ""))
 
-            started = client.patch(
-                f"/bookings/{ready['booking_id']}/status",
-                json={"status": "in_progress"},
+            started = client.post(
+                f"/bookings/{ready['booking_id']}/timer-action",
+                json={"action": "start"},
             )
             if started.status_code != 200:
                 _fail("pilot.start", started.text)
-            finished = client.patch(
-                f"/bookings/{ready['booking_id']}/status",
-                json={"status": "done"},
+            finished = client.post(
+                f"/bookings/{ready['booking_id']}/timer-action",
+                json={"action": "stop"},
             )
             if finished.status_code != 200:
                 _fail("pilot.done", finished.text)

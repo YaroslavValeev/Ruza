@@ -129,6 +129,20 @@ def _find_idempotent(sheet: SheetWrapper, *, key: str, club_id: str, expected: d
     return existing
 
 
+def _ensure_payment_audit(sheet: SheetWrapper, row: dict[str, object], *, action: str, actor: str) -> None:
+    payment_id = str(row["payment_id"])
+    if sheet.find("audit_log", {"action": action, "entity": "payment", "entity_id": payment_id}):
+        return
+    sheet.write_audit(
+        action=action,
+        entity="payment",
+        entity_id=payment_id,
+        diff_json={key: value for key, value in row.items() if key != "metadata_json"},
+        actor=str(row.get("recorded_by") or actor),
+        strict=True,
+    )
+
+
 def record_charge(
     sheet: SheetWrapper,
     payload: PaymentCreateRequest,
@@ -147,6 +161,7 @@ def record_charge(
         }
         existing = _find_idempotent(sheet, key=payload.idempotency_key, club_id=club_id, expected=expected)
         if existing is not None:
+            _ensure_payment_audit(sheet, existing, action="payment_recorded", actor=actor_staff_user_id)
             return {
                 "payment": _serialize_payment(existing),
                 "summary": get_booking_payment_summary(sheet, booking_id=payload.booking_id, club_id=club_id),
@@ -175,14 +190,7 @@ def record_charge(
             "metadata_json": "{}",
         }
         sheet.append_row("payments", row, unique_key="payment_id")
-        sheet.write_audit(
-            action="payment_recorded",
-            entity="payment",
-            entity_id=row["payment_id"],
-            diff_json={key: value for key, value in row.items() if key != "metadata_json"},
-            actor=actor_staff_user_id,
-            strict=True,
-        )
+        _ensure_payment_audit(sheet, row, action="payment_recorded", actor=actor_staff_user_id)
         return {
             "payment": _serialize_payment({key: str(value) for key, value in row.items()}),
             "summary": get_booking_payment_summary(sheet, booking_id=payload.booking_id, club_id=club_id),
@@ -216,6 +224,7 @@ def record_refund(
         }
         existing = _find_idempotent(sheet, key=payload.idempotency_key, club_id=club_id, expected=expected)
         if existing is not None:
+            _ensure_payment_audit(sheet, existing, action="payment_refunded", actor=actor_staff_user_id)
             return {
                 "payment": _serialize_payment(existing),
                 "summary": get_booking_payment_summary(
@@ -257,14 +266,7 @@ def record_refund(
             "metadata_json": json.dumps({"reason": "operator_refund"}, ensure_ascii=False),
         }
         sheet.append_row("payments", row, unique_key="payment_id")
-        sheet.write_audit(
-            action="payment_refunded",
-            entity="payment",
-            entity_id=row["payment_id"],
-            diff_json={key: value for key, value in row.items() if key != "metadata_json"},
-            actor=actor_staff_user_id,
-            strict=True,
-        )
+        _ensure_payment_audit(sheet, row, action="payment_refunded", actor=actor_staff_user_id)
         return {
             "payment": _serialize_payment({key: str(value) for key, value in row.items()}),
             "summary": get_booking_payment_summary(

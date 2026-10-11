@@ -10,6 +10,7 @@ from ..config import Settings
 from .availability import get_availability_for_date
 from .bookings import get_booking_row, list_bookings, update_booking_status
 from .notifications import send_admin_notice, send_client_notice
+from .operation_lock import serialize_sheets_mutation
 from .ride_runtime import compute_elapsed_seconds, iter_booking_slots, offset_time_text, parse_sets_count, resolve_club_timezone, slot_start_local
 
 
@@ -65,6 +66,22 @@ def _slot_start(row: dict[str, str], zone) -> datetime:
     return slot_start_local(row.get("date", ""), row.get("time", "00:00"), zone)
 
 
+def _send_client_15_notice(
+    sheet: SheetWrapper, settings: Settings, *, row: dict[str, str], club_id: str, actor: str
+) -> str:
+    client = _client_row(sheet, club_id=club_id, client_id=row.get("client_id", ""))
+    return send_client_notice(
+        sheet,
+        settings,
+        booking_id=row.get("booking_id", ""),
+        client_row=client,
+        actor=actor,
+        title="Сессия ещё в силе?",
+        message="До старта осталось 15 минут. Если заезд в силе, пожалуйста, подойдите к старту и дайте знать оператору.",
+        notification_key="client_notice_15_sent_at",
+    )
+
+
 def _next_slot_available(sheet: SheetWrapper, *, row: dict[str, str], club_id: str) -> bool:
     next_slot_time = offset_time_text(row.get("time", "00:00"), parse_sets_count(row))
     availability = get_availability_for_date(sheet, row.get("date", ""), club_id)
@@ -98,6 +115,7 @@ def _next_client_candidate(sheet: SheetWrapper, *, row: dict[str, str], club_id:
     return bookings[0] if bookings else None
 
 
+@serialize_sheets_mutation
 def update_booking_prep(
     sheet: SheetWrapper,
     settings: Settings,
@@ -113,6 +131,10 @@ def update_booking_prep(
     current_status = row.get("status", "confirmed")
     current_now = _now(now)
     runtime_patch: dict[str, str | int] = {}
+
+    status_after_arrival = {"arrived": "arrived", "late": "late"}.get(arrival_action, current_status)
+    if warmup_state is not None and status_after_arrival not in {"arrived", "ready"}:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Warmup can only be set after arrival")
 
     if arrival_action:
         if arrival_action == "arrived":
@@ -142,18 +164,16 @@ def update_booking_prep(
                 row = get_booking_row(sheet, booking_id=booking_id, club_id=club_id)
                 current_status = row.get("status", "confirmed")
             minutes_to_start = int((_slot_start(row, _club_zone(sheet, club_id)) - current_now).total_seconds() // 60)
-            if minutes_to_start <= 15 and not row.get("client_notice_15_sent_at"):
-                client = _client_row(sheet, club_id=club_id, client_id=row.get("client_id", ""))
-                send_client_notice(
+            if 0 <= minutes_to_start <= 15 and not row.get("client_notice_15_sent_at"):
+                delivery = _send_client_15_notice(
                     sheet,
                     settings,
-                    booking_id=booking_id,
-                    client_row=client,
+                    row=row,
+                    club_id=club_id,
                     actor=actor_staff_user_id,
-                    title="Сессия ещё в силе?",
-                    message="До старта осталось 15 минут. Если заезд в силе, пожалуйста, подойдите к старту и дайте знать оператору.",
                 )
-                runtime_patch["client_notice_15_sent_at"] = current_now.isoformat()
+                if delivery == "telegram_client":
+                    runtime_patch["client_notice_15_sent_at"] = current_now.isoformat()
 
     row_after_arrival = get_booking_row(sheet, booking_id=booking_id, club_id=club_id)
     if warmup_state is not None:
@@ -171,6 +191,7 @@ def update_booking_prep(
     return _booking_item(sheet, booking_id=booking_id, club_id=club_id, target_date=final_row.get("date", ""))
 
 
+@serialize_sheets_mutation
 def run_timer_action(
     sheet: SheetWrapper,
     settings: Settings,
@@ -190,6 +211,14 @@ def run_timer_action(
     if action == "start":
         if booking_status != "ready":
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ride can only start from ready")
+        if any(
+            booking.get("club_id") == club_id
+            and booking.get("boat_id") == row.get("boat_id")
+            and booking.get("booking_id") != booking_id
+            and booking.get("status") == "in_progress"
+            for booking in sheet.read_tab("bookings")
+        ):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Another ride is already active on this boat")
         update_booking_status(
             sheet,
             booking_id=booking_id,
@@ -255,7 +284,7 @@ def run_timer_action(
             if next_client_booking is None or not _next_slot_available(sheet, row=row, club_id=club_id):
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No earlier start notice can be sent for the next client")
             client = _client_row(sheet, club_id=club_id, client_id=next_client_booking.get("client_id", ""))
-            send_client_notice(
+            delivery = send_client_notice(
                 sheet,
                 settings,
                 booking_id=next_client_booking.get("booking_id", ""),
@@ -263,8 +292,10 @@ def run_timer_action(
                 actor=actor_staff_user_id,
                 title="Можно подойти раньше",
                 message=f"Следующий свободный старт освободился раньше. Если вам удобно, подойдите к старту к {offset_time_text(row.get('time', '00:00'), parse_sets_count(row))}.",
+                notification_key="next_client_notified_at",
             )
-            runtime_patch["next_client_notified_at"] = current_now.isoformat()
+            if delivery == "telegram_client":
+                runtime_patch["next_client_notified_at"] = current_now.isoformat()
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported timer action")
 
@@ -285,8 +316,9 @@ def get_shift_live(
     target_date: str,
     role: str,
     boat_id: str | None = None,
+    coach_user_id: str | None = None,
 ) -> dict[str, object]:
-    bookings = list_bookings(sheet, club_id=club_id, target_date=target_date)
+    bookings = list_bookings(sheet, club_id=club_id, target_date=target_date, coach_user_id=coach_user_id)
     if boat_id:
         bookings = [booking for booking in bookings if booking.get("boat_id") == boat_id]
     focus = None
@@ -328,6 +360,7 @@ def get_shift_live(
     return {"date": target_date, "focus_booking": focus}
 
 
+@serialize_sheets_mutation
 def process_shift_reminders(
     sheet: SheetWrapper,
     settings: Settings,
@@ -355,35 +388,46 @@ def process_shift_reminders(
         minutes_to_start = int((_slot_start(row, zone) - current_now).total_seconds() // 60)
         runtime_patch: dict[str, str] = {}
         if 0 <= minutes_to_start <= 15 and row.get("status") == "confirmed" and not row.get("admin_notice_15_sent_at"):
-            send_admin_notice(
+            delivery = send_admin_notice(
                 sheet,
                 settings,
                 booking_id=booking_id,
                 actor=actor_staff_user_id,
                 title="Скоро старт заезда",
                 message=f"До старта клиента осталось 15 минут. Откройте смену и отметьте фактический статус по брони {booking_id}.",
+                notification_key="admin_notice_15_sent_at",
             )
-            runtime_patch["admin_notice_15_sent_at"] = current_now.isoformat()
-            admin_notices += 1
+            if delivery == "telegram_owner":
+                runtime_patch["admin_notice_15_sent_at"] = current_now.isoformat()
+                admin_notices += 1
         if 0 <= minutes_to_start <= 5 and row.get("status") in {"confirmed", "late"} and not row.get("admin_notice_5_sent_at"):
-            send_admin_notice(
+            delivery = send_admin_notice(
                 sheet,
                 settings,
                 booking_id=booking_id,
                 actor=actor_staff_user_id,
                 title="Старт через 5 минут",
                 message=f"До старта клиента осталось 5 минут. Проверьте бронирование {booking_id} и зафиксируйте фактический статус.",
+                notification_key="admin_notice_5_sent_at",
             )
-            runtime_patch["admin_notice_5_sent_at"] = current_now.isoformat()
-            admin_notices += 1
+            if delivery == "telegram_owner":
+                runtime_patch["admin_notice_5_sent_at"] = current_now.isoformat()
+                admin_notices += 1
+        if 0 <= minutes_to_start <= 15 and row.get("status") == "late" and not row.get("client_notice_15_sent_at"):
+            delivery = _send_client_15_notice(
+                sheet, settings, row=row, club_id=club_id, actor=actor_staff_user_id
+            )
+            if delivery == "telegram_client":
+                runtime_patch["client_notice_15_sent_at"] = current_now.isoformat()
+                client_notices += 1
         if (
             0 <= minutes_to_start <= 5
             and row.get("status") == "late"
-            and row.get("client_notice_15_sent_at")
+            and (row.get("client_notice_15_sent_at") or runtime_patch.get("client_notice_15_sent_at"))
             and not row.get("client_notice_5_sent_at")
         ):
             client = _client_row(sheet, club_id=club_id, client_id=row.get("client_id", ""))
-            send_client_notice(
+            delivery = send_client_notice(
                 sheet,
                 settings,
                 booking_id=booking_id,
@@ -391,9 +435,11 @@ def process_shift_reminders(
                 actor=actor_staff_user_id,
                 title="До старта 5 минут",
                 message="Старт уже близко: до заезда осталось 5 минут. Пожалуйста, подойдите к старту и будьте готовы, включая короткую разминку.",
+                notification_key="client_notice_5_sent_at",
             )
-            runtime_patch["client_notice_5_sent_at"] = current_now.isoformat()
-            client_notices += 1
+            if delivery == "telegram_client":
+                runtime_patch["client_notice_5_sent_at"] = current_now.isoformat()
+                client_notices += 1
         _patch_booking_runtime(
             sheet,
             booking_id=booking_id,

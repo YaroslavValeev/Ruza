@@ -19,7 +19,10 @@ def weekday_iso0(date_text: str) -> int:
 
 
 def normalize_phone(value: str) -> str:
-    return "".join(ch for ch in value if ch.isdigit())
+    digits = "".join(ch for ch in value if ch.isdigit())
+    if len(digits) == 11 and digits.startswith("8"):
+        return "7" + digits[1:]
+    return digits
 
 
 def hash_auth_code(secret: str, staff_user_id: str, code: str) -> str:

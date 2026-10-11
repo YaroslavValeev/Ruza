@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,8 +29,8 @@ from apps.api.app.main import create_app  # noqa: E402
 from packages.sheets.memory import InMemorySheetWrapper, demo_tabs  # noqa: E402
 
 
-def build_demo_app():
-    store = InMemorySheetWrapper(demo_tabs())
+def build_demo_app(*, today: date | None = None):
+    store = InMemorySheetWrapper(demo_tabs(today=today))
     settings = Settings(
         spreadsheet_id="demo-sheet",
         intake_spreadsheet_id="demo-intake-sheet",
@@ -66,7 +67,8 @@ def build_demo_app():
     return application
 
 
-app = build_demo_app()
+demo_date = date.fromisoformat(os.environ["DEMO_DATE"]) if os.environ.get("DEMO_DATE") else None
+app = build_demo_app(today=demo_date)
 
 
 if __name__ == "__main__":
@@ -74,4 +76,4 @@ if __name__ == "__main__":
 
     print("Demo login: phone +79990000000 (admin) / +79990000001 (operator) / +79990000002 (pilot)")
     print("OTP is shown on the login screen (AUTH_DEBUG_CODE_IN_RESPONSE=true).")
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+    uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("DEMO_API_PORT", "8000")), log_level="info")

@@ -1,4 +1,5 @@
-import { BookingStatus, RideType } from "../types";
+import type { BookingStatus, RideType } from "../types";
+import { formatLocalIsoDate } from "../lib/dates";
 
 export const PILOT_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {};
 
@@ -28,7 +29,7 @@ export const RIDE_TYPE_LABELS: Record<RideType, string> = {
 };
 
 export function getToday(): string {
-  return new Date().toISOString().slice(0, 10);
+  return formatLocalIsoDate();
 }
 
 export function getPrimaryActionText(status: BookingStatus): string {

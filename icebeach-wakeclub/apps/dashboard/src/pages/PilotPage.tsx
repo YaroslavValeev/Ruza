@@ -12,6 +12,7 @@ import {
   getToday,
 } from "../mobile/pilot-utils";
 import { formatDurationClock } from "../lib/shift-timer";
+import { useRideQueueClock } from "../lib/use-ride-queue-clock";
 
 type PilotPageProps = {
   session: StaffSession;
@@ -76,7 +77,7 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
   const [date, setDate] = useState(() => getToday());
   const [dateFrom, setDateFrom] = useState(() => getToday());
   const [dateTo, setDateTo] = useState(() => getToday());
-  const [items, setItems] = useState<PilotQueueItem[]>([]);
+  const { items, setQueue, mergeItem, remainingSeconds } = useRideQueueClock();
   const [statusFilter, setStatusFilter] = useState<PilotStatusFilter>("all");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -147,7 +148,7 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
         useRange ? dateFrom : undefined,
         useRange ? dateTo : undefined,
       );
-      setItems(data);
+      setQueue(data);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -173,11 +174,6 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
     }
   };
 
-  const mergeItem = (updatedItem: import("../types").BookingItem) => {
-    setItems((currentItems) => currentItems.map((item) => (
-      item.booking_id === updatedItem.booking_id ? { ...item, ...updatedItem } : item
-    )));
-  };
 
   const dateLabel = period === "week" ? "Опорная дата недели" : period === "season" ? "Опорная дата сезона" : "Дата";
 
@@ -289,7 +285,7 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                   <div className="text-sm text-cyan-100/70">{activeRide.time} • {RIDE_TYPE_LABELS[(activeRide.ride_type || "wakeboard") as RideType]}</div>
                   <span className={getStatusTone(activeRide.status)}>{STATUS_LABELS[activeRide.status] || activeRide.status}</span>
                   <div className="text-sm text-cyan-100/70">
-                    {formatDurationClock(activeRide.remaining_seconds)} осталось • план {activeRide.planned_duration_minutes} мин
+                    {formatDurationClock(remainingSeconds(activeRide))} осталось • план {activeRide.planned_duration_minutes} мин
                   </div>
                 </>
               ) : (
@@ -356,7 +352,7 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
                 </div>
                 <div className="game-stat p-3">
                   <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Осталось</div>
-                  <div className="mt-1 text-sm font-black text-white">{formatDurationClock(item.remaining_seconds)}</div>
+                  <div className="mt-1 text-sm font-black text-white">{formatDurationClock(remainingSeconds(item))}</div>
                 </div>
                 <div className="game-stat p-3">
                   <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Разминка</div>

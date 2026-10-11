@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { getShiftLive } from "../../api/client";
 import { StaffSession } from "../../types";
 import { STATUS_LABELS } from "../../mobile/pilot-utils";
-import { formatDurationClock, getLiveStripHint, getRemainingTone, getStatusProgress, getWarmupLabel } from "../../lib/shift-timer";
+import { formatDurationClock, getLiveRemainingSeconds, getLiveStripHint, getRemainingTone, getStatusProgress, getWarmupLabel } from "../../lib/shift-timer";
 
 type LiveShiftStripProps = {
   session: StaffSession;
@@ -57,12 +57,7 @@ export function LiveShiftStrip({ session, compact = false }: LiveShiftStripProps
     return () => window.clearInterval(id);
   }, []);
 
-  const liveRemaining = useMemo(() => {
-    if (!focusBooking) return 0;
-    if (focusBooking.timer_state !== "running") return focusBooking.remaining_seconds;
-    const driftSeconds = Math.max(Math.floor((Date.now() - fetchedAt) / 1000), 0);
-    return Math.max(focusBooking.remaining_seconds - driftSeconds, 0);
-  }, [focusBooking, fetchedAt]);
+  const liveRemaining = getLiveRemainingSeconds(focusBooking, fetchedAt, Date.now());
 
   const progress = focusBooking ? getStatusProgress(focusBooking.status) : 0;
   const remainingTone = focusBooking ? getRemainingTone(liveRemaining, focusBooking.timer_state) : "cool";

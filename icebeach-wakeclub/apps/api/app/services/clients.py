@@ -6,6 +6,7 @@ from uuid import uuid4
 from packages.sheets import SheetWrapper
 
 from .common import normalize_phone
+from .operation_lock import serialize_sheets_mutation
 
 
 def list_clients(sheet: SheetWrapper, club_id: str, query: str = "") -> list[dict[str, str | bool]]:
@@ -41,6 +42,7 @@ def list_clients(sheet: SheetWrapper, club_id: str, query: str = "") -> list[dic
     return result
 
 
+@serialize_sheets_mutation
 def create_client(
     sheet: SheetWrapper,
     *,

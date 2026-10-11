@@ -46,12 +46,15 @@ def shift_live(
 ) -> ShiftLiveResponse:
     target = date_value or club_local_today(sheet, user.club_id)
     boat_id = get_pilot_boat_id(sheet, staff_user_id=user.staff_user_id, club_id=user.club_id) if user.role == "pilot" else None
+    if user.role == "pilot" and not boat_id:
+        return ShiftLiveResponse(date=target, focus_booking=None)
     payload = get_shift_live(
         sheet,
         club_id=user.club_id,
         target_date=target.isoformat(),
         role=user.role,
         boat_id=boat_id,
+        coach_user_id=user.staff_user_id if user.role == "coach" else None,
     )
     focus = payload.get("focus_booking")
     return ShiftLiveResponse(
