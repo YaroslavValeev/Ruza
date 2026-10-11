@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet('preflight_guard', 'late_marker', 'shift_snapshot', 'ops_alert', 'daily_brief', 'intake_sync')]
+  [ValidateSet('preflight_guard', 'late_marker', 'shift_snapshot', 'ops_alert', 'daily_brief', 'intake_sync', 'shift_reminders')]
   [string]$Agent,
   [ValidateSet('morning', 'evening')]
   [string]$Mode = 'morning'
@@ -9,6 +9,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path $PSScriptRoot -Parent
 $IcebeachRoot = Join-Path $RepoRoot 'icebeach-wakeclub'
+$PreviousPythonPath = $env:PYTHONPATH
 
 Push-Location $IcebeachRoot
 try {
@@ -22,5 +23,6 @@ try {
     throw "Agent $Agent failed with exit code $LASTEXITCODE"
   }
 } finally {
+  $env:PYTHONPATH = $PreviousPythonPath
   Pop-Location
 }

@@ -11,6 +11,7 @@ from .runners import (
     run_ops_alert,
     run_preflight_guard,
     run_shift_snapshot,
+    run_shift_reminders,
 )
 
 
@@ -21,6 +22,7 @@ AGENTS = {
     "ops_alert": lambda args: run_ops_alert(),
     "daily_brief": lambda args: run_daily_brief(mode=args.mode),
     "intake_sync": lambda args: run_intake_sync(),
+    "shift_reminders": lambda args: run_shift_reminders(),
 }
 
 
