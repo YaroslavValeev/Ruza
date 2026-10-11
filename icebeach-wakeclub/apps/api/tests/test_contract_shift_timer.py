@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
+from threading import Barrier
+from time import sleep
 
 CLUB_TZ = ZoneInfo("Europe/Moscow")
 
@@ -13,6 +18,7 @@ from apps.api.app.config import get_settings
 from apps.api.app.dependencies import get_sheet_wrapper
 from apps.api.app.main import app
 from apps.api.app.services.bookings import update_booking_status
+from apps.api.app.services import shift_timer
 from apps.api.app.services.shift_timer import get_shift_live, process_shift_reminders, run_timer_action, update_booking_prep
 
 from conftest import MockSheetWrapper, make_test_settings
@@ -218,7 +224,8 @@ def test_add_set_is_blocked_when_next_slot_is_taken() -> None:
     app.dependency_overrides.clear()
 
 
-def test_shift_reminders_follow_t15_then_t5_rules() -> None:
+def test_shift_reminders_follow_t15_then_t5_rules(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("apps.api.app.services.notifications._send_telegram_message", lambda **kwargs: None)
     sheet = MockSheetWrapper()
     client = _client(sheet)
     _login(client)
@@ -233,7 +240,8 @@ def test_shift_reminders_follow_t15_then_t5_rules() -> None:
         },
     )
     assert created.status_code == 200
-    settings = make_test_settings()
+    settings = replace(make_test_settings(), telegram_bot_token="test-bot", telegram_owner_chat_id="test-owner")
+    sheet.tabs["clients"][0]["telegram_id"] = "test-client"
 
     t15 = process_shift_reminders(
         sheet,
@@ -459,3 +467,121 @@ def test_shift_live_prefers_on_water_else_next_actionable_client() -> None:
     )
     live_focus = get_shift_live(sheet, club_id="ice_beach_ruza", target_date="2026-06-01", role="operator")
     assert live_focus["focus_booking"]["booking_id"] == "bkg_current_arrived"
+
+
+def _service_booking(booking_id: str, *, status: str = "ready", time: str = "10:00") -> dict[str, str]:
+    return {
+        "booking_id": booking_id,
+        "club_id": "ice_beach_ruza",
+        "client_id": "client_1",
+        "date": "2026-06-01",
+        "time": time,
+        "boat_id": "boat_1",
+        "status": status,
+        "sets_count": "1",
+        "warmup_state": "pending",
+        "timer_state": "idle",
+    }
+
+
+@pytest.mark.parametrize("status", ["confirmed", "late"])
+@pytest.mark.parametrize("warmup_state", ["pending", "warmed_up", "no_warmup"])
+def test_combined_late_and_warmup_is_rejected_before_any_side_effect(status: str, warmup_state: str) -> None:
+    sheet = MockSheetWrapper()
+    sheet.tabs["bookings"].append(_service_booking("prep-atomic", status=status))
+    before = deepcopy(sheet.tabs)
+    with pytest.raises(HTTPException) as exc_info:
+        update_booking_prep(
+            sheet, make_test_settings(), booking_id="prep-atomic", arrival_action="late",
+            warmup_state=warmup_state, actor_staff_user_id="staff_001", club_id="ice_beach_ruza",
+            now=datetime(2026, 6, 1, 9, 45, tzinfo=CLUB_TZ),
+        )
+    assert exc_info.value.status_code == 409
+    assert sheet.tabs == before
+
+
+def test_combined_arrival_and_warmup_remains_supported() -> None:
+    sheet = MockSheetWrapper()
+    sheet.tabs["bookings"].append(_service_booking("prep-arrival", status="confirmed"))
+    item = update_booking_prep(
+        sheet, make_test_settings(), booking_id="prep-arrival", arrival_action="arrived",
+        warmup_state="warmed_up", actor_staff_user_id="staff_001", club_id="ice_beach_ruza",
+    )
+    assert item["status"] == "arrived" and item["warmup_state"] == "warmed_up"
+
+
+@pytest.mark.parametrize("timer_state", ["running", "paused"])
+def test_start_rejects_another_active_ride_on_same_club_boat(timer_state: str) -> None:
+    sheet = MockSheetWrapper()
+    active = _service_booking("active-ride", status="in_progress")
+    active["timer_state"] = timer_state
+    sheet.tabs["bookings"].extend([active, _service_booking("next-ride", time="11:00")])
+    before = deepcopy(sheet.tabs)
+    with pytest.raises(HTTPException) as exc_info:
+        run_timer_action(
+            sheet, make_test_settings(), booking_id="next-ride", action="start",
+            actor_staff_user_id="staff_pilot", club_id="ice_beach_ruza",
+        )
+    assert exc_info.value.status_code == 409
+    assert sheet.tabs == before
+
+
+@pytest.mark.parametrize("separate_scope", [{"boat_id": "boat_2"}, {"club_id": "other-club"}])
+def test_start_does_not_block_another_boat_or_club(separate_scope: dict[str, str]) -> None:
+    sheet = MockSheetWrapper()
+    active = {**_service_booking("active-ride", status="in_progress"), **separate_scope}
+    sheet.tabs["bookings"].extend([active, _service_booking("next-ride", time="11:00")])
+    item = run_timer_action(
+        sheet, make_test_settings(), booking_id="next-ride", action="start",
+        actor_staff_user_id="staff_pilot", club_id="ice_beach_ruza",
+    )
+    assert item["status"] == "in_progress" and item["timer_state"] == "running"
+
+
+@pytest.mark.parametrize("coach_user_id,expected_booking_id", [("staff_coach", "assigned-ride"), ("other-coach", None)])
+def test_coach_live_focus_only_selects_assigned_session(coach_user_id: str, expected_booking_id: str | None) -> None:
+    sheet = MockSheetWrapper()
+    unassigned = _service_booking("unassigned-ride", status="in_progress")
+    assigned = {
+        **_service_booking("assigned-ride", time="11:00"),
+        "coach_required": "true", "coach_user_id": "staff_coach",
+    }
+    sheet.tabs["bookings"].extend([unassigned, assigned])
+    before = deepcopy(sheet.tabs)
+    focus = get_shift_live(
+        sheet, club_id="ice_beach_ruza", target_date="2026-06-01", role="coach", coach_user_id=coach_user_id,
+    )["focus_booking"]
+    assert (focus["booking_id"] if focus is not None else None) == expected_booking_id
+    assert sheet.tabs == before
+
+
+@pytest.mark.parametrize("same_booking", [False, True])
+def test_direct_concurrent_start_serializes_one_active_ride(same_booking: bool, monkeypatch: pytest.MonkeyPatch) -> None:
+    sheet = MockSheetWrapper()
+    sheet.tabs["bookings"].extend([_service_booking("first-ride"), _service_booking("next-ride", time="11:00")])
+    original_get_row = shift_timer.get_booking_row
+
+    def slow_get_row(*args, **kwargs):
+        row = original_get_row(*args, **kwargs)
+        sleep(0.01)
+        return row
+
+    monkeypatch.setattr(shift_timer, "get_booking_row", slow_get_row)
+    barrier = Barrier(2)
+
+    def start(booking_id: str) -> int:
+        barrier.wait(timeout=5)
+        try:
+            run_timer_action(
+                sheet, make_test_settings(), booking_id=booking_id, action="start",
+                actor_staff_user_id="staff_pilot", club_id="ice_beach_ruza",
+            )
+        except HTTPException as exc:
+            return exc.status_code
+        return 200
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(start, "first-ride"), executor.submit(start, "first-ride" if same_booking else "next-ride")]
+        results = [future.result(timeout=10) for future in futures]
+    assert sorted(results) == [200, 409]
+    assert len([row for row in sheet.tabs["bookings"] if row["status"] == "in_progress"]) == 1

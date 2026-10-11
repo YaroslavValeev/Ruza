@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import { runBookingTimerAction, updateBookingPrep, updateBookingStatus } from "../../api/client";
 import { BookingItem, StaffSession } from "../../types";
-import { formatDurationClock, getPrimaryTimerAction, getTimerActionLabel } from "../../lib/shift-timer";
+import { beginBookingAction, formatDurationClock, getPrimaryTimerAction, getTimerActionLabel, isBookingActionPending, subscribeBookingActions } from "../../lib/shift-timer";
 import { emitShiftLiveRefresh } from "./LiveShiftStrip";
 
 type PilotRideControlsProps = {
@@ -25,16 +25,23 @@ export function PilotRideControls({
   allowCancel = false,
   compact = false,
 }: PilotRideControlsProps): JSX.Element {
-  const [loading, setLoading] = useState(false);
+  const actionKey = JSON.stringify([session.club_id, booking.booking_id]);
+  const loading = useSyncExternalStore(subscribeBookingActions, () => isBookingActionPending(actionKey), () => false);
   const [error, setError] = useState<string | null>(null);
 
+  const canManageStatus = session.role === "admin" || session.role === "operator";
+  const canManagePrep = canManageStatus || session.role === "pilot";
   const beforeOnWater = !["in_progress", "done", "cancelled", "no_show"].includes(booking.status);
+  const canMarkArrival = ["confirmed", "late", "arrived"].includes(booking.status);
+  const canMarkLate = booking.status === "confirmed" || booking.status === "late";
+  const canUseTimer = allowTimerControls && (session.role === "admin" || session.role === "pilot");
   const canMarkWarmup = booking.status === "arrived" || booking.status === "ready";
   const timerAction = getPrimaryTimerAction(booking);
 
   async function applyAction(task: () => Promise<BookingItem>) {
+    const release = beginBookingAction(actionKey);
+    if (!release) return;
     setError(null);
-    setLoading(true);
     try {
       const updated = await task();
       onUpdated(updated);
@@ -42,13 +49,13 @@ export function PilotRideControls({
     } catch (requestError) {
       setError((requestError as Error).message);
     } finally {
-      setLoading(false);
+      release();
     }
   }
 
   return (
     <div className={`space-y-3 ${compact ? "" : ""}`}>
-      {beforeOnWater ? (
+      {canManagePrep && beforeOnWater ? (
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="space-y-2">
             <div className="text-[11px] font-black uppercase tracking-[0.12em] text-cyan-100/70">Приезд</div>
@@ -56,7 +63,7 @@ export function PilotRideControls({
               <button
                 type="button"
                 className={`game-button-secondary px-3 ${booking.status === "arrived" || booking.status === "ready" ? "ring-1 ring-emerald-300/45" : ""}`}
-                disabled={loading}
+                disabled={loading || !canMarkArrival}
                 onClick={() => void applyAction(() => updateBookingPrep(booking.booking_id, { arrival_action: "arrived" }, session.token))}
               >
                 Приехал
@@ -64,7 +71,7 @@ export function PilotRideControls({
               <button
                 type="button"
                 className={`game-button-secondary px-3 ${booking.status === "late" ? "ring-1 ring-amber-300/45" : ""}`}
-                disabled={loading}
+                disabled={loading || !canMarkLate}
                 onClick={() => void applyAction(() => updateBookingPrep(booking.booking_id, { arrival_action: "late" }, session.token))}
               >
                 Не приехал
@@ -96,7 +103,7 @@ export function PilotRideControls({
         </div>
       ) : null}
 
-      {allowTimerControls && timerAction ? (
+      {canUseTimer && timerAction ? (
         <div className="space-y-3">
           <button
             type="button"
@@ -152,12 +159,13 @@ export function PilotRideControls({
         </div>
       ) : null}
 
-      {beforeOnWater ? (
+      {canManageStatus && beforeOnWater ? (
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             className="game-button-secondary px-3 text-xs"
-            disabled={loading}
+            disabled={loading || !canMarkLate}
+            title={!canMarkLate ? "Неявку можно отметить только до приезда клиента" : undefined}
             onClick={() => void applyAction(() => updateBookingStatus(booking.booking_id, "no_show", session.token))}
           >
             Не пришел

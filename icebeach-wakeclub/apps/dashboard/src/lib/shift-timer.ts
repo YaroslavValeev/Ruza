@@ -3,6 +3,39 @@ import { BookingItem, BookingStatus, RideTimerState, StaffRole, WarmupState } fr
 export const SHIFT_STATUS_SEQUENCE: BookingStatus[] = ["confirmed", "arrived", "ready", "in_progress", "done"];
 export const SET_DURATION_MINUTES = 25;
 
+export function getLiveRemainingSeconds(
+  booking: Pick<BookingItem, "timer_state" | "remaining_seconds"> | null,
+  fetchedAt: number,
+  now: number,
+): number {
+  if (!booking) return 0;
+  const driftSeconds = booking.timer_state === "running" ? Math.max(Math.floor((now - fetchedAt) / 1000), 0) : 0;
+  return Math.max(booking.remaining_seconds - driftSeconds, 0);
+}
+
+// Focus and queue cards can render controls for the same booking in one tab.
+const pendingBookingActions = new Set<string>();
+const bookingActionListeners = new Set<() => void>();
+
+export function subscribeBookingActions(listener: () => void): () => void {
+  bookingActionListeners.add(listener);
+  return () => { bookingActionListeners.delete(listener); };
+}
+
+export function isBookingActionPending(key: string): boolean {
+  return pendingBookingActions.has(key);
+}
+
+export function beginBookingAction(key: string): (() => void) | null {
+  if (pendingBookingActions.has(key)) return null;
+  pendingBookingActions.add(key);
+  bookingActionListeners.forEach((listener) => listener());
+  return () => {
+    pendingBookingActions.delete(key);
+    bookingActionListeners.forEach((listener) => listener());
+  };
+}
+
 export function formatDurationClock(totalSeconds: number): string {
   const safeSeconds = Math.max(totalSeconds, 0);
   const minutes = Math.floor(safeSeconds / 60);

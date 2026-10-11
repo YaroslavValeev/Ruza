@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, 'codex/ruza-*']
 
 jobs:
   api-tests:
@@ -35,6 +35,32 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run build
       - run: npm audit --omit=dev --audit-level=low
+
+  dashboard-ui-scenarios:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: pip install -r icebeach-wakeclub/apps/api/requirements.txt
+      - run: npm ci
+        working-directory: icebeach-wakeclub/apps/dashboard
+      - run: npm ci
+        working-directory: scripts/browser-qa
+      - run: node scripts/browser-qa/node_modules/playwright/cli.js install --with-deps chromium
+      - run: python scripts/run_browser_qa.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ruza-browser-scenario-evidence
+          path: |
+            .runlogs/browser-qa/
+            .runlogs/owned-*.log
+          if-no-files-found: ignore
 
   production-env-guard-linux:
     runs-on: ubuntu-latest

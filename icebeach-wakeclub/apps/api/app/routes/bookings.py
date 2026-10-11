@@ -18,6 +18,7 @@ from ..models import (
 from ..services.bookings import create_booking, get_booking_row, list_bookings, update_booking_status
 from ..services.pilot import get_pilot_boat_id
 from ..services.shift_timer import run_timer_action, update_booking_prep
+from ..services.operation_lock import sheets_mutation_lock
 
 
 PILOT_ALLOWED_STATUSES = {"in_progress", "done"}
@@ -61,12 +62,13 @@ def post_booking(
     user: AuthUser = Depends(require_roles("admin", "operator")),
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
 ) -> BookingCreateResponse:
-    booking = create_booking(
-        sheet,
-        payload,
-        actor_staff_user_id=user.staff_user_id,
-        club_id=user.club_id,
-    )
+    with sheets_mutation_lock:
+        booking = create_booking(
+            sheet,
+            payload,
+            actor_staff_user_id=user.staff_user_id,
+            club_id=user.club_id,
+        )
     return BookingCreateResponse(**booking)
 
 
@@ -138,13 +140,14 @@ def post_timer_action(
 ) -> BookingItem:
     if user.role == "pilot":
         _assert_pilot_booking_access(sheet, booking_id=booking_id, user=user)
-    return BookingItem(
-        **run_timer_action(
-            sheet,
-            settings,
-            booking_id=booking_id,
-            action=payload.action,
-            actor_staff_user_id=user.staff_user_id,
-            club_id=user.club_id,
+    with sheets_mutation_lock:
+        return BookingItem(
+            **run_timer_action(
+                sheet,
+                settings,
+                booking_id=booking_id,
+                action=payload.action,
+                actor_staff_user_id=user.staff_user_id,
+                club_id=user.club_id,
+            )
         )
-    )

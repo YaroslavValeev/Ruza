@@ -11,6 +11,7 @@ import {
   getToday,
 } from "./pilot-utils";
 import { formatDurationClock } from "../lib/shift-timer";
+import { useRideQueueClock } from "../lib/use-ride-queue-clock";
 
 type MobilePilotPageProps = {
   session: StaffSession;
@@ -21,7 +22,7 @@ const REFRESH_MS = 30000;
 export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element {
   const [boatId, setBoatId] = useState(session.boat_id ?? "");
   const [date, setDate] = useState(getToday);
-  const [items, setItems] = useState<PilotQueueItem[]>([]);
+  const { items, setQueue, mergeItem, remainingSeconds } = useRideQueueClock();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -33,7 +34,7 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
       return;
     }
     if (needsBoatId) {
-      setItems([]);
+      setQueue([]);
       return;
     }
     setError(null);
@@ -44,7 +45,7 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
         session.role === "pilot" ? undefined : effectiveBoatId,
         date,
       );
-      setItems(data);
+      setQueue(data);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -92,11 +93,6 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
   }, [focusRide]);
 
   const focusRideHint = focusRide ? getPilotStepHint(focusRide.status) : null;
-  const mergeItem = (updatedItem: import("../types").BookingItem) => {
-    setItems((currentItems) => currentItems.map((item) => (
-      item.booking_id === updatedItem.booking_id ? { ...item, ...updatedItem } : item
-    )));
-  };
 
   return (
     <div className="space-y-4">
@@ -147,7 +143,7 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
           </div>
           <span className={getStatusTone(focusRide.status)}>{STATUS_LABELS[focusRide.status] || focusRide.status}</span>
           <div className="text-sm text-cyan-100/70">
-            {formatDurationClock(focusRide.remaining_seconds)} осталось • план {focusRide.planned_duration_minutes} мин
+            {formatDurationClock(remainingSeconds(focusRide))} осталось • план {focusRide.planned_duration_minutes} мин
           </div>
           {focusRideHint ? (
             <div className={`rounded-2xl border p-4 text-sm ${focusRideHint.actor === "operator" ? "border-amber-300/20 bg-amber-950/20 text-amber-100" : focusRideHint.actor === "pilot" ? "border-cyan-300/15 bg-cyan-950/20 text-cyan-50" : "border-slate-800 bg-slate-900/70 text-slate-300"}`}>
@@ -182,7 +178,7 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
               </div>
               <div className="game-stat p-3">
                 <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Осталось</div>
-                <div className="mt-1 text-sm font-black text-white">{formatDurationClock(item.remaining_seconds)}</div>
+                <div className="mt-1 text-sm font-black text-white">{formatDurationClock(remainingSeconds(item))}</div>
               </div>
               <div className="game-stat p-3">
                 <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Факт</div>

@@ -11,6 +11,7 @@ from ..models import BookingCreateRequest, BookingStatus
 from .availability import get_availability_for_date
 from .common import parse_bool
 from .gender import infer_gender_from_full_name
+from .operation_lock import serialize_sheets_mutation
 from .payments import payment_summaries_by_booking
 from .ride_runtime import (
     compute_elapsed_seconds,
@@ -178,6 +179,7 @@ def _booking_to_item(
     return item
 
 
+@serialize_sheets_mutation
 def create_booking(
     sheet: SheetWrapper,
     payload: BookingCreateRequest,
@@ -190,11 +192,25 @@ def create_booking(
 
     existing = sheet.find("bookings", {"booking_id": booking_id})
     if existing:
+        row = next((item for item in existing if item.get("club_id") == club_id), None)
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Booking ID already used")
+        expected = {
+            "client_id": payload.client_id,
+            "date": booking_date,
+            "time": payload.time,
+            "boat_id": payload.boat_id,
+        }
+        if any(str(row.get(key, "")) != str(value) for key, value in expected.items()):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Booking ID already used for another request")
         return {
             "booking_id": booking_id,
-            "status": existing[0].get("status", "confirmed"),
-            "total_price": int(existing[0].get("total_price") or 0),
+            "status": row.get("status", "confirmed"),
+            "total_price": int(row.get("total_price") or 0),
         }
+
+    if not any(row.get("club_id") == club_id for row in sheet.find("clients", {"client_id": payload.client_id})):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
     availability = get_availability_for_date(sheet, booking_date, club_id)
     required_slot_times = _required_slot_times(payload.time, payload.sets_count)
@@ -315,6 +331,7 @@ def get_booking_row(sheet: SheetWrapper, *, booking_id: str, club_id: str) -> di
     return row
 
 
+@serialize_sheets_mutation
 def update_booking_status(
     sheet: SheetWrapper,
     *,
