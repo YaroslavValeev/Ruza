@@ -180,7 +180,8 @@ def mark_late_checkins(
     minutes_before: int = 10,
 ) -> dict[str, int]:
     now = datetime.now(timezone.utc)
-    club_row = next((item for item in sheet.read_tab("clubs") if item.get("club_id") == club_id), None)
+    # Нет вкладки clubs — таймзона по умолчанию вместо 400 (см. preflight WARN clubs:*).
+    club_row = next((item for item in sheet.read_optional_tab("clubs") if item.get("club_id") == club_id), None)
     zone = resolve_club_timezone((club_row or {}).get("timezone"))
     marked = 0
 

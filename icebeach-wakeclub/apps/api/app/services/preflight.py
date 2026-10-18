@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections import Counter
 from dataclasses import dataclass
 from typing import Iterable
@@ -9,6 +10,7 @@ from packages.sheets.schema import OPTIONAL_COLUMNS, OPTIONAL_TABS, validate_req
 
 from .availability import get_availability_for_date
 from .common import weekday_iso0
+from .ride_runtime import DEFAULT_CLUB_TIMEZONE
 
 CRITICAL_TABS = (
     "staff_users",
@@ -75,12 +77,51 @@ def _check_client_prefs_migration(sheet: SheetWrapper, results: list[CheckItem])
             _add(results, "PASS", f"columns:{tab_name}", f"optional columns present in '{tab_name}'")
 
 
+def _check_clubs_tab(sheet: SheetWrapper, results: list[CheckItem], club_id: str) -> None:
+    """Вкладка clubs (таймзона клуба). Только WARN: без неё API работает на DEFAULT_CLUB_TIMEZONE.
+
+    Таймзона берётся из clubs в напоминаниях смены, отметке опозданий, /kpi/summary,
+    snapshot и daily brief. Тихий откат на значение по умолчанию подсвечиваем здесь.
+    """
+    fallback = f"API falls back to default timezone {DEFAULT_CLUB_TIMEZONE}"
+    get_headers = getattr(sheet, "get_headers", None)
+    if get_headers is not None and get_headers("clubs") is None:
+        _add(results, "WARN", "clubs:tab", f"tab 'clubs' is missing or empty — {fallback}; add tab 'clubs' with a row for club '{club_id}'")
+        return
+    try:
+        rows = sheet.read_tab("clubs")
+    except Exception as exc:  # noqa: BLE001 - preflight must report, not crash
+        _add(results, "WARN", "clubs:tab", f"tab 'clubs' is unreadable ({exc}) — {fallback}")
+        return
+    row = next((item for item in rows if item.get("club_id") == club_id), None)
+    if row is None:
+        _add(results, "WARN", "clubs:row", f"tab 'clubs' has no row for club_id '{club_id}' — {fallback}")
+        return
+    timezone_name = str(row.get("timezone") or "").strip()
+    if not timezone_name:
+        _add(results, "WARN", "clubs:timezone", f"club '{club_id}' has empty timezone in 'clubs' — {fallback}")
+        return
+    try:
+        from zoneinfo import ZoneInfo
+
+        ZoneInfo(timezone_name)
+    except Exception:  # noqa: BLE001
+        _add(results, "WARN", "clubs:timezone", f"club '{club_id}' has invalid timezone '{timezone_name}' in 'clubs' — {fallback}")
+        return
+    _add(results, "PASS", "clubs:row", f"club '{club_id}' timezone = {timezone_name}")
+
+
 def _detect_duplicates(rows: Iterable[dict[str, str]], key: str) -> list[str]:
     counts = Counter(row.get(key, "") for row in rows if row.get(key))
     return sorted(item for item, count in counts.items() if count > 1)
 
 
-def run_preflight_check(sheet: SheetWrapper, *, target_date: str) -> dict[str, object]:
+def run_preflight_check(
+    sheet: SheetWrapper,
+    *,
+    target_date: str,
+    public_club_id: str | None = None,
+) -> dict[str, object]:
     results: list[CheckItem] = []
 
     for tab_name in CRITICAL_TABS:
@@ -172,6 +213,11 @@ def run_preflight_check(sheet: SheetWrapper, *, target_date: str) -> dict[str, o
     else:
         _add(results, "PASS", "ride_type", f"all bookings on {target_date} have ride_type")
 
+    _check_clubs_tab(
+        sheet,
+        results,
+        (public_club_id or "").strip() or os.getenv("PUBLIC_CLUB_ID", "").strip() or club_id,
+    )
     _check_client_prefs_migration(sheet, results)
 
     blockers = [item for item in results if item.level == "BLOCKER"]
