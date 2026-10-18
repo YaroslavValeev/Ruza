@@ -48,10 +48,10 @@ def check_index_html() -> None:
     require_contains(
         "mobile.apple_status_bar",
         html,
-        'name="apple-mobile-web-app-status-bar-style" content="black-translucent"',
+        'name="apple-mobile-web-app-status-bar-style" content="default"',
         "iOS status bar style is configured",
     )
-    require_contains("mobile.apple_touch_icon", html, 'rel="apple-touch-icon" href="/icons/icon-192.png"', "Apple touch icon is linked")
+    require_contains("mobile.apple_touch_icon", html, 'rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png"', "Apple touch icon is linked")
     require_contains("mobile.theme_color", html, 'name="theme-color"', "theme color is set")
 
 
@@ -68,8 +68,8 @@ def check_manifest() -> None:
         return
 
     expected = {
-        "name": "Ice Beach Wake Club",
-        "short_name": "Ice Beach",
+        "name": "MyWave Club · Ice Beach",
+        "short_name": "MyWave Club",
         "start_url": "/m/pilot",
         "scope": "/",
         "display": "standalone",
@@ -130,7 +130,7 @@ def check_runtime_files() -> None:
     require_contains("mobile.touch_targets", shell, "min-h-[48px]", "mobile nav touch targets are at least 48px")
 
     require_contains("mobile.ios_copy", install_page, "Safari", "iOS install copy mentions Safari")
-    require_contains("mobile.android_copy", install_page, "Android", "Android install copy is present")
+    require_contains("mobile.android_copy", install_page, "Андроид", "Android install copy is present")
 
     require_contains("mobile.api_relative_support", api_client, 'raw.startsWith("/")', "relative API base is supported")
     require_contains("mobile.api_cookie_credentials", api_client, 'credentials: "include"', "API requests include cookies")
