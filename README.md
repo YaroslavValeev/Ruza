@@ -77,7 +77,7 @@ chmod +x scripts/start-demo.sh scripts/check.sh
 PYTHONPATH="$PWD/icebeach-wakeclub" python3 scripts/smoke_demo.py
 ```
 
-Открыть http://127.0.0.1:5173 — кнопки Админ / Оператор / Пилот, затем «Получить код». DEV-код на форме.
+Открыть http://127.0.0.1:5173 — кнопки Администратор / Оператор / Пилот / Тренер / Маркетинг, затем «Получить код». Тестовый код появится на форме.
 
 - API: http://127.0.0.1:8000/health или fallback http://127.0.0.1:8001/health
 - Стоп Windows: `.\scripts\stop-local.ps1`

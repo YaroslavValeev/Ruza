@@ -19,6 +19,7 @@ RideTimerState = Literal["idle", "running", "paused", "completed"]
 KpiPeriod = Literal["day", "week", "month", "season", "custom"]
 PreflightLevel = Literal["PASS", "WARN", "BLOCKER"]
 SmokeLevel = Literal["PASS", "FAIL"]
+DrinkChoice = Literal["coffee", "chocolate", "none"]
 
 
 class LoginRequest(BaseModel):
@@ -127,6 +128,38 @@ class BookingCreateResponse(BaseModel):
     total_price: int
 
 
+class BoardRef(BaseModel):
+    board_id: str
+    number: str = ""
+    name: str = ""
+    kind: RideType | None = None
+    length_cm: int | None = None
+    is_active: bool = True
+
+
+class WetsuitRef(BaseModel):
+    wetsuit_id: str
+    number: str = ""
+    size: WetsuitSize | None = None
+    gender: WetsuitGender | None = None
+    is_active: bool = True
+
+
+class LastTimeItem(BaseModel):
+    """«Как в прошлый раз»: что выдали клиенту на последнем визите."""
+
+    booking_id: str
+    date: str
+    time: str = ""
+    ride_type: RideType | None = None
+    wetsuit: WetsuitRef | None = None
+    board: BoardRef | None = None
+    drink: DrinkChoice | None = None
+    issued_by_name: str = ""
+    issued_at: str = ""
+    visits_before: int = 0
+
+
 class BookingItem(BaseModel):
     booking_id: str
     client_id: str
@@ -158,6 +191,65 @@ class BookingItem(BaseModel):
     net_paid_minor: int = 0
     balance_due_minor: int = 0
     notes: str = ""
+    # «Как в прошлый раз» (необязательные колонки bookings; пусто на старых Таблицах).
+    wetsuit_id: str | None = None
+    board_id: str | None = None
+    drink: DrinkChoice | None = None
+    equipment_issued_by: str = ""
+    equipment_issued_by_name: str = ""
+    equipment_issued_at: str = ""
+    wetsuit: WetsuitRef | None = None
+    board: BoardRef | None = None
+    last_time: LastTimeItem | None = None
+    visits_before: int | None = None
+
+
+class EquipmentUpdateRequest(BaseModel):
+    """PATCH /bookings/{id}/equipment. Поле не передано — не меняется; "" — очистить."""
+
+    wetsuit_id: str | None = None
+    board_id: str | None = None
+    drink: DrinkChoice | Literal[""] | None = None
+
+
+class EquipmentUpdateResponse(BaseModel):
+    booking: BookingItem
+    warnings: list[str] = Field(default_factory=list)
+
+
+class BoardCreateRequest(BaseModel):
+    number: str = Field(min_length=1, max_length=12)
+    name: str = Field(default="", max_length=60)
+    kind: RideType = "wakeboard"
+    length_cm: int | None = Field(default=None, ge=60, le=250)
+    is_active: bool = True
+
+
+class BoardUpdateRequest(BaseModel):
+    number: str | None = Field(default=None, min_length=1, max_length=12)
+    name: str | None = Field(default=None, max_length=60)
+    kind: RideType | None = None
+    length_cm: int | None = Field(default=None, ge=0, le=250)
+    is_active: bool | None = None
+
+
+class WetsuitCreateRequest(BaseModel):
+    number: str = Field(min_length=1, max_length=12)
+    size: WetsuitSize
+    gender: WetsuitGender
+    is_active: bool = True
+
+
+class WetsuitUpdateRequest(BaseModel):
+    number: str | None = Field(default=None, min_length=1, max_length=12)
+    size: WetsuitSize | None = None
+    gender: WetsuitGender | None = None
+    is_active: bool | None = None
+
+
+class ClientPrefsResetResponse(BaseModel):
+    client_id: str
+    prefs_reset_at: str
 
 
 class PaymentCreateRequest(BaseModel):
@@ -301,6 +393,9 @@ class PilotQueueItem(BaseModel):
     elapsed_seconds: int = 0
     remaining_seconds: int = 1500
     actual_duration_seconds: int = 0
+    # Пилоту — только доска (выданная сейчас и «в прошлый раз»).
+    board: BoardRef | None = None
+    last_board: BoardRef | None = None
 
 
 class KpiRideBreakdownItem(BaseModel):

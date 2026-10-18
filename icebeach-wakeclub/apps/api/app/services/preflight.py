@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from packages.sheets import SheetWrapper
-from packages.sheets.schema import validate_required_columns
+from packages.sheets.schema import OPTIONAL_COLUMNS, OPTIONAL_TABS, validate_required_columns
 
 from .availability import get_availability_for_date
 from .common import weekday_iso0
@@ -53,6 +53,26 @@ def _fetch_headers(sheet: SheetWrapper, tab_name: str) -> list[str]:
     headers = values[0]
     validate_required_columns(tab_name, headers)
     return headers
+
+
+def _check_client_prefs_migration(sheet: SheetWrapper, results: list[CheckItem]) -> None:
+    """«Как в прошлый раз»: необязательные вкладки и колонки. Только WARN — без них API работает, просто без функции."""
+    get_headers = getattr(sheet, "get_headers", None)
+    if get_headers is None:
+        return
+    hint = "запустите миграцию: python -m packages.sheets"
+    for tab_name in OPTIONAL_TABS:
+        if get_headers(tab_name) is None:
+            _add(results, "WARN", f"tab:{tab_name}", f"tab '{tab_name}' is missing — inventory for «Как в прошлый раз» is off; {hint}")
+        else:
+            _add(results, "PASS", f"tab:{tab_name}", f"tab '{tab_name}' OK")
+    for tab_name, columns in OPTIONAL_COLUMNS.items():
+        headers = get_headers(tab_name) or []
+        missing = [column for column in columns if column not in headers]
+        if missing:
+            _add(results, "WARN", f"columns:{tab_name}", f"optional columns missing in '{tab_name}': {', '.join(missing)}; {hint}")
+        else:
+            _add(results, "PASS", f"columns:{tab_name}", f"optional columns present in '{tab_name}'")
 
 
 def _detect_duplicates(rows: Iterable[dict[str, str]], key: str) -> list[str]:
@@ -151,6 +171,8 @@ def run_preflight_check(sheet: SheetWrapper, *, target_date: str) -> dict[str, o
         _add(results, "WARN", "ride_type", f"bookings missing ride_type on {target_date}: {', '.join(missing_ride_type)}")
     else:
         _add(results, "PASS", "ride_type", f"all bookings on {target_date} have ride_type")
+
+    _check_client_prefs_migration(sheet, results)
 
     blockers = [item for item in results if item.level == "BLOCKER"]
     warnings = [item for item in results if item.level == "WARN"]

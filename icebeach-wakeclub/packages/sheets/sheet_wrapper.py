@@ -91,6 +91,33 @@ class SheetWrapper:
             rows.append(dict(zip(headers, normalized, strict=False)))
         return rows
 
+    def get_headers(self, tab_name: str) -> list[str] | None:
+        """Заголовки вкладки; None, если вкладки нет или она пустая (без исключения)."""
+        try:
+            values = self._fetch_values(tab_name)
+        except Exception:
+            return None
+        if not values or not values[0]:
+            return None
+        return [str(cell) for cell in values[0]]
+
+    def read_optional_tab(self, tab_name: str) -> list[dict[str, str]]:
+        """Как read_tab, но для необязательных вкладок (boards, wetsuits): нет вкладки — [].
+
+        Отсутствие вкладки запоминается на минуту, чтобы не делать лишний запрос к API на каждый экран.
+        """
+        missing: dict[str, float] = self.__dict__.setdefault("_missing_tabs", {})
+        missing_at = missing.get(tab_name)
+        if missing_at is not None and (time.time() - missing_at) < 60:
+            return []
+        try:
+            rows = self.read_tab(tab_name)
+        except Exception:
+            missing[tab_name] = time.time()
+            return []
+        missing.pop(tab_name, None)
+        return rows
+
     def append_row(self, tab_name: str, row: dict[str, Any], *, unique_key: str | None = None) -> None:
         values = self._fetch_values(tab_name)
         if not values:

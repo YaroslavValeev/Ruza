@@ -37,7 +37,7 @@ async function login(context, role) {
   const request = await requested;
   assert.equal(request.status(), 200, `Demo login request failed for ${role}`);
   assert((await request.json()).debug_code, `Synthetic OTP is missing for ${role}`);
-  const hint = page.getByText(/DEV-код:/);
+  const hint = page.getByText(/Тестовый код:/);
   await hint.waitFor();
   const otp = (await hint.innerText()).match(/\d{6}/)?.[0];
   assert(otp, 'Local demo must provide a synthetic OTP');
@@ -81,10 +81,10 @@ async function selectDate(page) {
       await selectDate(operator);
       const card = operator.locator('article').filter({ hasText: 'Ирина Смирнова' });
       await card.waitFor();
-      await card.getByRole('button', { name: /^Приехал$/i }).click();
+      await card.getByRole('button', { name: /^На месте$/i }).click();
       await card.getByRole('button', { name: /^Размялся$/i }).click();
-      await card.getByRole('button', { name: /^Передать пилоту$/i }).click();
-      await card.getByText(/^Готов к старту$/i).waitFor();
+      await card.getByRole('button', { name: /Передать пилоту/i }).first().click();
+      await card.getByText(/^Готово к старту$/i).first().waitFor();
       assert.equal(await card.getByRole('button', { name: /Запустить сет/i }).count(), 0);
       await operator.reload();
       await operator.getByRole('button', { name: /^Выйти$/i }).waitFor();
@@ -97,8 +97,8 @@ async function selectDate(page) {
       await selectDate(pilot);
       const card = pilot.locator('article').filter({ hasText: 'Ирина Смирнова' });
       await card.waitFor();
-      assert.equal(await card.getByRole('button', { name: /^Не пришел$/i }).count(), 0);
-      await card.getByRole('button', { name: /Запустить сет/i }).click();
+      assert.equal(await card.getByRole('button', { name: /^Неявка$/i }).count(), 0);
+      await card.getByRole('button', { name: /Запустить сет/i }).first().click();
       const clock = pilot.locator('.shift-clock span');
       await clock.waitFor();
       const first = await clock.innerText();
@@ -119,17 +119,17 @@ async function selectDate(page) {
     await scenario('pilot pause, stop and operator observes completion', async () => {
       assert(pilot && operator, 'Role setup must succeed');
       const card = pilot.locator('article').filter({ hasText: 'Ирина Смирнова' });
-      await card.getByRole('button', { name: /Пауза/i }).click();
-      await card.getByRole('button', { name: /Завершить мягко/i }).click();
+      await card.getByRole('button', { name: /^Пауза/i }).first().click();
+      await card.getByRole('button', { name: /^Завершить заезд/i }).first().click();
       await card.getByText(/Фактическое время/i).waitFor();
       await operator.reload();
       await selectDate(operator);
       const operatorCard = operator.locator('article').filter({ hasText: 'Ирина Смирнова' });
-      await operatorCard.getByText(/^Завершена$/i).waitFor();
+      await operatorCard.getByText(/^Завершено$/i).first().waitFor();
     });
 
     await scenario('admin payment recorded and KPI uses paid money', async () => {
-      admin = await login(adminContext, 'Админ');
+      admin = await login(adminContext, 'Администратор');
       await selectDate(admin);
       const card = admin.locator('article').filter({ hasText: 'Ирина Смирнова' });
       await card.getByRole('button', { name: /^Зафиксировать оплату$/i }).click();

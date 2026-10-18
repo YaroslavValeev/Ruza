@@ -1,7 +1,5 @@
 import { useMemo } from "react";
 
-import { getApiBaseUrl } from "../api/client";
-
 function detectPlatform(): "ios" | "android" | "desktop" {
   const ua = navigator.userAgent.toLowerCase();
   if (/iphone|ipad|ipod/.test(ua)) return "ios";
@@ -18,49 +16,47 @@ export function MobileInstallPage(): JSX.Element {
   return (
     <div className="space-y-4">
       <section className="game-panel space-y-3">
-        <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Установка без App Store</div>
-        <h2 className="text-xl font-black text-white">2 телефона: пилот и owner</h2>
-        <p className="text-sm text-slate-300">
-          Откройте ссылки ниже в той же Wi‑Fi сети, где запущен Docker на вашем ПК. После входа добавьте ярлык на домашний экран.
+        <div className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Установка без магазина приложений</div>
+        <h2 className="text-xl font-black text-[color:var(--ink)]">Два телефона: пилот и клуб</h2>
+        <p className="text-sm text-[color:var(--ink-muted)]">
+          Откройте ссылку на телефоне, подключённом к сети клуба, войдите по коду и добавьте ярлык на главный экран.
         </p>
       </section>
 
       <section className="game-panel space-y-3">
-        <div className="text-sm font-bold text-white">Ссылки для закладок</div>
+        <div className="text-sm font-bold text-[color:var(--ink)]">Ссылки для закладок</div>
         <InstallLink label="Пилот" url={pilotUrl} />
-        <InstallLink label="Owner" url={ownerUrl} />
-        <p className="text-xs text-slate-500">API: {getApiBaseUrl()}</p>
+        <InstallLink label="Клуб" url={ownerUrl} />
       </section>
 
       {platform === "ios" ? (
-        <section className="game-panel space-y-2 text-sm text-slate-300">
-          <div className="font-bold text-white">iPhone / iPad</div>
+        <section className="game-panel space-y-2 text-sm text-[color:var(--ink-muted)]">
+          <div className="font-bold text-[color:var(--ink)]">Айфон и айпад</div>
           <ol className="list-decimal space-y-2 pl-5">
-            <li>Откройте ссылку в Safari (не во встроенном браузере Telegram).</li>
+            <li>Откройте ссылку в браузере Safari, а не во встроенном браузере мессенджера.</li>
             <li>Войдите по коду как обычно.</li>
-            <li>Нажмите «Поделиться» → «На экран Домой».</li>
-            <li>Запускайте как отдельное приложение Ice Beach.</li>
+            <li>Нажмите «Поделиться» → «На экран „Домой“».</li>
+            <li>Запускайте MyWave Club с главного экрана как отдельное приложение.</li>
           </ol>
         </section>
       ) : null}
 
       {platform === "android" ? (
-        <section className="game-panel space-y-2 text-sm text-slate-300">
-          <div className="font-bold text-white">Android</div>
+        <section className="game-panel space-y-2 text-sm text-[color:var(--ink-muted)]">
+          <div className="font-bold text-[color:var(--ink)]">Андроид</div>
           <ol className="list-decimal space-y-2 pl-5">
-            <li>Откройте ссылку в Chrome.</li>
+            <li>Откройте ссылку в браузере Chrome.</li>
             <li>Войдите по коду.</li>
-            <li>Меню Chrome → «Установить приложение» или «Добавить на главный экран».</li>
-            <li>Опционально: соберите debug APK через `scripts/build-android-apk.ps1`.</li>
+            <li>Меню браузера → «Установить приложение» или «Добавить на главный экран».</li>
           </ol>
         </section>
       ) : null}
 
       {platform === "desktop" ? (
-        <section className="game-panel space-y-2 text-sm text-slate-300">
-          <div className="font-bold text-white">С ПК</div>
+        <section className="game-panel space-y-2 text-sm text-[color:var(--ink-muted)]">
+          <div className="font-bold text-[color:var(--ink)]">С компьютера</div>
           <p>
-            Запустите `scripts/mobile-lan-url.ps1` — скрипт покажет адрес вида `http://192.168.x.x:5173/m/pilot` для телефона в той же сети.
+            Откройте эту страницу на телефоне: адрес для сети клуба подскажет администратор. Ссылки выше подходят для закладок.
           </p>
         </section>
       ) : null}
@@ -70,9 +66,9 @@ export function MobileInstallPage(): JSX.Element {
 
 function InstallLink({ label, url }: { label: string; url: string }): JSX.Element {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
-      <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">{label}</div>
-      <a href={url} className="mt-1 block break-all text-sm font-bold text-cyan-200 underline">
+    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--panel-solid)] p-3">
+      <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">{label}</div>
+      <a href={url} className="mt-1 block break-all text-sm font-bold text-[color:var(--accent)] underline">
         {url}
       </a>
     </div>

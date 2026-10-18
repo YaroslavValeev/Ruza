@@ -2,17 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 
 import { getBoats, getPilotToday, updateBookingStatus } from "../api/client";
 import { PilotRideControls } from "../components/shift-timer/PilotRideControls";
-import { BoatItem, BookingStatus, PilotQueueItem, RideType, StaffSession } from "../types";
+import { StatusStepper } from "../components/shift-timer/StatusStepper";
+import { onBookingUpdated } from "../lib/status-flow";
+import { BoardChip } from "../components/equipment/BoardChip";
+import { mergeBookingUpdate } from "../lib/equipment";
+import { BoatItem, BookingStatus, PilotQueueItem, StaffSession } from "../types";
 import {
   getPilotStepHint,
   PILOT_ACTIONS,
-  RIDE_TYPE_LABELS,
   STATUS_LABELS,
   getStatusTone,
   getToday,
 } from "../mobile/pilot-utils";
 import { formatDurationClock } from "../lib/shift-timer";
 import { useRideQueueClock } from "../lib/use-ride-queue-clock";
+import { formatCount, formatMinutes, isPositive } from "../lib/format";
+import { formatDateRangeRu, formatDayMonth } from "../lib/dates";
+import { boatLabel, rememberBoats, rideTypeLabel, useBoatNames } from "../lib/labels";
 
 type PilotPageProps = {
   session: StaffSession;
@@ -38,26 +44,9 @@ function getWeekBounds(dateText: string): { from: string; to: string } {
 function getSeasonBounds(dateText: string): { from: string; to: string } {
   const year = Number(dateText.slice(0, 4)) || new Date().getFullYear();
   return {
-    from: `${year}-06-01`,
-    to: `${year}-10-01`,
+    from: `${year}-05-01`,
+    to: `${year}-09-25`,
   };
-}
-
-function getProgressStep(status: BookingStatus): number {
-  switch (status) {
-    case "confirmed":
-      return 1;
-    case "arrived":
-      return 2;
-    case "ready":
-      return 3;
-    case "in_progress":
-      return 4;
-    case "done":
-      return 5;
-    default:
-      return 1;
-  }
 }
 
 function matchesPilotFilter(item: PilotQueueItem, filter: PilotStatusFilter): boolean {
@@ -71,6 +60,7 @@ function matchesPilotFilter(item: PilotQueueItem, filter: PilotStatusFilter): bo
 }
 
 export function PilotPage({ session }: PilotPageProps): JSX.Element {
+  useBoatNames(session);
   const [boatId, setBoatId] = useState(session.boat_id ?? "");
   const [boats, setBoats] = useState<BoatItem[]>([]);
   const [period, setPeriod] = useState<PilotPeriod>("day");
@@ -91,6 +81,7 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
       .then((availableBoats) => {
         if (cancelled) return;
         const activeBoats = availableBoats.filter((boat) => boat.is_active);
+        rememberBoats(activeBoats);
         setBoats(activeBoats);
         if (!boatId && activeBoats.length > 0) setBoatId(activeBoats[0].boat_id);
       })
@@ -175,6 +166,9 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
   };
 
 
+  // Статус сменили в живой полосе — обновляем карточку очереди без перезагрузки.
+  useEffect(() => onBookingUpdated(mergeItem), [mergeItem]);
+
   const dateLabel = period === "week" ? "Опорная дата недели" : period === "season" ? "Опорная дата сезона" : "Дата";
 
   const filteredItems = useMemo(() => items.filter((item) => matchesPilotFilter(item, statusFilter)), [items, statusFilter]);
@@ -194,16 +188,16 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             <div className="game-stat p-3">
-              <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Лодка</div>
-              <div className="mt-1 text-sm font-black text-white">{effectiveBoatId || "Не задана"}</div>
+              <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Катер</div>
+              <div className="mt-1 text-sm font-black text-[color:var(--ink)]">{effectiveBoatId ? boatLabel(effectiveBoatId) : "Не выбран"}</div>
             </div>
             <div className="game-stat p-3">
-              <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Период</div>
-              <div className="mt-1 text-sm font-black text-white">{period === "season" ? "Сезон" : period === "week" ? "Неделя" : period === "custom" ? "Свои даты" : "День"}</div>
+              <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Период</div>
+              <div className="mt-1 text-sm font-black text-[color:var(--ink)]">{period === "season" ? "Сезон" : period === "week" ? "Неделя" : period === "custom" ? "Свои даты" : "День"}</div>
             </div>
             <div className="game-stat p-3">
-              <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Карточек</div>
-              <div className="mt-1 text-sm font-black text-white">{items.length}</div>
+              <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Заездов</div>
+              <div className="mt-1 text-sm font-black text-[color:var(--ink)]">{items.length}</div>
             </div>
           </div>
         </div>
@@ -211,26 +205,26 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
 
       <section className="game-panel space-y-4">
         <div>
-          <label className="mb-2 block text-sm font-bold text-cyan-100/70">Период</label>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <button type="button" onClick={() => setPeriod("day")} className={`game-tab ${period === "day" ? "game-tab-active" : ""}`}>День</button>
-            <button type="button" onClick={() => setPeriod("week")} className={`game-tab ${period === "week" ? "game-tab-active" : ""}`}>Неделя</button>
-            <button type="button" onClick={() => setPeriod("season")} className={`game-tab ${period === "season" ? "game-tab-active" : ""}`}>Сезон</button>
-            <button type="button" onClick={() => setPeriod("custom")} className={`game-tab ${period === "custom" ? "game-tab-active" : ""}`}>Свои даты</button>
+          <label className="mb-2 block text-sm font-bold text-[color:var(--ink-muted)]">Период</label>
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4" role="group" aria-label="Период">
+            <button type="button" onClick={() => setPeriod("day")} aria-pressed={period === "day"} className={`game-tab ${period === "day" ? "game-tab-active" : ""}`}>День</button>
+            <button type="button" onClick={() => setPeriod("week")} aria-pressed={period === "week"} className={`game-tab ${period === "week" ? "game-tab-active" : ""}`}>Неделя</button>
+            <button type="button" onClick={() => setPeriod("season")} aria-pressed={period === "season"} className={`game-tab ${period === "season" ? "game-tab-active" : ""}`}>Сезон</button>
+            <button type="button" onClick={() => setPeriod("custom")} aria-pressed={period === "custom"} className={`game-tab ${period === "custom" ? "game-tab-active" : ""}`}>Свои даты</button>
           </div>
         </div>
 
         <div className={`grid gap-4 ${period === "custom" ? "xl:grid-cols-[1fr_220px_220px_180px]" : "xl:grid-cols-[1fr_220px_180px]"}`}>
           <div>
-            <label className="mb-2 block text-sm font-bold text-cyan-100/70">Лодка</label>
+            <label htmlFor={session.role === "pilot" ? undefined : "pilot-boat"} className="mb-2 block text-sm font-bold text-[color:var(--ink-muted)]">Катер</label>
             {session.role === "pilot" ? (
-              <div className="game-input flex items-center">{session.boat_id || "Лодка не привязана к профилю пилота"}</div>
+              <div className="game-input flex items-center">{session.boat_id ? boatLabel(session.boat_id) : "Катер не закреплён за пилотом"}</div>
             ) : (
-              <select value={boatId} onChange={(e) => setBoatId(e.target.value)} className="game-input">
-                {boats.length === 0 ? <option value="">Нет активных лодок</option> : null}
+              <select id="pilot-boat" value={boatId} onChange={(e) => setBoatId(e.target.value)} className="game-input">
+                {boats.length === 0 ? <option value="">Нет активных катеров</option> : null}
                 {boats.map((boat) => (
                   <option key={boat.boat_id} value={boat.boat_id}>
-                    {boat.boat_name || boat.boat_id}
+                    {boat.boat_name && boat.boat_name !== boat.boat_id ? boat.boat_name : boatLabel(boat.boat_id)}
                   </option>
                 ))}
               </select>
@@ -240,141 +234,137 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
           {period === "custom" ? (
             <>
               <div>
-                <label className="mb-2 block text-sm font-bold text-cyan-100/70">Дата с</label>
+                <label className="mb-2 block text-sm font-bold text-[color:var(--ink-muted)]">Дата с</label>
                 <input type="date" value={dateFrom} max={dateTo} onChange={(e) => handleCustomFromChange(e.target.value)} className="game-input" />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-bold text-cyan-100/70">Дата по</label>
+                <label className="mb-2 block text-sm font-bold text-[color:var(--ink-muted)]">Дата по</label>
                 <input type="date" value={dateTo} min={dateFrom} onChange={(e) => handleCustomToChange(e.target.value)} className="game-input" />
               </div>
             </>
           ) : (
             <div>
-              <label className="mb-2 block text-sm font-bold text-cyan-100/70">{dateLabel}</label>
+              <label className="mb-2 block text-sm font-bold text-[color:var(--ink-muted)]">{dateLabel}</label>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="game-input" />
-              {period === "season" ? <p className="mt-2 text-xs text-slate-400">Сезон: {dateFrom} - {dateTo}</p> : null}
+              {period === "season" ? <p className="mt-2 text-xs text-[color:var(--ink-muted)]">Сезон: {formatDateRangeRu(dateFrom, dateTo)}</p> : null}
             </div>
           )}
 
           <div className="flex items-end">
             <button className="game-button w-full" type="button" onClick={() => void loadQueue()}>
-              {loading ? "Обновляем..." : "Загрузить очередь"}
+              {loading ? "Обновляем…" : "Загрузить очередь"}
             </button>
           </div>
         </div>
       </section>
 
-      {error ? <div className="game-panel border-red-400/30 bg-red-950/30 text-red-50">{error}</div> : null}
+      {error ? <div role="alert" className="game-panel border-red-600/25 bg-red-50 text-red-900">{error}</div> : null}
 
-      <section className="grid gap-4 xl:grid-cols-2">
+      <section className="grid gap-4">
         <div className="game-panel space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Оперативный блок</div>
-              <h2 className="mt-1 text-xl font-black text-white">Активный и следующий заезд</h2>
+              <div className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Оперативный блок</div>
+              <h2 className="mt-1 text-xl font-black text-[color:var(--ink)]">Активный и следующий заезд</h2>
             </div>
-            <span className="game-chip text-cyan-100">Фильтр: {statusFilter === "all" ? "Все" : statusFilter === "waiting" ? "Ожидают" : statusFilter === "ready" ? "Готовы" : statusFilter === "on_water" ? "На воде" : statusFilter === "done" ? "Завершены" : "Проблемные"}</span>
+            <span className="game-chip">Фильтр: {statusFilter === "all" ? "все" : statusFilter === "waiting" ? "ожидают" : statusFilter === "ready" ? "готовы" : statusFilter === "on_water" ? "на воде" : statusFilter === "done" ? "завершены" : "проблемные"}</span>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="game-card space-y-3">
-              <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Сейчас на воде</div>
+              <div className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Сейчас на воде</div>
               {activeRide ? (
                 <>
-                  <div className="text-lg font-black text-white">{activeRide.client_name}</div>
-                  <div className="text-sm text-cyan-100/70">{activeRide.time} • {RIDE_TYPE_LABELS[(activeRide.ride_type || "wakeboard") as RideType]}</div>
+                  <div className="text-lg font-black text-[color:var(--ink)]">{activeRide.client_name}</div>
+                  <div className="text-sm text-[color:var(--ink-muted)]">{activeRide.time} · {rideTypeLabel(activeRide.ride_type)}</div>
                   <span className={getStatusTone(activeRide.status)}>{STATUS_LABELS[activeRide.status] || activeRide.status}</span>
-                  <div className="text-sm text-cyan-100/70">
-                    {formatDurationClock(remainingSeconds(activeRide))} осталось • план {activeRide.planned_duration_minutes} мин
+                  <div className="text-sm text-[color:var(--ink-muted)]">
+                    Осталось {formatDurationClock(remainingSeconds(activeRide))} · план {formatMinutes(activeRide.planned_duration_minutes)}
                   </div>
                 </>
               ) : (
-                <div className="text-sm text-slate-300">Сейчас нет активного заезда.</div>
+                <div className="text-sm text-[color:var(--ink-muted)]">Сейчас нет активного заезда.</div>
               )}
             </div>
             <div className="game-card space-y-3">
-              <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Следующий в очереди</div>
+              <div className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Следующий в очереди</div>
               {nextRide ? (
                 <>
-                  <div className="text-lg font-black text-white">{nextRide.client_name}</div>
-                  <div className="text-sm text-cyan-100/70">{nextRide.time} • {RIDE_TYPE_LABELS[(nextRide.ride_type || "wakeboard") as RideType]}</div>
+                  <div className="text-lg font-black text-[color:var(--ink)]">{nextRide.client_name}</div>
+                  <div className="text-sm text-[color:var(--ink-muted)]">{nextRide.time} · {rideTypeLabel(nextRide.ride_type)}</div>
                   <span className={getStatusTone(nextRide.status)}>{STATUS_LABELS[nextRide.status] || nextRide.status}</span>
-                  <div className="text-sm text-cyan-100/70">План {nextRide.planned_duration_minutes} мин • {nextRide.sets_count} сет.</div>
+                  <div className="text-sm text-[color:var(--ink-muted)]">План {formatMinutes(nextRide.planned_duration_minutes)} · сетов: {formatCount(nextRide.sets_count)}</div>
+                  <BoardChip board={nextRide.board} lastBoard={nextRide.last_board} compact />
                   {nextRideHint && nextRideHint.actor !== "pilot" ? (
-                    <div className="rounded-2xl border border-amber-300/20 bg-amber-950/20 px-3 py-3 text-sm text-amber-100">
-                      <div className="text-xs font-black uppercase tracking-[0.12em] text-amber-100/70">{nextRideHint.title}</div>
+                    <div className="rounded-2xl border border-amber-600/25 bg-amber-50 px-3 py-3 text-sm text-amber-900">
+                      <div className="text-xs font-black uppercase tracking-[0.12em]">{nextRideHint.title}</div>
                       <div className="mt-2">{nextRideHint.description}</div>
                     </div>
                   ) : null}
                 </>
               ) : (
-                <div className="text-sm text-slate-300">Следующий заезд пока не сформирован.</div>
+                <div className="text-sm text-[color:var(--ink-muted)]">Следующий заезд пока не сформирован.</div>
               )}
             </div>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
-            <button type="button" onClick={() => setStatusFilter("all")} className={`game-tab ${statusFilter === "all" ? "game-tab-active" : ""}`}>Все</button>
-            <button type="button" onClick={() => setStatusFilter("waiting")} className={`game-tab ${statusFilter === "waiting" ? "game-tab-active" : ""}`}>Ожидают</button>
-            <button type="button" onClick={() => setStatusFilter("ready")} className={`game-tab ${statusFilter === "ready" ? "game-tab-active" : ""}`}>Готовы</button>
-            <button type="button" onClick={() => setStatusFilter("on_water")} className={`game-tab ${statusFilter === "on_water" ? "game-tab-active" : ""}`}>На воде</button>
-            <button type="button" onClick={() => setStatusFilter("done")} className={`game-tab ${statusFilter === "done" ? "game-tab-active" : ""}`}>Завершены</button>
-            <button type="button" onClick={() => setStatusFilter("problem")} className={`game-tab ${statusFilter === "problem" ? "game-tab-active" : ""}`}>Проблемные</button>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" role="group" aria-label="Фильтр очереди">
+            <button type="button" onClick={() => setStatusFilter("all")} aria-pressed={statusFilter === "all"} className={`game-tab ${statusFilter === "all" ? "game-tab-active" : ""}`}>Все</button>
+            <button type="button" onClick={() => setStatusFilter("waiting")} aria-pressed={statusFilter === "waiting"} className={`game-tab ${statusFilter === "waiting" ? "game-tab-active" : ""}`}>Ожидают</button>
+            <button type="button" onClick={() => setStatusFilter("ready")} aria-pressed={statusFilter === "ready"} className={`game-tab ${statusFilter === "ready" ? "game-tab-active" : ""}`}>Готовы</button>
+            <button type="button" onClick={() => setStatusFilter("on_water")} aria-pressed={statusFilter === "on_water"} className={`game-tab ${statusFilter === "on_water" ? "game-tab-active" : ""}`}>На воде</button>
+            <button type="button" onClick={() => setStatusFilter("done")} aria-pressed={statusFilter === "done"} className={`game-tab ${statusFilter === "done" ? "game-tab-active" : ""}`}>Завершены</button>
+            <button type="button" onClick={() => setStatusFilter("problem")} aria-pressed={statusFilter === "problem"} className={`game-tab ${statusFilter === "problem" ? "game-tab-active" : ""}`}>Проблемные</button>
           </div>
         </div>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
         {filteredItems.map((item) => {
-          const progressStep = getProgressStep(item.status);
           const stepHint = getPilotStepHint(item.status);
           return (
             <article key={item.booking_id} className="game-card space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/60">{item.date} • {item.time} • {item.boat_id}</div>
-                  <div className="mt-1 text-xl font-black text-white">{item.client_name || item.client_id}</div>
+                  <div className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">{formatDayMonth(item.date)} · {item.time} · {boatLabel(item.boat_id)}</div>
+                  <div className="mt-1 text-xl font-black text-[color:var(--ink)]">{item.client_name || item.client_id}</div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="game-chip text-cyan-100">{RIDE_TYPE_LABELS[(item.ride_type || "wakeboard") as RideType]}</span>
+                    <span className="game-chip">{rideTypeLabel(item.ride_type, { capitalize: true })}</span>
                     <span className={getStatusTone(item.status)}>{STATUS_LABELS[item.status] || item.status}</span>
                   </div>
                 </div>
                 <div className="game-stat p-3 text-center">
-                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Заезд</div>
-                  <div className="mt-1 text-sm font-black text-white">#{item.booking_id.slice(-6)}</div>
+                  <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Сетов</div>
+                  <div className="mt-1 text-sm font-black text-[color:var(--ink)]">{formatCount(item.sets_count)}</div>
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-4">
+              <BoardChip board={item.board} lastBoard={item.last_board} />
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <div className="game-stat p-3">
-                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">План</div>
-                  <div className="mt-1 text-sm font-black text-white">{item.planned_duration_minutes} мин</div>
+                  <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">План</div>
+                  <div className="mt-1 text-sm font-black text-[color:var(--ink)]">{formatMinutes(item.planned_duration_minutes)}</div>
                 </div>
                 <div className="game-stat p-3">
-                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Осталось</div>
-                  <div className="mt-1 text-sm font-black text-white">{formatDurationClock(remainingSeconds(item))}</div>
+                  <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Осталось</div>
+                  <div className="mt-1 text-sm font-black text-[color:var(--ink)]">{formatDurationClock(remainingSeconds(item))}</div>
                 </div>
                 <div className="game-stat p-3">
-                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Разминка</div>
-                  <div className="mt-1 text-sm font-black text-white">{item.warmup_state === "warmed_up" ? "Размялся" : item.warmup_state === "no_warmup" ? "Без разминки" : "Ещё не отмечена"}</div>
+                  <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Разминка</div>
+                  <div className="mt-1 text-sm font-black text-[color:var(--ink)]">{item.warmup_state === "warmed_up" ? "Размялся" : item.warmup_state === "no_warmup" ? "Без разминки" : "Ещё не отмечена"}</div>
                 </div>
                 <div className="game-stat p-3">
-                  <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Факт</div>
-                  <div className="mt-1 text-sm font-black text-white">
-                    {item.status === "done" || item.actual_duration_seconds > 0 ? formatDurationClock(item.actual_duration_seconds) : "Ещё в процессе"}
+                  <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Факт</div>
+                  <div className="mt-1 text-sm font-black text-[color:var(--ink)]">
+                    {isPositive(item.actual_duration_seconds) || (item.status === "done" && item.actual_duration_seconds !== null) ? formatDurationClock(item.actual_duration_seconds) : item.status === "done" ? "—" : "Ещё не начат"}
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-5 gap-2">
-                {[1, 2, 3, 4, 5].map((step) => (
-                  <div key={step} className={`rounded-2xl px-2 py-2 text-center text-xs font-black uppercase tracking-[0.08em] ${step <= progressStep ? "bg-cyan-400/20 text-cyan-50 ring-1 ring-cyan-300/35" : "bg-slate-950/80 text-slate-500 ring-1 ring-slate-800"}`}>
-                    {step === 1 ? "Принят" : step === 2 ? "На базе" : step === 3 ? "Готов" : step === 4 ? "Вода" : "Финиш"}
-                  </div>
-                ))}
-              </div>
+              <StatusStepper session={session} booking={item} onUpdated={mergeItem} labels="short" />
 
-              <div className={`rounded-2xl border px-3 py-3 text-sm ${stepHint.actor === "operator" ? "border-amber-300/20 bg-amber-950/20 text-amber-100" : "border-slate-800 bg-slate-900/70 text-slate-300"}`}>
+              <div className={`rounded-2xl border px-3 py-3 text-sm ${stepHint.actor === "operator" ? "border-amber-600/25 bg-amber-50 text-amber-900" : stepHint.actor === "pilot" ? "border-[color:var(--accent-border)] bg-[color:var(--accent-soft)] text-[color:var(--ink)]" : "border-[color:var(--border)] bg-[color:var(--panel-solid)] text-[color:var(--ink-muted)]"}`}>
                 <div className="text-xs font-black uppercase tracking-[0.12em]">{stepHint.title}</div>
                 <div className="mt-2">{stepHint.description}</div>
               </div>
@@ -390,10 +380,10 @@ export function PilotPage({ session }: PilotPageProps): JSX.Element {
         })}
 
         {filteredItems.length === 0 ? (
-          <div className="game-card text-sm text-slate-300">
+          <div className="game-card text-sm text-[color:var(--ink-muted)]">
             {session.role === "pilot" && !session.boat_id
-              ? "У пилота пока не задана лодка через boats.pilot_user_id."
-              : "По текущему фильтру карточек нет."}
+              ? "За пилотом пока не закреплён катер. Обратитесь к администратору."
+              : "По текущему фильтру заездов нет."}
           </div>
         ) : null}
       </section>

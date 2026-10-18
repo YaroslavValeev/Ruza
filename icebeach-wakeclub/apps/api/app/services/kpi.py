@@ -5,7 +5,13 @@ from datetime import date, timedelta
 from packages.sheets import SheetWrapper
 
 from ..models import KpiPeriod, RideType
-from .operating_calendar import build_operating_slots
+from .operating_calendar import (
+    SEASON_END_DAY,
+    SEASON_END_MONTH,
+    SEASON_START_DAY,
+    SEASON_START_MONTH,
+    build_operating_slots,
+)
 from .payments import payment_summaries_by_booking
 
 
@@ -30,11 +36,6 @@ def _get_kpi_targets(sheet: SheetWrapper, club_id: str, period: KpiPeriod, ancho
         "utilization_target_pct": int(row.get("utilization_target_pct") or 0),
         "revenue_target": int(row.get("revenue_target") or 0),
     }
-
-SEASON_START_MONTH = 6
-SEASON_START_DAY = 1
-SEASON_END_MONTH = 10
-SEASON_END_DAY = 1
 
 
 def _parse_date(value: str) -> date:

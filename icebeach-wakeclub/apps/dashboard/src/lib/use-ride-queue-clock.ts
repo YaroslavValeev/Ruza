@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { BookingItem, PilotQueueItem } from "../types";
+import { mergeBookingUpdate } from "./equipment";
 import { getLiveRemainingSeconds } from "./shift-timer";
 
 export function useRideQueueClock() {
@@ -22,7 +23,7 @@ export function useRideQueueClock() {
 
   const mergeItem = useCallback((updated: BookingItem) => {
     const timestamp = Date.now();
-    setItems((rows) => rows.map((row) => row.booking_id === updated.booking_id ? { ...row, ...updated } : row));
+    setItems((rows) => rows.map((row) => row.booking_id === updated.booking_id ? mergeBookingUpdate(row, updated) : row));
     // A mutation rebases only its booking; other running rides keep their anchor.
     setReceivedAt((anchors) => ({ ...anchors, [updated.booking_id]: timestamp }));
     setNow(timestamp);

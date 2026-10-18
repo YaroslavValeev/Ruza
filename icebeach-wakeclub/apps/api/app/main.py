@@ -14,6 +14,7 @@ from .routes.bookings import router as bookings_router
 from .routes.boats import router as boats_router
 from .routes.clients import router as clients_router
 from .routes.health import router as health_router
+from .routes.inventory import router as inventory_router
 from .routes.internal_agents import router as internal_agents_router
 from .routes.intake import router as intake_router
 from .routes.kpi import router as kpi_router
@@ -94,6 +95,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(boats_router)
     app.include_router(bookings_router)
     app.include_router(clients_router)
+    app.include_router(inventory_router)
     app.include_router(pilot_router)
     app.include_router(payments_router)
     app.include_router(kpi_router)

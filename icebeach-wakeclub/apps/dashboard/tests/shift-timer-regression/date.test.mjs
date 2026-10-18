@@ -7,7 +7,10 @@ import test from "node:test";
 process.env.TZ = "Europe/Moscow";
 const mobileUrl = new URL("../../src/mobile/pilot-utils.ts", import.meta.url);
 const datesUrl = new URL("../../src/lib/dates.ts", import.meta.url);
-const source = readFileSync(mobileUrl, "utf8").replace('"../lib/dates"', JSON.stringify(datesUrl.href));
+const labelsUrl = new URL("../../src/lib/label-dict.ts", import.meta.url);
+const source = readFileSync(mobileUrl, "utf8")
+  .replace('"../lib/dates"', JSON.stringify(datesUrl.href))
+  .replace('"../lib/label-dict"', JSON.stringify(labelsUrl.href));
 const { getToday } = await import(`data:text/javascript,${encodeURIComponent(stripTypeScriptTypes(source))}`);
 
 for (const [instant, expected] of [

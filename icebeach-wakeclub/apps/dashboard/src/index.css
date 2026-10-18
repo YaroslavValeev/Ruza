@@ -3,31 +3,53 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
-  --game-bg-deep: #07111f;
-  --game-bg-mid: #10233a;
-  --game-neon-cyan: #59e3ff;
-  --game-neon-blue: #4d88ff;
-  --game-neon-orange: #ffb44d;
-  --game-panel: rgba(11, 21, 38, 0.84);
-  --game-border: rgba(112, 188, 255, 0.24);
+  color-scheme: light;
+  /* Canvas sits under panels (figure-ground). Warm stone, not cold gray. */
+  --paper: #E6E1D6;
+  --paper-deep: #DAD4C8;
+  --panel-solid: #F7F4ED;
+  --ink: #1A2421;
+  --ink-muted: #5C6B66;
+  --accent: #0E6E62;
+  --accent-soft: #D7EBE7;
+  --accent-border: rgba(14, 110, 98, 0.28);
+  --shift-wash: #E8F3F1;
+  --warn: #B45309;
+  --danger: #B91C1C;
+  --ok: #047857;
+  --panel: rgba(247, 244, 237, 0.96);
+  --border: rgba(26, 36, 33, 0.14);
+  /* Граница полей ввода: ≥3:1 к панели и к фону поля (WCAG 1.4.11). */
+  --input-border: #848D89;
+  --placeholder: #66726E;
+  /* aliases so existing game-* markup keeps working */
+  --game-bg-deep: var(--paper-deep);
+  --game-bg-mid: var(--paper);
+  --game-neon-cyan: var(--accent);
+  --game-neon-blue: #0B5A51;
+  --game-neon-orange: #C9782A;
+  --game-panel: var(--panel);
+  --game-border: var(--accent-border);
 }
 
 html,
 body,
 #root {
   min-height: 100%;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: "Trebuchet MS", "Arial Rounded MT Bold", "Segoe UI", sans-serif;
+  font-family: "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(89, 227, 255, 0.12), transparent 24%),
-    radial-gradient(circle at top right, rgba(255, 180, 77, 0.14), transparent 18%),
-    linear-gradient(180deg, #0b1324 0%, #07111f 56%, #0c1830 100%);
-  color: #edf8ff;
+    radial-gradient(circle at top left, rgba(14, 110, 98, 0.07), transparent 30%),
+    radial-gradient(circle at 88% 12%, rgba(26, 36, 33, 0.04), transparent 26%),
+    linear-gradient(180deg, #E6E1D6 0%, #E0DAD0 46%, #DAD4C8 100%);
+  color: var(--ink);
 }
 
 body::before {
@@ -36,18 +58,35 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 22px 22px;
-  opacity: 0.35;
+    linear-gradient(rgba(26, 36, 33, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 36, 33, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.55;
 }
 
 a {
   color: inherit;
 }
 
+@layer base {
+  /* Видимый фокус с клавиатуры: акцент 6:1 к панели (WCAG 2.4.7 / 1.4.11). */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--placeholder);
+    opacity: 1;
+    /* Подсказка не должна выглядеть как введённое значение. */
+    font-style: italic;
+    font-weight: 400;
+  }
+}
+
 ::selection {
-  background: rgba(89, 227, 255, 0.35);
+  background: rgba(14, 110, 98, 0.22);
 }
 
 ::-webkit-scrollbar {
@@ -57,229 +96,360 @@ a {
 
 ::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgba(112, 188, 255, 0.35);
+  background: rgba(14, 110, 98, 0.28);
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(9, 17, 31, 0.75);
+  background: rgba(232, 226, 214, 0.8);
 }
 
 @layer components {
   .game-panel {
-    @apply rounded-[26px] border px-4 py-4 shadow-[0_18px_45px_rgba(0,0,0,0.34)] backdrop-blur-xl sm:px-5 sm:py-5;
-    background: linear-gradient(180deg, rgba(15, 31, 55, 0.96) 0%, rgba(9, 20, 37, 0.96) 100%);
-    border-color: var(--game-border);
+    @apply rounded-[26px] border px-4 py-4 shadow-[0_14px_34px_rgba(26,36,33,0.1)] backdrop-blur-xl sm:px-5 sm:py-5;
+    background: linear-gradient(180deg, #FFFCFA 0%, var(--panel-solid) 100%);
+    border-color: var(--border);
   }
 
   .game-panel-soft {
     @apply rounded-3xl border p-3 backdrop-blur-xl;
-    background: rgba(8, 18, 33, 0.72);
-    border-color: rgba(112, 188, 255, 0.16);
+    background: rgba(247, 244, 237, 0.88);
+    border-color: rgba(26, 36, 33, 0.12);
   }
 
   .game-heading {
-    @apply text-xl font-black tracking-wide text-white sm:text-2xl;
-    text-shadow: 0 0 18px rgba(89, 227, 255, 0.2);
+    @apply text-xl font-semibold tracking-tight sm:text-2xl;
+    color: var(--ink);
   }
 
   .game-subheading {
-    @apply text-sm leading-relaxed text-cyan-100/70;
+    @apply text-sm leading-relaxed;
+    color: var(--ink-muted);
   }
 
   .game-input {
-    @apply min-h-12 w-full rounded-2xl border px-4 py-3 text-[15px] text-white outline-none transition;
-    background: rgba(6, 13, 25, 0.96);
-    border-color: rgba(112, 188, 255, 0.22);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    @apply min-h-12 w-full rounded-2xl border px-4 py-3 text-[15px] outline-none transition;
+    background: #FFFCFA;
+    border-color: var(--input-border);
+    color: var(--ink);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
   }
 
-  .game-input:focus {
-    border-color: rgba(89, 227, 255, 0.72);
-    box-shadow: 0 0 0 3px rgba(89, 227, 255, 0.12);
+  .game-input:focus,
+  .game-input:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px rgba(14, 110, 98, 0.22);
+  }
+
+  .game-input:disabled {
+    background: #F1EEE7;
+    color: var(--ink-muted);
   }
 
   .game-button {
-    @apply box-border min-h-12 min-w-0 rounded-2xl px-3 py-2 text-center text-xs font-black uppercase leading-tight tracking-normal text-white transition sm:px-4 sm:text-sm;
-    background: linear-gradient(180deg, #3fa9ff 0%, #1768ff 100%);
-    box-shadow: 0 14px 28px rgba(23, 104, 255, 0.24), inset 0 1px 0 rgba(255,255,255,0.28);
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    @apply box-border inline-flex items-center justify-center min-h-12 min-w-0 rounded-2xl px-3 py-2 text-center text-xs font-semibold uppercase leading-tight tracking-normal text-white transition sm:px-4 sm:text-sm;
+    background: linear-gradient(180deg, #128577 0%, #0E6E62 100%);
+    box-shadow: 0 10px 22px rgba(14, 110, 98, 0.22), inset 0 1px 0 rgba(255,255,255,0.22);
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: manual;
     white-space: normal;
   }
 
   .game-button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 18px 32px rgba(23, 104, 255, 0.34), inset 0 1px 0 rgba(255,255,255,0.34);
+    box-shadow: 0 14px 28px rgba(14, 110, 98, 0.28), inset 0 1px 0 rgba(255,255,255,0.28);
   }
 
   .game-button:disabled {
-    @apply cursor-not-allowed opacity-60;
+    @apply cursor-not-allowed;
+    background: #CDD5D1;
+    color: #46524E;
     transform: none;
     box-shadow: none;
   }
 
+  .game-button-secondary:disabled,
+  .game-button-danger:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+
   .game-button-secondary {
-    @apply box-border min-h-11 min-w-0 rounded-2xl border px-3 py-2 text-center text-xs font-black uppercase leading-tight tracking-normal text-cyan-50 transition sm:px-4 sm:text-sm;
-    background: linear-gradient(180deg, rgba(17, 34, 60, 0.96) 0%, rgba(11, 23, 42, 0.96) 100%);
-    border-color: rgba(112, 188, 255, 0.24);
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    @apply box-border inline-flex items-center justify-center min-h-12 min-w-0 rounded-2xl border px-3 py-2 text-center text-xs font-semibold uppercase leading-tight tracking-normal transition sm:px-4 sm:text-sm;
+    background: rgba(255, 252, 247, 0.9);
+    border-color: rgba(26, 36, 33, 0.14);
+    color: var(--ink);
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: manual;
     white-space: normal;
   }
 
-  .game-chip {
-    @apply inline-flex max-w-full min-w-0 items-center rounded-full border px-3 py-1 text-center text-xs font-black uppercase leading-tight tracking-normal;
-    background: rgba(9, 21, 38, 0.94);
-    border-color: rgba(112, 188, 255, 0.2);
-    overflow-wrap: anywhere;
-    white-space: normal;
+  .game-button-secondary:hover {
+    border-color: rgba(14, 110, 98, 0.35);
+    background: var(--accent-soft);
   }
 
-  .game-tab {
-    @apply box-border flex min-h-11 min-w-0 items-center justify-center rounded-2xl border px-2 py-2 text-center text-[11px] font-black uppercase leading-tight tracking-normal transition sm:px-3 sm:text-xs;
-    background: rgba(7, 16, 30, 0.94);
-    border-color: rgba(112, 188, 255, 0.16);
-    color: rgba(233, 247, 255, 0.85);
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    white-space: normal;
-  }
-
-  .game-tab-active {
-    background: linear-gradient(180deg, rgba(89, 227, 255, 0.18) 0%, rgba(33, 92, 187, 0.42) 100%);
-    border-color: rgba(89, 227, 255, 0.7);
-    box-shadow: 0 0 0 1px rgba(89, 227, 255, 0.12), 0 14px 30px rgba(16, 89, 168, 0.24);
-    color: white;
+  .game-button-danger {
+    @apply box-border inline-flex items-center justify-center min-h-12 min-w-0 rounded-2xl px-3 py-2 text-center text-xs font-semibold uppercase leading-tight tracking-normal text-white transition sm:px-4 sm:text-sm;
+    background: linear-gradient(180deg, #DC2626 0%, #B91C1C 100%);
   }
 
   .game-card {
-    @apply rounded-[24px] border p-4;
-    background: linear-gradient(180deg, rgba(14, 28, 49, 0.98) 0%, rgba(9, 18, 34, 0.98) 100%);
-    border-color: rgba(112, 188, 255, 0.18);
+    @apply rounded-[22px] border p-4;
+    background: rgba(255, 252, 247, 0.94);
+    border-color: rgba(26, 36, 33, 0.1);
   }
 
   .game-stat {
-    @apply rounded-[24px] border p-4;
-    background: linear-gradient(180deg, rgba(15, 31, 55, 0.96) 0%, rgba(9, 19, 36, 0.98) 100%);
-    border-color: rgba(112, 188, 255, 0.18);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    @apply rounded-2xl border p-3;
+    background: rgba(255, 252, 247, 0.9);
+    border-color: rgba(26, 36, 33, 0.1);
   }
 
-  .game-badge-success {
-    @apply inline-flex max-w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-1 text-center text-[10px] font-black uppercase leading-tight tracking-normal text-emerald-100 sm:text-xs;
-    background: rgba(5, 91, 62, 0.36);
-    border-color: rgba(52, 211, 153, 0.36);
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    white-space: normal;
-  }
-
-  .game-badge-warn {
-    @apply inline-flex max-w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-1 text-center text-[10px] font-black uppercase leading-tight tracking-normal text-amber-100 sm:text-xs;
-    background: rgba(120, 53, 15, 0.3);
-    border-color: rgba(251, 191, 36, 0.34);
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    white-space: normal;
+  .game-chip {
+    @apply inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold;
+    background: var(--accent-soft);
+    border-color: var(--accent-border);
+    color: var(--accent);
   }
 
   .game-badge-info {
-    @apply inline-flex max-w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-1 text-center text-[10px] font-black uppercase leading-tight tracking-normal text-cyan-100 sm:text-xs;
-    background: rgba(12, 55, 91, 0.32);
-    border-color: rgba(89, 227, 255, 0.24);
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    white-space: normal;
+    @apply inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold;
+    background: #E8F3F1;
+    border-color: rgba(14, 110, 98, 0.22);
+    color: #0B5A51;
   }
 
-  .game-badge-live {
-    @apply inline-flex max-w-full min-w-0 items-center justify-center rounded-full border px-2.5 py-1 text-center text-[10px] font-black uppercase leading-tight tracking-normal text-orange-50 sm:text-xs;
-    background: rgba(194, 65, 12, 0.48);
-    border-color: rgba(251, 146, 60, 0.75);
-    box-shadow: 0 0 16px rgba(249, 115, 22, 0.35);
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    white-space: normal;
+  .game-badge-success {
+    @apply inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold;
+    background: #E7F6EF;
+    border-color: rgba(4, 120, 87, 0.22);
+    color: #047857;
+  }
+
+  .game-badge-warn {
+    @apply inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold;
+    background: #FEF3E2;
+    border-color: rgba(180, 83, 9, 0.22);
+    color: #B45309;
+  }
+
+  .game-nav-link {
+    @apply rounded-2xl border px-3 py-2 text-sm font-semibold transition;
+    background: transparent;
+    border-color: transparent;
+    color: var(--ink-muted);
+  }
+
+  .game-nav-link-active {
+    background: var(--accent-soft);
+    border-color: var(--accent-border);
+    color: var(--accent);
   }
 
   .shift-strip {
     transition: opacity 220ms ease, transform 220ms ease;
   }
 
+  .shift-strip-shell {
+    @apply relative overflow-hidden rounded-[22px] border px-4 py-3;
+    background: linear-gradient(180deg, #F3FAF8 0%, var(--shift-wash) 55%, #E2EEEB 100%);
+    border-color: rgba(14, 110, 98, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+
+  .shift-strip-title {
+    @apply min-w-0 text-lg font-black sm:text-xl;
+    color: var(--ink);
+  }
+
+  .shift-strip-meta {
+    @apply text-sm;
+    color: var(--ink-muted);
+  }
+
+  .shift-strip-hint {
+    @apply mt-2 text-sm;
+    color: var(--ink-muted);
+  }
+
+  .game-tab {
+    @apply box-border inline-flex items-center justify-center rounded-2xl border px-3 py-2 text-center text-sm font-semibold leading-tight transition;
+    background: rgba(255, 252, 247, 0.72);
+    border-color: rgba(26, 36, 33, 0.1);
+    color: var(--ink-muted);
+    min-height: 3rem;
+  }
+
+  .game-tab-active {
+    background: var(--accent-soft);
+    border-color: var(--accent-border);
+    color: var(--accent);
+  }
+
   .shift-strip-water {
     position: absolute;
     inset: 0;
     background:
-      linear-gradient(90deg, rgba(89, 227, 255, 0.08) 0%, rgba(89, 227, 255, 0.02) 32%, transparent 60%),
-      radial-gradient(circle at 12% 50%, rgba(255, 180, 77, 0.16), transparent 20%);
+      linear-gradient(90deg, rgba(14, 110, 98, 0.1) 0%, rgba(14, 110, 98, 0.03) 32%, transparent 60%),
+      radial-gradient(circle at 12% 50%, rgba(201, 120, 42, 0.12), transparent 20%);
     opacity: 0.85;
     animation: shift-strip-water 9s ease-in-out infinite;
   }
 
   .shift-step {
-    @apply rounded-2xl border px-2 py-2 text-center text-[10px] font-black uppercase tracking-[0.08em] text-slate-500 sm:text-[11px];
-    background: rgba(2, 9, 18, 0.72);
-    border-color: rgba(112, 188, 255, 0.12);
+    @apply min-w-0 truncate rounded-2xl border px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-normal;
+    color: var(--ink-muted);
+    background: rgba(255, 252, 247, 0.85);
+    border-color: rgba(26, 36, 33, 0.1);
     transition: background-color 260ms ease, border-color 260ms ease, color 260ms ease, transform 260ms ease;
   }
 
   .shift-step-active {
-    background: linear-gradient(180deg, rgba(89, 227, 255, 0.18) 0%, rgba(24, 72, 153, 0.34) 100%);
-    border-color: rgba(89, 227, 255, 0.36);
-    color: rgba(239, 250, 255, 0.96);
+    background: linear-gradient(180deg, rgba(14, 110, 98, 0.14) 0%, rgba(14, 110, 98, 0.22) 100%);
+    border-color: rgba(14, 110, 98, 0.32);
+    color: #0B5A51;
     transform: translateY(-1px);
+  }
+
+  /* Этапы заезда: пройденные/будущие — простой текст с полосой снизу, без «кнопочного» вида.
+     Кнопка — только следующий этап (.status-step-next). */
+  .status-steps {
+    @apply grid grid-cols-5 gap-1.5;
+  }
+
+  .status-step {
+    @apply flex min-h-11 min-w-0 items-center justify-center gap-1 px-1 pb-1 text-center text-[11px] font-semibold uppercase leading-tight;
+    letter-spacing: 0.02em;
+    overflow-wrap: anywhere;
+    cursor: default;
+    border-bottom: 3px solid rgba(26, 36, 33, 0.12);
+  }
+
+  .status-step-done {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .status-step-current {
+    @apply font-black;
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+    border-bottom-width: 5px;
+  }
+
+  .status-step-future {
+    color: var(--ink-muted);
+  }
+
+  .status-step-next {
+    @apply flex min-h-11 w-full min-w-0 items-center justify-center gap-1 rounded-xl border px-1.5 py-1 text-center text-[11px] font-black uppercase leading-tight transition;
+    letter-spacing: 0.02em;
+    overflow-wrap: anywhere;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 6px 14px rgba(14, 110, 98, 0.22);
+    cursor: pointer;
+  }
+
+  .status-step-next:hover:not(:disabled) {
+    background: #0b5a51;
+  }
+
+  .status-step-next:focus-visible {
+    outline: 3px solid rgba(14, 110, 98, 0.45);
+    outline-offset: 2px;
+  }
+
+  .status-step-next:disabled {
+    background: transparent;
+    border-style: dashed;
+    border-color: rgba(26, 36, 33, 0.28);
+    color: var(--ink-muted);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .status-step-reason {
+    @apply text-xs leading-snug;
+    color: var(--ink-muted);
+  }
+
+  /* Чип-кнопка отличается от чипа-бейджа: курсор и реакция на наведение. */
+  button.game-chip,
+  a.game-chip {
+    cursor: pointer;
+  }
+
+  button.game-chip:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  button.game-chip:hover:not(:disabled),
+  a.game-chip:hover {
+    border-color: var(--accent);
+    background: #c9e3de;
+  }
+
+  /* Уже выбранная вкладка — текущее состояние, а не действие. */
+  .game-tab-active {
+    cursor: default;
   }
 
   .shift-progress {
     @apply h-1.5 overflow-hidden rounded-full;
-    background: rgba(12, 24, 43, 0.9);
+    background: rgba(26, 36, 33, 0.08);
   }
 
   .shift-progress-fill {
     height: 100%;
     border-radius: 999px;
-    background: linear-gradient(90deg, rgba(89, 227, 255, 0.84) 0%, rgba(255, 180, 77, 0.65) 100%);
-    box-shadow: 0 0 14px rgba(89, 227, 255, 0.18);
+    background: linear-gradient(90deg, rgba(14, 110, 98, 0.9) 0%, rgba(201, 120, 42, 0.7) 100%);
+    box-shadow: none;
     transition: width 320ms ease, background-color 240ms ease;
   }
 
   .shift-clock {
-    @apply rounded-2xl border px-4 py-2 text-right text-2xl font-black text-white;
+    @apply rounded-2xl border px-4 py-2 text-right text-2xl font-semibold;
     min-width: 7.25rem;
     font-variant-numeric: tabular-nums;
+    color: var(--ink);
     transition: color 220ms ease, border-color 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
   }
 
   .shift-clock-cool {
-    background: rgba(7, 16, 30, 0.82);
-    border-color: rgba(89, 227, 255, 0.18);
+    background: rgba(255, 252, 247, 0.92);
+    border-color: rgba(14, 110, 98, 0.18);
   }
 
   .shift-clock-warm {
-    background: rgba(46, 27, 10, 0.42);
-    border-color: rgba(255, 180, 77, 0.28);
-    color: #ffe3bf;
+    background: rgba(254, 243, 226, 0.9);
+    border-color: rgba(201, 120, 42, 0.28);
+    color: #9A5B12;
   }
 
   .shift-clock-hot {
-    background: rgba(66, 32, 14, 0.48);
-    border-color: rgba(255, 180, 77, 0.44);
-    color: #fff0da;
-    box-shadow: 0 0 0 1px rgba(255, 180, 77, 0.08);
+    background: rgba(254, 226, 226, 0.88);
+    border-color: rgba(185, 28, 28, 0.28);
+    color: #991B1B;
+    box-shadow: none;
   }
 
   .pilot-boat-button {
-    @apply flex w-full items-center gap-3 rounded-[24px] border px-4 py-4 text-left text-white;
+    @apply flex w-full items-center gap-3 rounded-[24px] border px-4 py-4 text-left;
     min-height: 5.25rem;
-    background: linear-gradient(180deg, rgba(16, 35, 61, 0.98) 0%, rgba(12, 25, 43, 0.98) 100%);
-    border-color: rgba(89, 227, 255, 0.22);
+    color: var(--ink);
+    background: linear-gradient(180deg, rgba(255, 252, 247, 0.98) 0%, rgba(247, 242, 233, 0.98) 100%);
+    border-color: rgba(14, 110, 98, 0.22);
     transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
     touch-action: manipulation;
   }
 
   .pilot-boat-button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 18px 30px rgba(10, 24, 48, 0.26);
+    box-shadow: 0 12px 24px rgba(26, 36, 33, 0.1);
   }
 
   .pilot-boat-button:disabled {
@@ -288,26 +458,42 @@ a {
     box-shadow: none;
   }
 
+  /* «Запустить сет» — главное действие экрана: залитая акцентом кнопка. */
   .pilot-boat-button-idle {
-    background: linear-gradient(180deg, rgba(22, 42, 68, 0.98) 0%, rgba(14, 27, 47, 0.98) 100%);
+    color: #FFFFFF;
+    background: linear-gradient(180deg, #128577 0%, #0E6E62 100%);
+    border-color: #0B5A51;
+    box-shadow: 0 12px 24px rgba(14, 110, 98, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  }
+
+  .pilot-boat-button-idle .pilot-boat-subtitle {
+    color: rgba(255, 255, 255, 0.88);
+  }
+
+  .pilot-boat-button-idle .pilot-boat-icon {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(255, 255, 255, 0.6);
   }
 
   .pilot-boat-button-running {
-    border-color: rgba(89, 227, 255, 0.44);
-    box-shadow: 0 16px 28px rgba(36, 112, 214, 0.24);
+    border-width: 2px;
+    border-color: var(--accent);
+    background: #FFFCFA;
+    box-shadow: 0 12px 22px rgba(14, 110, 98, 0.14);
   }
 
   .pilot-boat-button-paused {
-    border-color: rgba(255, 180, 77, 0.32);
-    background: linear-gradient(180deg, rgba(46, 30, 16, 0.92) 0%, rgba(26, 19, 14, 0.96) 100%);
+    border-width: 2px;
+    border-color: #C9782A;
+    background: linear-gradient(180deg, rgba(254, 243, 226, 0.98) 0%, rgba(250, 236, 214, 0.98) 100%);
   }
 
   .pilot-boat-icon {
     @apply flex items-center justify-center rounded-2xl border;
     min-width: 5.25rem;
     min-height: 4rem;
-    background: rgba(5, 15, 28, 0.6);
-    border-color: rgba(89, 227, 255, 0.16);
+    background: var(--accent-soft);
+    border-color: rgba(14, 110, 98, 0.16);
     overflow: hidden;
   }
 
@@ -316,12 +502,12 @@ a {
   }
 
   .pilot-boat-label {
-    @apply text-base font-black uppercase tracking-[0.06em];
+    @apply text-lg font-black tracking-tight;
   }
 
   .pilot-boat-subtitle {
     @apply mt-1 text-sm;
-    color: rgba(217, 249, 255, 0.72);
+    color: var(--ink-muted);
   }
 
   .pilot-boat-svg-idle {
@@ -375,4 +561,3 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
-
