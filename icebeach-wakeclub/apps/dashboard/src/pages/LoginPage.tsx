@@ -1,9 +1,20 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { getDefaultRouteForRole, useAuth } from "../auth/session";
-import { getApiBaseUrl } from "../api/client";
+import { useAuth } from "../auth/session";
 import { ApiHealthBadge } from "../components/ApiHealthBadge";
+import { resolvePostLoginRoute } from "../utils/routes";
+
+function formatSeconds(total: number): string {
+  if (total >= 60 && total % 60 === 0) {
+    const minutes = total / 60;
+    const mod10 = minutes % 10;
+    const mod100 = minutes % 100;
+    const word = mod10 === 1 && mod100 !== 11 ? "минуту" : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? "минуты" : "минут";
+    return `${minutes} ${word}`;
+  }
+  return `${total} сек.`;
+}
 
 export function LoginPage(): JSX.Element {
   const navigate = useNavigate();
@@ -37,11 +48,7 @@ export function LoginPage(): JSX.Element {
       setExpiresIn(response.expires_in_seconds);
       setResolvedStaffId(response.staff_user_id || staffUserId.trim());
       setResolvedName(response.full_name ?? null);
-      setMessage(
-        response.full_name
-          ? `Код для ${response.full_name}. Действует ${response.expires_in_seconds} сек.`
-          : `Код подготовлен. Действует ${response.expires_in_seconds} сек.`,
-      );
+      setMessage("Код отправлен.");
       setStep("verify");
     } catch (err) {
       setError((err as Error).message);
@@ -56,7 +63,8 @@ export function LoginPage(): JSX.Element {
     setLoading(true);
     try {
       const session = await verifyCode(resolvedStaffId || staffUserId.trim(), code.trim(), phone.trim());
-      navigate(getDefaultRouteForRole(session.role), { replace: true });
+      const next = new URLSearchParams(window.location.search).get("next");
+      navigate(resolvePostLoginRoute(session.role, next), { replace: true });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -65,13 +73,13 @@ export function LoginPage(): JSX.Element {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 text-slate-100">
+    <div className="flex min-h-screen items-center justify-center p-6 text-[color:var(--ink)]">
       <form
         className="game-panel w-full max-w-md space-y-4"
         onSubmit={step === "request" ? onRequestCode : onVerifyCode}
       >
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Ice Beach Club</p>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--accent)]">MyWave Club</p>
           <h1 className="game-heading mt-1">Вход в смену</h1>
           <p className="game-subheading mt-2">
             Введите телефон сотрудника. Код подтверждения действует несколько минут.
@@ -81,13 +89,15 @@ export function LoginPage(): JSX.Element {
         <ApiHealthBadge />
 
         {import.meta.env.DEV ? (
-          <div className="game-card space-y-2 text-sm text-cyan-100/80">
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/60">Локальный demo</p>
+          <div className="game-card space-y-2 text-sm">
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Локальная демоверсия</p>
             <div className="flex flex-wrap gap-2">
               {[
-                { phone: "+79990000000", label: "Админ" },
+                { phone: "+79990000000", label: "Администратор" },
                 { phone: "+79990000001", label: "Оператор" },
                 { phone: "+79990000002", label: "Пилот" },
+                { phone: "+79990000003", label: "Тренер" },
+                { phone: "+79990000004", label: "Маркетинг" },
               ].map((account) => (
                 <button
                   key={account.phone}
@@ -107,12 +117,12 @@ export function LoginPage(): JSX.Element {
                 </button>
               ))}
             </div>
-            <p className="text-xs text-slate-400">Нажмите роль, затем «Получить код». DEV-код появится на этой форме.</p>
+            <p className="text-xs text-[color:var(--ink-muted)]">Выберите роль и нажмите «Получить код» — тестовый код появится на этой форме.</p>
           </div>
         ) : null}
 
         <div>
-          <label htmlFor="login-phone" className="mb-2 block text-sm font-bold text-cyan-100/70">
+          <label htmlFor="login-phone" className="mb-2 block text-sm font-bold text-[color:var(--accent)]">
             Телефон
           </label>
           <input
@@ -120,7 +130,7 @@ export function LoginPage(): JSX.Element {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className="game-input"
-            placeholder="+7 999 000 00 01"
+            placeholder="+7 999 000-00-01"
             type="tel"
             inputMode="tel"
             autoComplete="tel"
@@ -130,16 +140,16 @@ export function LoginPage(): JSX.Element {
         </div>
 
         <details className="game-card">
-          <summary className="cursor-pointer text-sm font-bold text-cyan-100/80">Если телефоны совпадают — укажите ID</summary>
-          <label htmlFor="login-staff-id" className="mb-2 mt-3 block text-sm font-bold text-cyan-100/70">
-            ID сотрудника
+          <summary className="flex min-h-11 cursor-pointer items-center text-sm font-bold text-[color:var(--ink)]">На один телефон несколько сотрудников?</summary>
+          <label htmlFor="login-staff-id" className="mb-2 mt-3 block text-sm font-bold text-[color:var(--accent)]">
+            Код сотрудника
           </label>
           <input
             id="login-staff-id"
             value={staffUserId}
             onChange={(e) => setStaffUserId(e.target.value)}
             className="game-input"
-            placeholder="staff_001"
+            placeholder="Выдаёт администратор"
             autoComplete="username"
             disabled={step === "verify"}
           />
@@ -147,8 +157,12 @@ export function LoginPage(): JSX.Element {
 
         {step === "verify" ? (
           <>
-            {resolvedName ? <p className="text-sm text-cyan-100/80">Сотрудник: {resolvedName}</p> : null}
-            <label htmlFor="login-code" className="mb-2 block text-sm font-bold text-cyan-100/70">
+            {resolvedName ? (
+              <p className="text-sm text-[color:var(--ink-muted)]">
+                Сотрудник: <span className="font-bold text-[color:var(--ink)]">{resolvedName}</span>
+              </p>
+            ) : null}
+            <label htmlFor="login-code" className="mb-2 block text-sm font-bold text-[color:var(--accent)]">
               Одноразовый код
             </label>
             <input
@@ -163,28 +177,28 @@ export function LoginPage(): JSX.Element {
               maxLength={8}
               required
             />
-            {expiresIn ? <p className="text-xs text-slate-400">Код действует {expiresIn} секунд.</p> : null}
+            {expiresIn ? <p className="text-xs text-[color:var(--ink-muted)]">Код действует {formatSeconds(expiresIn)}.</p> : null}
           </>
         ) : null}
 
         {message ? (
-          <p role="status" className="rounded-2xl bg-emerald-900/40 p-3 text-sm text-emerald-200">
+          <p role="status" className="rounded-2xl border border-emerald-600/25 bg-emerald-50 p-3 text-sm text-emerald-900">
             {message}
           </p>
         ) : null}
         {debugCode ? (
-          <p role="status" className="rounded-2xl bg-amber-900/40 p-3 text-sm text-amber-200">
-            DEV-код: {debugCode}
+          <p role="status" className="rounded-2xl border border-amber-600/25 bg-amber-50 p-3 text-sm text-amber-900">
+            Тестовый код: <span className="font-black tracking-[0.12em]">{debugCode}</span>
           </p>
         ) : null}
         {error ? (
-          <p role="alert" className="rounded-2xl bg-red-900/50 p-3 text-sm text-red-200">
+          <p role="alert" className="rounded-2xl border border-red-600/25 bg-red-50 p-3 text-sm text-red-900">
             {error}
           </p>
         ) : null}
 
         <button type="submit" disabled={loading} className="game-button w-full">
-          {loading ? "Ждём..." : step === "request" ? "Получить код" : "Войти"}
+          {loading ? "Подождите…" : step === "request" ? "Получить код" : "Войти"}
         </button>
 
         {step === "verify" ? (
@@ -203,10 +217,9 @@ export function LoginPage(): JSX.Element {
             Изменить телефон
           </button>
         ) : null}
-        <p className="text-xs text-slate-500">
-          Сервер: {getApiBaseUrl()} ·{" "}
-          <Link to="/m/install" className="text-cyan-300 underline">
-            Установка на телефон
+        <p className="text-xs text-[color:var(--ink-muted)]">
+          <Link to="/m/install" className="inline-flex min-h-11 items-center font-semibold text-[color:var(--accent)] underline">
+            Как установить на телефон
           </Link>
         </p>
       </form>

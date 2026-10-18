@@ -1,31 +1,23 @@
 import type { BookingStatus, RideType } from "../types";
 import { formatLocalIsoDate } from "../lib/dates";
+import { BOOKING_STATUS_LABELS, rideTypeLabel } from "../lib/label-dict";
 
 export const PILOT_ACTIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {};
 
-export const STATUS_LABELS: Partial<Record<BookingStatus, string>> = {
-  confirmed: "Подтверждена",
-  arrived: "Приехал",
-  ready: "Готов к старту",
-  in_progress: "На воде",
-  done: "Завершена",
-  late: "Опаздывает",
-  no_show: "Не пришел",
-  cancelled: "Отменена",
-};
+export const STATUS_LABELS: Partial<Record<BookingStatus, string>> = BOOKING_STATUS_LABELS;
 
 export const ACTION_LABELS: Partial<Record<BookingStatus, string>> = {
   arrived: "Принять клиента",
-  ready: "Подготовить",
+  ready: "На воду",
   in_progress: "На воду",
   done: "Завершить заезд",
-  no_show: "Не пришел",
+  no_show: "Неявка",
 };
 
 export const RIDE_TYPE_LABELS: Record<RideType, string> = {
-  wakeboard: "Вейкборд",
-  surf: "Серф",
-  skim: "Ским",
+  wakeboard: rideTypeLabel("wakeboard"),
+  surf: rideTypeLabel("surf"),
+  skim: rideTypeLabel("skim"),
 };
 
 export function getToday(): string {
@@ -37,13 +29,13 @@ export function getPrimaryActionText(status: BookingStatus): string {
     case "arrived":
       return "Принять спортсмена";
     case "ready":
-      return "Подготовить к старту";
+      return "На воду";
     case "in_progress":
-      return "Вывести на воду";
+      return "На воду";
     case "done":
       return "Завершить заезд";
     case "no_show":
-      return "Не пришел";
+      return "Неявка";
     default:
       return ACTION_LABELS[status] || STATUS_LABELS[status] || status;
   }
@@ -67,13 +59,13 @@ export function getPilotStepHint(status: BookingStatus): PilotStepHint {
       return {
         actor: "operator",
         title: "Ждёт оператора",
-        description: "На /bookings нужно отметить приезд клиента. Пилот не принимает confirmed-заезд.",
+        description: "Обычно прибытие отмечает оператор в разделе «Брони». Если клиент уже у катера, нажмите «На месте».",
       };
     case "arrived":
       return {
         actor: "operator",
         title: "Ждёт передачи от оператора",
-        description: "После подготовки и инструктажа оператор или админ должен нажать «Передать пилоту» на /bookings.",
+        description: "После подготовки и инструктажа оператор или администратор нажимает «Передать пилоту» в разделе «Брони».",
       };
     case "ready":
       return {
@@ -91,7 +83,7 @@ export function getPilotStepHint(status: BookingStatus): PilotStepHint {
       return {
         actor: "operator",
         title: "Ждёт решения оператора",
-        description: "Оператор или админ должен вернуть клиента в «Приехал» либо отметить «Не пришел».",
+        description: "Оператор или администратор отмечает «На месте» либо «Неявка».",
       };
     case "done":
       return {

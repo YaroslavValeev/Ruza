@@ -164,7 +164,34 @@ TAB_SCHEMAS: dict[str, TabSchema] = {
         "utm_events",
         ("event_id", "club_id", "ts", "event_type", "utm_source", "utm_campaign"),
     ),
+    # Справочник инвентаря («Как в прошлый раз»). Вкладки необязательные:
+    # если их ещё нет в Таблице, API работает без инвентаря, а preflight предупреждает.
+    "boards": TabSchema(
+        "boards",
+        ("board_id", "club_id", "number", "name", "kind", "length_cm", "is_active", "created_at", "updated_at"),
+    ),
+    "wetsuits": TabSchema(
+        "wetsuits",
+        ("wetsuit_id", "club_id", "number", "size", "gender", "is_active", "created_at", "updated_at"),
+    ),
 }
+
+# Необязательные колонки существующих вкладок. Их НЕТ в required_columns, поэтому
+# старые Таблицы продолжают читаться; добавляются миграцией `python -m packages.sheets`.
+OPTIONAL_COLUMNS: dict[str, tuple[str, ...]] = {
+    "bookings": ("wetsuit_id", "board_id", "drink", "equipment_issued_by", "equipment_issued_at"),
+    "clients": ("prefs_reset_at",),
+}
+
+OPTIONAL_TABS: tuple[str, ...] = ("boards", "wetsuits")
+
+
+def migration_columns(tab_name: str) -> tuple[str, ...]:
+    """Обязательные + необязательные колонки вкладки — полный набор для миграции."""
+    schema = TAB_SCHEMAS.get(tab_name)
+    required = schema.required_columns if schema else ()
+    optional = tuple(col for col in OPTIONAL_COLUMNS.get(tab_name, ()) if col not in required)
+    return required + optional
 
 
 def validate_required_columns(tab_name: str, headers: list[str]) -> None:

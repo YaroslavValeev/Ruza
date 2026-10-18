@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
+import { MemoryRouter } from "react-router-dom";
 import { LiveShiftStrip } from "../../src/components/shift-timer/LiveShiftStrip";
 import { PilotRideControls } from "../../src/components/shift-timer/PilotRideControls";
 import * as timer from "../../src/lib/shift-timer";
@@ -77,4 +78,5 @@ function Fixture() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<Fixture />);
+// LiveShiftStrip ставит ссылку «Открыть бронь» через react-router — в приложении роутер есть всегда.
+createRoot(document.getElementById("root")!).render(<MemoryRouter><Fixture /></MemoryRouter>);

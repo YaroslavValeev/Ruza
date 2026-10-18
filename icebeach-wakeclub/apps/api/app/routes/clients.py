@@ -4,7 +4,7 @@ from packages.sheets import SheetWrapper
 
 from ..auth import AuthUser, require_roles
 from ..dependencies import get_sheet_wrapper
-from ..models import ClientCreateRequest, ClientItem, ClientStatsItem
+from ..models import ClientCreateRequest, ClientItem, ClientPrefsResetResponse, ClientStatsItem
 from ..services.clients import create_client, list_clients
 
 
@@ -32,6 +32,18 @@ def get_client_stats_route(
     if not stats:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
     return ClientStatsItem(**stats)  # type: ignore[arg-type]
+
+
+@router.post("/{client_id}/prefs/reset", response_model=ClientPrefsResetResponse)
+def post_client_prefs_reset(
+    client_id: str,
+    user: AuthUser = Depends(require_roles("admin")),
+    sheet: SheetWrapper = Depends(get_sheet_wrapper),
+) -> ClientPrefsResetResponse:
+    """Сбросить «Как в прошлый раз»: записи до этого момента больше не подсказываются."""
+    from ..services.equipment import reset_client_prefs
+
+    return ClientPrefsResetResponse(**reset_client_prefs(sheet, club_id=user.club_id, client_id=client_id, actor=user.staff_user_id))
 
 
 @router.post("", response_model=ClientItem)

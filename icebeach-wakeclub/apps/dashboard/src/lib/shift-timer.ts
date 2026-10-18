@@ -1,4 +1,5 @@
 import { BookingItem, BookingStatus, RideTimerState, StaffRole, WarmupState } from "../types";
+import { formatClock } from "./format";
 
 export const SHIFT_STATUS_SEQUENCE: BookingStatus[] = ["confirmed", "arrived", "ready", "in_progress", "done"];
 export const SET_DURATION_MINUTES = 25;
@@ -7,8 +8,10 @@ export function getLiveRemainingSeconds(
   booking: Pick<BookingItem, "timer_state" | "remaining_seconds"> | null,
   fetchedAt: number,
   now: number,
-): number {
+): number | null {
   if (!booking) return 0;
+  // Нет данных таймера → null, чтобы на экране было «—», а не «00:00».
+  if (booking.remaining_seconds === null || booking.remaining_seconds === undefined) return null;
   const driftSeconds = booking.timer_state === "running" ? Math.max(Math.floor((now - fetchedAt) / 1000), 0) : 0;
   return Math.max(booking.remaining_seconds - driftSeconds, 0);
 }
@@ -36,11 +39,9 @@ export function beginBookingAction(key: string): (() => void) | null {
   };
 }
 
-export function formatDurationClock(totalSeconds: number): string {
-  const safeSeconds = Math.max(totalSeconds, 0);
-  const minutes = Math.floor(safeSeconds / 60);
-  const seconds = safeSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+/** Секунды → «ММ:СС». Пустое или нечисловое значение → «—» (никогда не «NaN:NaN»). */
+export function formatDurationClock(totalSeconds: number | null | undefined): string {
+  return formatClock(totalSeconds);
 }
 
 export function getStatusProgress(status: BookingStatus): number {
@@ -72,7 +73,7 @@ export function getPrimaryTimerAction(
 export function getTimerActionLabel(action: "start" | "pause" | "stop" | null): string {
   if (action === "start") return "Запустить сет";
   if (action === "pause") return "Пауза";
-  if (action === "stop") return "Завершить мягко";
+  if (action === "stop") return "Завершить заезд";
   return "Таймер недоступен";
 }
 
@@ -80,41 +81,37 @@ export function getLiveStripHint(role: StaffRole, booking: BookingItem | null | 
   if (!booking) {
     return "Смена идёт спокойно. Активных событий сейчас нет.";
   }
+  const viewer = role === "coach" || role === "marketing_read";
   if (booking.status === "confirmed" || booking.status === "late") {
-    if (role === "coach" || role === "marketing_read") {
-      return "Ожидаем подтверждения фактического приезда.";
-    }
-    return "Сейчас важно отметить фактический приезд клиента.";
+    if (viewer) return "Ожидаем фактического приезда клиента — его отмечает оператор.";
+    if (role === "pilot") return "Ждём прибытия. Если клиент уже у катера, нажмите «На месте» в этапах ниже.";
+    return "Клиент приехал? Нажмите «На месте» в этапах ниже.";
   }
   if (booking.status === "arrived") {
-    if (booking.warmup_state !== "pending") {
-      if (role === "coach" || role === "marketing_read") {
-        return "Подготовка отмечена. Ждём явную передачу пилоту.";
-      }
-      return "Подготовка отмечена. Теперь нужен явный handoff «Передать пилоту».";
+    if (viewer) return "Клиент на месте. Оператор готовит его к старту.";
+    if (role === "pilot") return "Клиент на месте. К старту его передаёт оператор.";
+    if (booking.warmup_state === "pending") {
+      return "Отметьте разминку, затем нажмите «Готово к старту» — заезд перейдёт пилоту.";
     }
-    if (role === "coach" || role === "marketing_read") {
-      return "Клиент на месте. Следующий шаг — отметить готовность к старту.";
-    }
-    return "Отметьте разминку или старт без разминки. В «Готов к старту» клиента переводит отдельная кнопка «Передать пилоту».";
+    return "Подготовка отмечена. Нажмите «Готово к старту», чтобы передать клиента пилоту.";
   }
   if (booking.status === "ready") {
-    return role === "pilot" || role === "admin" ? "Клиент готов. Можно мягко запускать сет." : "Клиент готов. Пилот может запускать сет.";
+    return role === "pilot" || role === "admin" ? "Клиент готов. Нажмите «На воде», чтобы запустить сет." : "Клиент готов. Сет запускает пилот.";
   }
   if (booking.status === "in_progress") {
     if (booking.timer_state === "paused") {
-      return role === "pilot" || role === "admin" ? "Сет на паузе. Следующее нажатие мягко завершит текущий заезд." : "Сет на паузе, ждём мягкого завершения пилотом.";
+      return role === "pilot" || role === "admin" ? "Сет на паузе. «Завершено» — закончить заезд." : "Сет на паузе, ждём завершения от пилота.";
     }
-    return "Сет идёт. Таймер показывает оставшееся время.";
+    return role === "pilot" || role === "admin" ? "Сет идёт. Когда клиент финиширует, нажмите «Завершено»." : "Сет идёт. Таймер показывает оставшееся время.";
   }
   if (booking.status === "done") {
-    return "Заезд завершён мягко. Сохранили фактическое время без изменения оплаты.";
+    return "Заезд завершён. Фактическое время сохранено, оплата не изменилась.";
   }
   return "Следим за состоянием заезда.";
 }
 
-export function getRemainingTone(remainingSeconds: number, timerState: RideTimerState): "cool" | "warm" | "hot" {
-  if (timerState !== "running" && timerState !== "paused") {
+export function getRemainingTone(remainingSeconds: number | null, timerState: RideTimerState): "cool" | "warm" | "hot" {
+  if ((timerState !== "running" && timerState !== "paused") || remainingSeconds === null) {
     return "cool";
   }
   if (remainingSeconds <= 60) {

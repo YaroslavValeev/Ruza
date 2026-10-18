@@ -13,9 +13,12 @@ from ..models import (
     BookingItem,
     BookingPrepUpdateRequest,
     BookingStatusUpdateRequest,
+    EquipmentUpdateRequest,
+    EquipmentUpdateResponse,
     RideTimerActionRequest,
 )
 from ..services.bookings import create_booking, get_booking_row, list_bookings, update_booking_status
+from ..services.equipment import redact_for_role, repeat_last_equipment, update_equipment
 from ..services.pilot import get_pilot_boat_id
 from ..services.shift_timer import run_timer_action, update_booking_prep
 from ..services.operation_lock import sheets_mutation_lock
@@ -45,7 +48,7 @@ def get_bookings(
     if user.role == "pilot":
         boat_filter = get_pilot_boat_id(sheet, staff_user_id=user.staff_user_id, club_id=user.club_id) or ""
     return [
-        BookingItem(**item)
+        BookingItem(**redact_for_role(item, user.role))
         for item in list_bookings(
             sheet,
             club_id=user.club_id,
@@ -54,6 +57,43 @@ def get_bookings(
             boat_id=boat_filter,
         )
     ]
+
+
+@router.patch("/{booking_id}/equipment", response_model=EquipmentUpdateResponse)
+def patch_booking_equipment(
+    booking_id: str,
+    payload: EquipmentUpdateRequest,
+    user: AuthUser = Depends(require_roles("admin", "operator", "coach")),
+    sheet: SheetWrapper = Depends(get_sheet_wrapper),
+) -> EquipmentUpdateResponse:
+    """Выдать снаряжение: гидрокостюм, доска, напиток. Тренер — только доску в своих записях."""
+    fields = payload.model_dump(exclude_unset=True)
+    item, warnings = update_equipment(
+        sheet,
+        club_id=user.club_id,
+        booking_id=booking_id,
+        fields=fields,
+        actor=user.staff_user_id,
+        role=user.role,
+    )
+    return EquipmentUpdateResponse(booking=BookingItem(**item), warnings=warnings)
+
+
+@router.post("/{booking_id}/equipment/repeat-last", response_model=EquipmentUpdateResponse)
+def post_booking_equipment_repeat_last(
+    booking_id: str,
+    user: AuthUser = Depends(require_roles("admin", "operator", "coach")),
+    sheet: SheetWrapper = Depends(get_sheet_wrapper),
+) -> EquipmentUpdateResponse:
+    """«Выдать как в прошлый раз» в одно касание."""
+    item, warnings = repeat_last_equipment(
+        sheet,
+        club_id=user.club_id,
+        booking_id=booking_id,
+        actor=user.staff_user_id,
+        role=user.role,
+    )
+    return EquipmentUpdateResponse(booking=BookingItem(**item), warnings=warnings)
 
 
 @router.post("", response_model=BookingCreateResponse)
@@ -97,12 +137,15 @@ def patch_booking_status(
             detail="Ride start and finish are only available through the timer",
         )
     return BookingItem(
-        **update_booking_status(
-            sheet,
-            booking_id=booking_id,
-            status_value=payload.status,
-            actor_staff_user_id=user.staff_user_id,
-            club_id=user.club_id,
+        **redact_for_role(
+            update_booking_status(
+                sheet,
+                booking_id=booking_id,
+                status_value=payload.status,
+                actor_staff_user_id=user.staff_user_id,
+                club_id=user.club_id,
+            ),
+            user.role,
         )
     )
 
@@ -118,14 +161,17 @@ def patch_booking_prep(
     if user.role == "pilot":
         _assert_pilot_booking_access(sheet, booking_id=booking_id, user=user)
     return BookingItem(
-        **update_booking_prep(
-            sheet,
-            settings,
-            booking_id=booking_id,
-            arrival_action=payload.arrival_action,
-            warmup_state=payload.warmup_state,
-            actor_staff_user_id=user.staff_user_id,
-            club_id=user.club_id,
+        **redact_for_role(
+            update_booking_prep(
+                sheet,
+                settings,
+                booking_id=booking_id,
+                arrival_action=payload.arrival_action,
+                warmup_state=payload.warmup_state,
+                actor_staff_user_id=user.staff_user_id,
+                club_id=user.club_id,
+            ),
+            user.role,
         )
     )
 
@@ -142,12 +188,15 @@ def post_timer_action(
         _assert_pilot_booking_access(sheet, booking_id=booking_id, user=user)
     with sheets_mutation_lock:
         return BookingItem(
-            **run_timer_action(
-                sheet,
-                settings,
-                booking_id=booking_id,
-                action=payload.action,
-                actor_staff_user_id=user.staff_user_id,
-                club_id=user.club_id,
+            **redact_for_role(
+                run_timer_action(
+                    sheet,
+                    settings,
+                    booking_id=booking_id,
+                    action=payload.action,
+                    actor_staff_user_id=user.staff_user_id,
+                    club_id=user.club_id,
+                ),
+                user.role,
             )
         )

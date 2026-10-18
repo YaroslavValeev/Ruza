@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth, getMobileRouteForRole } from "../auth/session";
 import { ApiHealthBadge } from "../components/ApiHealthBadge";
 import { LiveShiftStrip } from "../components/shift-timer/LiveShiftStrip";
+import { boatLabel, roleLabel, useBoatNames } from "../lib/labels";
 import { StaffRole, StaffSession } from "../types";
 import { canAccessMobilePath } from "../utils/routes";
 
@@ -12,10 +13,10 @@ type MobileShellProps = {
 
 function getMobileTitle(pathname: string): { title: string; subtitle?: string } {
   if (pathname.startsWith("/m/owner")) {
-    return { title: "Owner", subtitle: "KPI и быстрый check-in" };
+    return { title: "Клуб", subtitle: "Показатели и отметка о прибытии" };
   }
   if (pathname.startsWith("/m/install")) {
-    return { title: "Установка", subtitle: "Без App Store / Google Play" };
+    return { title: "Установка", subtitle: "Ярлык на главный экран телефона" };
   }
   return { title: "Пилот", subtitle: "Очередь заездов на смене" };
 }
@@ -26,7 +27,7 @@ function getMobileNavItems(role: StaffRole): Array<{ to: string; label: string }
     items.push({ to: "/m/pilot", label: "Пилот" });
   }
   if (role === "admin" || role === "operator") {
-    items.push({ to: "/m/owner", label: "Owner" });
+    items.push({ to: "/m/owner", label: "Клуб" });
   }
   items.push({ to: "/m/install", label: "Установка" });
   return items;
@@ -34,6 +35,7 @@ function getMobileNavItems(role: StaffRole): Array<{ to: string; label: string }
 
 export function MobileShell({ session }: MobileShellProps): JSX.Element {
   const { signOut } = useAuth();
+  useBoatNames(session);
   const location = useLocation();
   const { title, subtitle } = getMobileTitle(location.pathname);
   const navItems = getMobileNavItems(session.role);
@@ -41,32 +43,32 @@ export function MobileShell({ session }: MobileShellProps): JSX.Element {
   const hasAccess = canAccessMobilePath(session.role, location.pathname);
 
   return (
-    <div className="mobile-shell flex min-h-[100dvh] flex-col bg-slate-950 text-slate-100">
-      <header className="mobile-header sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur">
+    <div className="mobile-shell flex min-h-[100dvh] flex-col bg-[var(--paper)] text-[var(--ink)]">
+      <header className="mobile-header sticky top-0 z-20 border-b border-stone-300/80 bg-[rgba(244,241,234,0.95)] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur">
         <div className="flex items-start justify-between gap-3">
           <Link to={homeRoute} className="block">
-            <div className="text-[11px] font-black uppercase tracking-[0.14em] text-cyan-200/70">Ice Beach</div>
-            <h1 className="mt-1 text-xl font-black text-white">{title}</h1>
-            {subtitle ? <p className="mt-1 text-sm text-slate-400">{subtitle}</p> : null}
+            <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--accent)]/80">MyWave Club</div>
+            <h1 className="mt-1 text-xl font-semibold text-[var(--ink)]">{title}</h1>
+            {subtitle ? <p className="mt-1 text-sm text-[var(--ink-muted)]">{subtitle}</p> : null}
           </Link>
           <div className="flex flex-col items-end gap-2">
             <ApiHealthBadge compact />
             <button
               type="button"
-              className="min-h-[44px] rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300"
+              className="min-h-[44px] rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-[var(--ink)]"
               onClick={() => void signOut()}
             >
               Выйти
             </button>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-400">
-          <span className="rounded-full bg-slate-900 px-2 py-1">{session.full_name}</span>
-          <span className="rounded-full bg-slate-900 px-2 py-1">{session.role}</span>
-          {session.boat_id ? <span className="rounded-full bg-slate-900 px-2 py-1">Лодка {session.boat_id}</span> : null}
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-[color:var(--ink-muted)]">
+          <span className="rounded-full bg-white/80 px-2 py-1 border border-stone-200">{session.full_name}</span>
+          <span className="rounded-full bg-white/80 px-2 py-1 border border-stone-200">{roleLabel(session.role)}</span>
+          {session.boat_id ? <span className="rounded-full bg-white/80 px-2 py-1 border border-stone-200">{boatLabel(session.boat_id)}</span> : null}
         </div>
         {!hasAccess ? (
-          <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
+          <div className="mt-3 rounded-xl border border-amber-400/40 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             Нет прав на этот раздел — используйте доступные вкладки ниже.
           </div>
         ) : null}
@@ -80,7 +82,7 @@ export function MobileShell({ session }: MobileShellProps): JSX.Element {
         <Outlet />
       </main>
 
-      <nav className="mobile-nav fixed inset-x-0 bottom-0 z-20 border-t border-slate-800/80 bg-slate-950/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
+      <nav className="mobile-nav fixed inset-x-0 bottom-0 z-20 border-t border-stone-300/80 bg-[rgba(244,241,234,0.95)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
         <div className={`grid gap-2 ${navItems.length === 3 ? "grid-cols-3" : navItems.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
           {navItems.map((item) => (
             <MobileNavLink key={item.to} to={item.to} label={item.label} active={location.pathname.startsWith(item.to)} />
@@ -95,9 +97,7 @@ function MobileNavLink({ to, label, active }: { to: string; label: string; activ
   return (
     <Link
       to={to}
-      className={`flex min-h-[48px] items-center justify-center rounded-2xl border px-2 text-center text-sm font-bold active:scale-[0.98] ${
-        active ? "border-cyan-400/40 bg-cyan-950/40 text-cyan-100" : "border-slate-800 bg-slate-900/80 text-slate-200"
-      }`}
+      className={`flex min-h-[48px] items-center justify-center rounded-2xl border px-2 text-center text-sm font-bold active:scale-[0.98] ${ active ? "border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent)]" : "border-stone-300 bg-white/80 text-[var(--ink)]" }`}
     >
       {label}
     </Link>

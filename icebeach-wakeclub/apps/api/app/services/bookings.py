@@ -10,6 +10,7 @@ from packages.sheets import SheetWrapper
 from ..models import BookingCreateRequest, BookingStatus
 from .availability import get_availability_for_date
 from .common import parse_bool
+from .equipment import booking_equipment_fields, build_context
 from .gender import infer_gender_from_full_name
 from .operation_lock import serialize_sheets_mutation
 from .payments import payment_summaries_by_booking
@@ -165,6 +166,7 @@ def _booking_to_item(
         "actual_duration_seconds": actual_duration_seconds,
         "total_price": int(row.get("total_price") or 0),
         "notes": notes,
+        **booking_equipment_fields(row),
     }
     if payment_summary:
         item.update(
@@ -304,9 +306,10 @@ def list_bookings(
     boat_id: str | None = None,
 ) -> list[dict[str, str | int | bool]]:
     clients = {row.get("client_id", ""): row for row in sheet.read_tab("clients") if row.get("club_id") == club_id}
+    all_rows = sheet.read_tab("bookings")
     rows = [
         row
-        for row in sheet.read_tab("bookings")
+        for row in all_rows
         if row.get("club_id") == club_id and row.get("date") == target_date
     ]
     if coach_user_id:
@@ -320,7 +323,12 @@ def list_bookings(
     rows.sort(key=lambda row: (row.get("time", ""), row.get("boat_id", ""), row.get("booking_id", "")))
     payments = [row for row in sheet.read_tab("payments") if row.get("club_id") == club_id]
     summaries = payment_summaries_by_booking(rows, payments)
-    return [_booking_to_item(row, clients, summaries.get(row.get("booking_id", ""))) for row in rows]
+    items = [_booking_to_item(row, clients, summaries.get(row.get("booking_id", ""))) for row in rows]
+    if items:
+        # «Как в прошлый раз»: индекс истории из уже прочитанных строк, без чтений на каждую запись.
+        ctx = build_context(sheet, club_id=club_id, clients=clients, booking_rows=all_rows)
+        items = [ctx.enrich(item) for item in items]
+    return items
 
 
 def get_booking_row(sheet: SheetWrapper, *, booking_id: str, club_id: str) -> dict[str, str]:

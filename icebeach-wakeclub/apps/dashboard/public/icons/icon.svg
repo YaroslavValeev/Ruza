@@ -1,16 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ice Beach">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#10233a"/>
-      <stop offset="100%" stop-color="#07111f"/>
-    </linearGradient>
-    <linearGradient id="wave" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#59e3ff"/>
-      <stop offset="100%" stop-color="#4d88ff"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
-  <path d="M64 300 Q128 240 192 300 T320 300 T448 260 L448 380 L64 380 Z" fill="url(#wave)" opacity="0.9"/>
-  <path d="M96 340 Q160 290 224 340 T352 340 T416 310" fill="none" stroke="#ffb44d" stroke-width="16" stroke-linecap="round"/>
-  <text x="256" y="170" text-anchor="middle" fill="#edf8ff" font-family="Arial,sans-serif" font-size="72" font-weight="700">IB</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MyWave Club · Ice Beach">
+  <rect width="512" height="512" rx="112" fill="#E6E1D6"/>
+  <circle cx="256" cy="256" r="176" fill="#0E6E62"/>
+  <circle cx="326" cy="178" r="24" fill="#C9782A"/>
+  <path d="M134 270 C164 230 194 230 195 270 S226 310 256 270 S286 230 317 270 S348 310 378 270" fill="none" stroke="#F7F4ED" stroke-width="26" stroke-linecap="round"/>
+  <path d="M160 332 C184 308 208 308 208 332 S232 356 256 332 S280 308 304 332 S328 356 352 332" fill="none" stroke="#D7EBE7" stroke-width="18" stroke-linecap="round"/>
 </svg>

@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { getPilotToday } from "../api/client";
+import { getBoats, getPilotToday } from "../api/client";
 import { PilotRideControls } from "../components/shift-timer/PilotRideControls";
-import { PilotQueueItem, StaffSession } from "../types";
+import { BoardChip } from "../components/equipment/BoardChip";
+import { mergeBookingUpdate } from "../lib/equipment";
+import { boatLabel, rememberBoats, rideTypeLabel, statusLabel, useBoatNames } from "../lib/labels";
+import { BoatItem, PilotQueueItem, StaffSession } from "../types";
 import {
   getPilotStepHint,
-  RIDE_TYPE_LABELS,
-  STATUS_LABELS,
   getStatusTone,
   getToday,
 } from "./pilot-utils";
 import { formatDurationClock } from "../lib/shift-timer";
 import { useRideQueueClock } from "../lib/use-ride-queue-clock";
+import { formatMinutes, isPositive } from "../lib/format";
 
 type MobilePilotPageProps = {
   session: StaffSession;
@@ -20,7 +22,9 @@ type MobilePilotPageProps = {
 const REFRESH_MS = 30000;
 
 export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element {
+  useBoatNames(session);
   const [boatId, setBoatId] = useState(session.boat_id ?? "");
+  const [boats, setBoats] = useState<BoatItem[]>([]);
   const [date, setDate] = useState(getToday);
   const { items, setQueue, mergeItem, remainingSeconds } = useRideQueueClock();
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +32,25 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
 
   const effectiveBoatId = session.role === "pilot" ? session.boat_id ?? "" : boatId.trim();
   const needsBoatId = session.role !== "pilot" && !effectiveBoatId;
+
+  useEffect(() => {
+    if (session.role !== "admin" && session.role !== "operator") return;
+    let cancelled = false;
+    void getBoats(session.token)
+      .then((availableBoats) => {
+        if (cancelled) return;
+        const activeBoats = availableBoats.filter((boat) => boat.is_active);
+        rememberBoats(activeBoats);
+        setBoats(activeBoats);
+        if (!boatId && activeBoats.length > 0) setBoatId(activeBoats[0].boat_id);
+      })
+      .catch((requestError: Error) => {
+        if (!cancelled) setError(requestError.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session.role, session.token]);
 
   const loadQueue = async () => {
     if (session.role !== "pilot" && session.role !== "admin" && session.role !== "operator") {
@@ -98,55 +121,61 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
     <div className="space-y-4">
       <section className="game-panel space-y-3">
         <div className="flex items-end justify-between gap-3">
-          <div>
-            <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Очередь на день</div>
-            <p className="mt-1 text-sm text-slate-400">Автообновление каждые 30 сек.</p>
+          <div className="min-w-0">
+            <div className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Очередь на день</div>
+            <p className="mt-1 text-sm text-[color:var(--ink-muted)]">Автообновление каждые 30 сек.</p>
           </div>
-          <button type="button" className="game-button-secondary min-h-[48px] px-4" onClick={() => void loadQueue()} disabled={loading}>
-            {loading ? "..." : "Обновить"}
+          <button type="button" className="game-button-secondary min-h-[48px] shrink-0 whitespace-nowrap px-4" onClick={() => void loadQueue()} disabled={loading}>
+            {loading ? "Обновляем…" : "Обновить"}
           </button>
         </div>
 
         {session.role === "pilot" ? (
           <div className="game-input flex min-h-[48px] items-center">
-            {session.boat_id || "Лодка не привязана к профилю пилота"}
+            {session.boat_id ? boatLabel(session.boat_id) : "Катер не закреплён за пилотом"}
           </div>
         ) : (
           <div>
-            <label className="mb-2 block text-sm font-bold text-cyan-100/70">Лодка (boat_id)</label>
-            <input
-              value={boatId}
-              onChange={(event) => setBoatId(event.target.value)}
-              className="game-input min-h-[48px]"
-              placeholder="boat_id"
-            />
+            <label htmlFor="m-pilot-boat" className="mb-2 block text-sm font-bold text-[color:var(--ink-muted)]">Катер</label>
+            <select id="m-pilot-boat" value={boatId} onChange={(event) => setBoatId(event.target.value)} className="game-input min-h-[48px]">
+              <option value="">{boats.length === 0 ? "Нет активных катеров" : "Выберите катер"}</option>
+              {boats.map((boat) => (
+                <option key={boat.boat_id} value={boat.boat_id}>
+                  {boat.boat_name && boat.boat_name !== boat.boat_id ? boat.boat_name : boatLabel(boat.boat_id)}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 
-        <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="game-input min-h-[48px]" />
+        <div>
+          <label htmlFor="m-pilot-date" className="mb-2 block text-sm font-bold text-[color:var(--ink-muted)]">Дата</label>
+          <input id="m-pilot-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className="game-input min-h-[48px]" />
+        </div>
       </section>
 
       {needsBoatId ? (
-        <section className="game-panel text-sm text-amber-100">Укажите boat_id, чтобы загрузить очередь пилота.</section>
+        <section className="game-panel text-sm text-[color:var(--ink-muted)]">Выберите катер, чтобы загрузить очередь.</section>
       ) : null}
 
-      {error ? <div className="game-panel border-red-400/30 bg-red-950/30 text-red-50">{error}</div> : null}
+      {error ? <div role="alert" className="game-panel border-red-600/25 bg-red-50 text-red-900">{error}</div> : null}
 
       {focusRide ? (
         <section className="game-panel space-y-4">
-          <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">
+          <div className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">
             {activeRide ? "Сейчас на воде" : "Следующий заезд"}
           </div>
-          <div className="text-2xl font-black text-white">{focusRide.client_name || focusRide.client_id}</div>
-          <div className="text-sm text-cyan-100/70">
-            {focusRide.time} • {RIDE_TYPE_LABELS[(focusRide.ride_type || "wakeboard") as keyof typeof RIDE_TYPE_LABELS]}
+          <div className="text-2xl font-black text-[color:var(--ink)]">{focusRide.client_name || focusRide.client_id}</div>
+          <div className="text-sm text-[color:var(--ink-muted)]">
+            {focusRide.time} · {rideTypeLabel(focusRide.ride_type)}
           </div>
-          <span className={getStatusTone(focusRide.status)}>{STATUS_LABELS[focusRide.status] || focusRide.status}</span>
-          <div className="text-sm text-cyan-100/70">
-            {formatDurationClock(remainingSeconds(focusRide))} осталось • план {focusRide.planned_duration_minutes} мин
+          <span className={getStatusTone(focusRide.status)}>{statusLabel(focusRide.status)}</span>
+          <BoardChip board={focusRide.board} lastBoard={focusRide.last_board} />
+          <div className="text-sm text-[color:var(--ink-muted)]">
+            Осталось {formatDurationClock(remainingSeconds(focusRide))} · план {formatMinutes(focusRide.planned_duration_minutes)}
           </div>
           {focusRideHint ? (
-            <div className={`rounded-2xl border p-4 text-sm ${focusRideHint.actor === "operator" ? "border-amber-300/20 bg-amber-950/20 text-amber-100" : focusRideHint.actor === "pilot" ? "border-cyan-300/15 bg-cyan-950/20 text-cyan-50" : "border-slate-800 bg-slate-900/70 text-slate-300"}`}>
+            <div className={`rounded-2xl border p-4 text-sm ${focusRideHint.actor === "operator" ? "border-amber-600/25 bg-amber-50 text-amber-900" : focusRideHint.actor === "pilot" ? "border-[color:var(--accent-border)] bg-[color:var(--accent-soft)] text-[color:var(--ink)]" : "border-[color:var(--border)] bg-[color:var(--panel-solid)] text-[color:var(--ink-muted)]"}`}>
               <div className="text-xs font-black uppercase tracking-[0.12em]">{focusRideHint.title}</div>
               <div className="mt-2">{focusRideHint.description}</div>
             </div>
@@ -155,34 +184,35 @@ export function MobilePilotPage({ session }: MobilePilotPageProps): JSX.Element 
           <PilotRideControls session={session} booking={focusRide} onUpdated={mergeItem} allowTimerControls={session.role === "pilot" || session.role === "admin"} compact />
         </section>
       ) : needsBoatId ? null : (
-        <section className="game-panel text-sm text-slate-300">На выбранную дату активных заездов нет.</section>
+        <section className="game-panel text-sm text-[color:var(--ink-muted)]">На выбранную дату активных заездов нет.</section>
       )}
 
       <section className="space-y-3">
-        <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Вся очередь ({items.length})</div>
+        <div className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Вся очередь ({items.length})</div>
         {items.map((item) => (
           <article key={item.booking_id} className="game-card space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-lg font-black text-white">{item.client_name || item.client_id}</div>
-                <div className="mt-1 text-sm text-slate-400">
-                  {item.time} • {item.boat_id}
+                <div className="text-lg font-black text-[color:var(--ink)]">{item.client_name || item.client_id}</div>
+                <div className="mt-1 text-sm text-[color:var(--ink-muted)]">
+                  {item.time} · {boatLabel(item.boat_id)} · {rideTypeLabel(item.ride_type)}
                 </div>
               </div>
-              <span className={getStatusTone(item.status)}>{STATUS_LABELS[item.status] || item.status}</span>
+              <span className={getStatusTone(item.status)}>{statusLabel(item.status)}</span>
             </div>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <BoardChip board={item.board} lastBoard={item.last_board} compact />
+            <div className="grid grid-cols-3 gap-2">
               <div className="game-stat p-3">
-                <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">План</div>
-                <div className="mt-1 text-sm font-black text-white">{item.planned_duration_minutes} мин</div>
+                <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">План</div>
+                <div className="mt-1 text-sm font-black text-[color:var(--ink)]">{formatMinutes(item.planned_duration_minutes)}</div>
               </div>
               <div className="game-stat p-3">
-                <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Осталось</div>
-                <div className="mt-1 text-sm font-black text-white">{formatDurationClock(remainingSeconds(item))}</div>
+                <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Осталось</div>
+                <div className="mt-1 text-sm font-black text-[color:var(--ink)]">{formatDurationClock(remainingSeconds(item))}</div>
               </div>
               <div className="game-stat p-3">
-                <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">Факт</div>
-                <div className="mt-1 text-sm font-black text-white">{item.status === "done" || item.actual_duration_seconds > 0 ? formatDurationClock(item.actual_duration_seconds) : "Ещё в процессе"}</div>
+                <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Факт</div>
+                <div className="mt-1 text-sm font-black text-[color:var(--ink)]">{isPositive(item.actual_duration_seconds) || item.status === "done" ? formatDurationClock(item.actual_duration_seconds) : "—"}</div>
               </div>
             </div>
             <PilotRideControls session={session} booking={item} onUpdated={mergeItem} allowTimerControls={session.role === "pilot" || session.role === "admin"} compact />

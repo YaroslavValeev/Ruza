@@ -7,6 +7,7 @@ from packages.sheets import SheetWrapper
 from ..auth import AuthUser, require_roles
 from ..dependencies import get_sheet_wrapper
 from ..models import BookingItem, CheckinItem, ShiftLiveResponse, ShiftSummary, ShiftTodayResponse
+from ..services.equipment import redact_for_role
 from ..services.pilot import get_pilot_boat_id
 from ..services.shift import club_local_today, get_shift_today
 from ..services.shift_timer import get_shift_live
@@ -32,7 +33,7 @@ def shift_today(
     )
     return ShiftTodayResponse(
         date=target,
-        bookings=[BookingItem(**item) for item in payload["bookings"]],  # type: ignore[arg-type]
+        bookings=[BookingItem(**redact_for_role(dict(item), user.role)) for item in payload["bookings"]],  # type: ignore[arg-type]
         checkins=[CheckinItem(**item) for item in payload["checkins"]],  # type: ignore[arg-type]
         summary=ShiftSummary(**payload["summary"]),  # type: ignore[arg-type]
     )
@@ -59,5 +60,5 @@ def shift_live(
     focus = payload.get("focus_booking")
     return ShiftLiveResponse(
         date=target,
-        focus_booking=BookingItem(**focus) if focus else None,  # type: ignore[arg-type]
+        focus_booking=BookingItem(**redact_for_role(dict(focus), user.role)) if focus else None,  # type: ignore[arg-type]
     )

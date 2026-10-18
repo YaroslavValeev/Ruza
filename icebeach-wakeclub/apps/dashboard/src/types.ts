@@ -3,6 +3,8 @@ export type BookingStatus = "confirmed" | "arrived" | "ready" | "in_progress" | 
 export type WetsuitSize = "XS" | "S" | "M" | "L" | "XL" | "XXL";
 export type WetsuitGender = "male" | "female";
 export type RideType = "wakeboard" | "surf" | "skim";
+/** Напиток после заезда («Как в прошлый раз»). В API — enum, на экране — по-русски. */
+export type DrinkChoice = "coffee" | "chocolate" | "none";
 export type KpiPeriod = "day" | "week" | "month" | "season" | "custom";
 export type PaymentMethod = "cash" | "card_terminal" | "sbp" | "online";
 export type PaymentStatus = "unpaid" | "partially_paid" | "paid" | "overpaid" | "partially_refunded" | "refunded";
@@ -105,13 +107,74 @@ export type PilotQueueItem = {
   status: BookingStatus;
   coach_required: boolean;
   ride_type?: RideType | null;
-  sets_count: number;
-  planned_duration_minutes: number;
+  /** null — старая версия API не прислала поле. */
+  sets_count: number | null;
+  planned_duration_minutes: number | null;
   warmup_state: WarmupState;
   timer_state: RideTimerState;
-  elapsed_seconds: number;
-  remaining_seconds: number;
-  actual_duration_seconds: number;
+  elapsed_seconds: number | null;
+  remaining_seconds: number | null;
+  actual_duration_seconds: number | null;
+  /** Пилоту — только доска: выданная на эту запись и «в прошлый раз». */
+  board?: BoardRef | null;
+  last_board?: BoardRef | null;
+};
+
+export type BoardRef = {
+  board_id: string;
+  number: string;
+  name?: string;
+  kind?: RideType | null;
+  length_cm?: number | null;
+  is_active?: boolean;
+};
+
+export type WetsuitRef = {
+  wetsuit_id: string;
+  number: string;
+  size?: WetsuitSize | null;
+  gender?: WetsuitGender | null;
+  is_active?: boolean;
+};
+
+/** «Как в прошлый раз»: что выдали клиенту на последнем визите. */
+export type LastTimeItem = {
+  booking_id: string;
+  date: string;
+  time?: string;
+  ride_type?: RideType | null;
+  wetsuit?: WetsuitRef | null;
+  board?: BoardRef | null;
+  drink?: DrinkChoice | null;
+  issued_by_name?: string;
+  issued_at?: string;
+  visits_before?: number;
+};
+
+export type EquipmentUpdateRequest = {
+  wetsuit_id?: string;
+  board_id?: string;
+  drink?: DrinkChoice | "";
+};
+
+export type EquipmentUpdateResponse = {
+  booking: BookingItem;
+  warnings: string[];
+};
+
+export type BoardInput = {
+  number: string;
+  name: string;
+  kind: RideType;
+  length_cm: number | null;
+  is_active?: boolean;
+};
+
+export type WetsuitInput = {
+  number: string;
+  size: WetsuitSize;
+  gender: WetsuitGender;
+  is_active?: boolean;
 };
 
 export type AvailabilityItem = {
@@ -159,8 +222,9 @@ export type BookingItem = {
   coach_required: boolean;
   coach_user_id?: string | null;
   ride_type?: RideType | null;
-  sets_count: number;
-  planned_duration_minutes: number;
+  /** null — старая версия API не прислала поле. */
+  sets_count: number | null;
+  planned_duration_minutes: number | null;
   wetsuit_required: boolean;
   wetsuit_size?: WetsuitSize | null;
   wetsuit_gender?: WetsuitGender | null;
@@ -168,9 +232,9 @@ export type BookingItem = {
   timer_state: RideTimerState;
   timer_started_at: string;
   timer_anchor_at: string;
-  elapsed_seconds: number;
-  remaining_seconds: number;
-  actual_duration_seconds: number;
+  elapsed_seconds: number | null;
+  remaining_seconds: number | null;
+  actual_duration_seconds: number | null;
   total_price: number;
   payment_status: PaymentStatus;
   paid_amount_minor: number;
@@ -178,6 +242,17 @@ export type BookingItem = {
   net_paid_minor: number;
   balance_due_minor: number;
   notes: string;
+  /** «Как в прошлый раз». Старый API полей не присылает — тогда блок скрыт. */
+  wetsuit_id?: string | null;
+  board_id?: string | null;
+  drink?: DrinkChoice | null;
+  equipment_issued_by?: string;
+  equipment_issued_by_name?: string;
+  equipment_issued_at?: string;
+  wetsuit?: WetsuitRef | null;
+  board?: BoardRef | null;
+  last_time?: LastTimeItem | null;
+  visits_before?: number | null;
 };
 
 export type PaymentMutationResponse = {

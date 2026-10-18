@@ -1,38 +1,68 @@
 {
-  "name": "Ice Beach Wake Club",
-  "short_name": "Ice Beach",
-  "description": "Пилот и управление сменой — Ice Beach Wake Club",
+  "name": "MyWave Club · Ice Beach",
+  "short_name": "MyWave Club",
+  "description": "Пульт пилота и управление сменой вейк-клуба Ice Beach",
   "start_url": "/m/pilot",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#07111f",
-  "theme_color": "#07111f",
+  "background_color": "#DAD4C8",
+  "theme_color": "#DAD4C8",
   "lang": "ru",
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ],
   "shortcuts": [
     {
       "name": "Пилот",
       "url": "/m/pilot",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
-      "name": "Owner",
+      "name": "Клуб",
       "url": "/m/owner",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

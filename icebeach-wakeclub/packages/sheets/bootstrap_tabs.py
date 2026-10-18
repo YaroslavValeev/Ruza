@@ -9,7 +9,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from .schema import TAB_SCHEMAS
+from .schema import TAB_SCHEMAS, migration_columns
 from .sheet_wrapper import SheetWrapper
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -17,7 +17,7 @@ load_dotenv(_REPO_ROOT / ".env")
 load_dotenv(_REPO_ROOT / ".env.docker")
 
 # Operational tabs that may be introduced after the base workbook was created.
-BOOTSTRAP_TABS = ("checkins", "kpi_targets", "leads", "bookings", "payments", "payment_closures")
+BOOTSTRAP_TABS = ("checkins", "kpi_targets", "leads", "bookings", "payments", "payment_closures", "boards", "wetsuits")
 
 KPI_SEED_ROW = {
     "target_id": "tgt-2026-season",
@@ -47,6 +47,14 @@ def _resolve_credentials() -> tuple[str, str | None, dict[str, Any] | None]:
         import json
 
         return spreadsheet_id, None, json.loads(inline)
+
+    # Как в API (apps/api/app/config.py): ключ может лежать в env в base64.
+    encoded = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_BASE64", "").strip()
+    if encoded:
+        import base64
+        import json
+
+        return spreadsheet_id, None, json.loads(base64.b64decode(encoded).decode("utf-8"))
 
     raise SystemExit("service-account.json not found in repo root and GOOGLE_SERVICE_ACCOUNT_JSON not set")
 
@@ -137,25 +145,48 @@ def _ensure_header_columns(sheet: SheetWrapper, tab_name: str, required: tuple[s
     print(f"MIGRATED tab={tab_name} added={','.join(missing)}")
 
 
-def bootstrap(*, seed_kpi: bool = True) -> int:
+def plan(sheet: SheetWrapper) -> list[str]:
+    """Только чтение: какие вкладки/колонки миграция добавит. Ничего не пишет."""
+    existing = _list_sheet_titles(sheet)
+    changes: list[str] = []
+    for tab_name in (*BOOTSTRAP_TABS, "clients"):
+        columns = migration_columns(tab_name)
+        if tab_name not in existing:
+            if tab_name == "clients":
+                continue
+            changes.append(f"ADD tab={tab_name} cols={','.join(columns)}")
+            continue
+        values = sheet._fetch_values(tab_name)  # noqa: SLF001
+        current = [str(cell) for cell in values[0]] if values and values[0] else []
+        missing = [column for column in columns if column not in current]
+        if missing:
+            changes.append(f"ADD columns tab={tab_name} cols={','.join(missing)}")
+    return changes
+
+
+def _open_sheet() -> SheetWrapper:
     spreadsheet_id, sa_path, sa_info = _resolve_credentials()
-    sheet = SheetWrapper(spreadsheet_id, service_account_json_path=sa_path, service_account_info=sa_info)
+    return SheetWrapper(spreadsheet_id, service_account_json_path=sa_path, service_account_info=sa_info)
+
+
+def bootstrap(*, seed_kpi: bool = True) -> int:
+    sheet = _open_sheet()
     existing = _list_sheet_titles(sheet)
 
     for tab_name in BOOTSTRAP_TABS:
-        schema = TAB_SCHEMAS[tab_name]
+        columns = migration_columns(tab_name)  # обязательные + необязательные (wetsuit_id, board_id, drink, …)
         if tab_name not in existing:
             _create_tab(sheet, tab_name)
             existing.add(tab_name)
 
         if not _tab_has_headers(sheet, tab_name):
-            _write_header_row(sheet, tab_name, schema.required_columns)
+            _write_header_row(sheet, tab_name, columns)
         else:
-            _ensure_header_columns(sheet, tab_name, schema.required_columns)
+            _ensure_header_columns(sheet, tab_name, columns)
 
-    # clients is a base tab. Existing workbooks may lack telegram_id; append that header only.
+    # clients is a base tab. Existing workbooks may lack telegram_id / prefs_reset_at; append headers only.
     if "clients" in existing:
-        _append_missing_headers(sheet, "clients", TAB_SCHEMAS["clients"].required_columns)
+        _append_missing_headers(sheet, "clients", migration_columns("clients"))
     else:
         print("SKIP tab=clients (tab missing)")
 
@@ -171,8 +202,23 @@ def bootstrap(*, seed_kpi: bool = True) -> int:
     return 0
 
 
-def main() -> None:
-    code = bootstrap()
+def main(argv: list[str] | None = None) -> None:
+    """python -m packages.sheets [--check] [--no-seed]
+
+    --check    только показать, что будет добавлено (ничего не пишет);
+    --no-seed  не добавлять пример строки в пустую kpi_targets.
+    """
+    args = set(sys.argv[1:] if argv is None else argv)
+    unknown = args - {"--check", "--no-seed"}
+    if unknown:
+        raise SystemExit(f"Unknown arguments: {' '.join(sorted(unknown))}")
+    if "--check" in args:
+        changes = plan(_open_sheet())
+        for line in changes:
+            print(line)
+        print(f"PLAN changes={len(changes)}" if changes else "PLAN schema current, nothing to add")
+        sys.exit(0)
+    code = bootstrap(seed_kpi="--no-seed" not in args)
     sys.exit(code)
 
 

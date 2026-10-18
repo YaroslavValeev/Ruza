@@ -9,11 +9,17 @@ export function ConsentBadges({ consentFace = false, consentVoice = false, compa
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      <span className={`rounded-full border ${consentFace ? "border-emerald-400/40 bg-emerald-950/40 text-emerald-100" : "border-slate-700 bg-slate-900/80 text-slate-400"} ${size}`}>
-        Face {consentFace ? "OK" : "—"}
+      <span
+        title="Согласие на распознавание лица"
+        className={`rounded-full border ${consentFace ? "border-emerald-500/40 bg-emerald-50 text-emerald-800" : "border-stone-300 bg-stone-50 text-stone-600"} ${size}`}
+      >
+        Лицо: {consentFace ? "да" : "нет"}
       </span>
-      <span className={`rounded-full border ${consentVoice ? "border-cyan-400/40 bg-cyan-950/40 text-cyan-100" : "border-slate-700 bg-slate-900/80 text-slate-400"} ${size}`}>
-        Voice {consentVoice ? "OK" : "—"}
+      <span
+        title="Согласие на голосовую отметку"
+        className={`rounded-full border ${consentVoice ? "border-teal-500/40 bg-teal-50 text-teal-800" : "border-stone-300 bg-stone-50 text-stone-600"} ${size}`}
+      >
+        Голос: {consentVoice ? "да" : "нет"}
       </span>
     </div>
   );

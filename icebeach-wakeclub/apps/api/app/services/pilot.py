@@ -4,6 +4,7 @@ from packages.sheets import SheetWrapper
 
 from ..models import RideType
 from .common import parse_bool
+from .equipment import booking_equipment_fields, build_context
 from .ride_runtime import compute_elapsed_seconds, compute_remaining_seconds, parse_actual_duration_seconds, parse_sets_count, planned_duration_minutes, timer_state
 from .shift import club_local_today
 
@@ -27,15 +28,25 @@ def get_pilot_queue(
         end_text = date_text
 
     clients = {row.get("client_id", ""): row for row in sheet.read_tab("clients") if row.get("club_id") == club_id}
+    all_rows = sheet.read_tab("bookings")
     rows = [
         row
-        for row in sheet.read_tab("bookings")
+        for row in all_rows
         if row.get("club_id") == club_id
         and start_text <= row.get("date", "") <= end_text
         and row.get("boat_id") == boat_id
         and row.get("status") in ACTIVE_PILOT_STATUSES
     ]
     rows.sort(key=lambda item: (item.get("date", ""), item.get("time", "")))
+    ctx = build_context(sheet, club_id=club_id, clients=clients, booking_rows=all_rows) if rows else None
+
+    def _boards(r: dict[str, str]) -> dict[str, object]:
+        # Пилоту — только доска: выданная на эту запись и «в прошлый раз».
+        if ctx is None:
+            return {"board": None, "last_board": None}
+        enriched = ctx.enrich({**booking_equipment_fields(r), "booking_id": r.get("booking_id", ""), "client_id": r.get("client_id", ""), "date": r.get("date", ""), "time": r.get("time", "")})
+        last_time = enriched.get("last_time") or {}
+        return {"board": enriched.get("board"), "last_board": last_time.get("board") if isinstance(last_time, dict) else None}
 
     return [
         {
@@ -55,6 +66,7 @@ def get_pilot_queue(
             "elapsed_seconds": compute_elapsed_seconds(r),
             "remaining_seconds": compute_remaining_seconds(r),
             "actual_duration_seconds": parse_actual_duration_seconds(r),
+            **_boards(r),
         }
         for r in rows
     ]

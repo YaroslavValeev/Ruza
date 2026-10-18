@@ -1,12 +1,20 @@
+import { localTodayIso } from "../lib/dates";
 import { FormEvent, useEffect, useState } from "react";
 
 import { getPublicAvailability, submitPublicBookingRequest } from "../api/client";
+import { rideTypeLabel } from "../lib/labels";
 import { AvailabilityItem, RideType } from "../types";
 
-const RIDE_TYPES: RideType[] = ["wakeboard", "surf", "skim"];
+const RIDE_TYPES: Array<{ value: RideType; label: string }> = [
+  { value: "wakeboard", label: rideTypeLabel("wakeboard", { capitalize: true }) },
+  { value: "surf", label: rideTypeLabel("surf", { capitalize: true }) },
+  { value: "skim", label: rideTypeLabel("skim", { capitalize: true }) },
+];
+
+const FIELD_LABEL = "mb-2 block text-sm font-bold text-[color:var(--ink-muted)]";
 
 function getDefaultDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localTodayIso();
 }
 
 export function PublicBookPage(): JSX.Element {
@@ -43,7 +51,7 @@ export function PublicBookPage(): JSX.Element {
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!time) {
-      setError("Выберите слот");
+      setError("Выберите время заезда");
       return;
     }
     setLoading(true);
@@ -70,37 +78,58 @@ export function PublicBookPage(): JSX.Element {
   };
 
   return (
-    <div className="mx-auto min-h-screen max-w-lg bg-slate-950 px-4 py-8 text-slate-100">
-      <h1 className="text-2xl font-black text-white">Запись в Ice Beach</h1>
-      <p className="mt-2 text-sm text-slate-400">Оставьте заявку — оператор подтвердит бронь.</p>
+    <div className="min-h-[100dvh] bg-[var(--paper)] px-4 py-8 text-[var(--ink)]">
+      <div className="mx-auto max-w-lg">
+        <div className="text-xs font-black uppercase tracking-[0.14em] text-[color:var(--accent)]">MyWave Club · Ice Beach</div>
+        <h1 className="game-heading mt-2">Запись на заезд</h1>
+        <p className="mt-2 text-sm text-[var(--ink-muted)]">Оставьте заявку — оператор перезвонит и подтвердит бронь.</p>
 
-      <form className="mt-6 space-y-4" onSubmit={(event) => void onSubmit(event)}>
-        <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="game-input w-full min-h-[48px]" />
-        <select value={time} onChange={(event) => setTime(event.target.value)} className="game-input w-full min-h-[48px]">
-          <option value="">Выберите время</option>
-          {slots.map((slot) => (
-            <option key={`${slot.time}-${slot.boat_id}`} value={slot.time}>
-              {slot.time} (свободно {slot.available})
-            </option>
-          ))}
-        </select>
-        <select value={rideType} onChange={(event) => setRideType(event.target.value as RideType)} className="game-input w-full min-h-[48px]">
-          {RIDE_TYPES.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-        <input value={fullName} onChange={(event) => setFullName(event.target.value)} className="game-input w-full min-h-[48px]" placeholder="Имя" required />
-        <input value={phone} onChange={(event) => setPhone(event.target.value)} className="game-input w-full min-h-[48px]" placeholder="Телефон" required inputMode="tel" />
-        <textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="game-input w-full min-h-[80px]" placeholder="Комментарий" />
-        <button type="submit" className="game-button min-h-[52px] w-full" disabled={loading}>
-          {loading ? "Отправляем..." : "Отправить заявку"}
-        </button>
-      </form>
+        <form className="game-panel mt-6 space-y-4" onSubmit={(event) => void onSubmit(event)}>
+          <div>
+            <label htmlFor="book-date" className={FIELD_LABEL}>Дата</label>
+            <input id="book-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className="game-input w-full min-h-[48px]" />
+          </div>
+          <div>
+            <label htmlFor="book-time" className={FIELD_LABEL}>Время</label>
+            <select id="book-time" value={time} onChange={(event) => setTime(event.target.value)} className="game-input w-full min-h-[48px]">
+              <option value="">Выберите время</option>
+              {slots.map((slot) => (
+                <option key={`${slot.time}-${slot.boat_id}`} value={slot.time}>
+                  {slot.time} · свободно мест: {slot.available}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="book-ride" className={FIELD_LABEL}>Дисциплина</label>
+            <select id="book-ride" value={rideType} onChange={(event) => setRideType(event.target.value as RideType)} className="game-input w-full min-h-[48px]">
+              {RIDE_TYPES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="book-name" className={FIELD_LABEL}>Имя</label>
+            <input id="book-name" value={fullName} onChange={(event) => setFullName(event.target.value)} className="game-input w-full min-h-[48px]" autoComplete="name" required />
+          </div>
+          <div>
+            <label htmlFor="book-phone" className={FIELD_LABEL}>Телефон</label>
+            <input id="book-phone" type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} className="game-input w-full min-h-[48px]" placeholder="+7 999 000-00-00" autoComplete="tel" required inputMode="tel" />
+          </div>
+          <div>
+            <label htmlFor="book-notes" className={FIELD_LABEL}>Комментарий</label>
+            <textarea id="book-notes" value={notes} onChange={(event) => setNotes(event.target.value)} className="game-input w-full min-h-[80px]" placeholder="Например: первый раз, нужен тренер" />
+          </div>
+          <button type="submit" className="game-button min-h-[52px] w-full" disabled={loading}>
+            {loading ? "Отправляем…" : "Отправить заявку"}
+          </button>
+        </form>
 
-      {message ? <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-950/30 p-4 text-emerald-50">{message}</div> : null}
-      {error ? <div className="mt-4 rounded-xl border border-red-400/30 bg-red-950/30 p-4 text-red-50">{error}</div> : null}
+        {message ? <div role="status" className="mt-4 rounded-xl border border-emerald-600/25 bg-emerald-50 p-4 text-emerald-900">{message}</div> : null}
+        {error ? <div role="alert" className="mt-4 rounded-xl border border-red-600/25 bg-red-50 p-4 text-red-900">{error}</div> : null}
+      </div>
     </div>
   );
 }

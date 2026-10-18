@@ -16,10 +16,10 @@ export function ApiHealthBadge({ compact = false }: ApiHealthBadgeProps): JSX.El
     try {
       await getHealthStatus();
       setHealthy(true);
-      setCheckedAt(new Date().toLocaleTimeString("ru-RU"));
+      setCheckedAt(new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }));
     } catch {
       setHealthy(false);
-      setCheckedAt(new Date().toLocaleTimeString("ru-RU"));
+      setCheckedAt(new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }));
     } finally {
       setLoading(false);
     }
@@ -33,23 +33,24 @@ export function ApiHealthBadge({ compact = false }: ApiHealthBadgeProps): JSX.El
 
   const dotClass =
     healthy === true
-      ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.7)]"
+      ? "bg-emerald-500"
       : healthy === false
-        ? "bg-red-400 shadow-[0_0_12px_rgba(248,113,113,0.7)]"
-        : "bg-slate-400";
+        ? "bg-red-500"
+        : "bg-stone-400";
 
   const label =
-    healthy === true ? "API на связи" : healthy === false ? "API недоступно" : "Проверка API";
+    healthy === true ? "Сервер на связи" : healthy === false ? "Нет связи" : "Проверяем связь";
 
   if (compact) {
     return (
       <button
         type="button"
         onClick={() => void check()}
-        className="flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-xs font-bold text-slate-200"
+        className="flex min-h-[44px] items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold"
+        style={{ borderColor: "var(--border)", color: "var(--ink)", background: "var(--panel-solid)" }}
       >
         <span className={`inline-block h-2.5 w-2.5 rounded-full ${dotClass}`} />
-        {loading ? "..." : label}
+        <span className="whitespace-nowrap">{loading ? "Проверяем…" : label}</span>
       </button>
     );
   }
@@ -58,11 +59,11 @@ export function ApiHealthBadge({ compact = false }: ApiHealthBadgeProps): JSX.El
     <div className="game-panel-soft">
       <div className="flex items-center gap-2">
         <span className={`inline-block h-3 w-3 rounded-full ${dotClass}`} />
-        <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-200">{label}</span>
+        <span className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink)]">{label}</span>
       </div>
-      <div className="mt-1 text-xs text-slate-400">{checkedAt ? `Проверка: ${checkedAt}` : "Ещё не проверяли"}</div>
-      <button type="button" onClick={() => void check()} className="game-button-secondary mt-2 px-3 py-2 text-xs">
-        {loading ? "..." : "Проверить"}
+      <div className="mt-1 text-xs text-[color:var(--ink-muted)]">{checkedAt ? `Проверено в ${checkedAt}` : "Ещё не проверяли"}</div>
+      <button type="button" onClick={() => void check()} className="game-button-secondary mt-2 whitespace-nowrap px-3 py-2 text-xs">
+        {loading ? "Проверяем…" : "Проверить связь"}
       </button>
     </div>
   );

@@ -1,9 +1,15 @@
 import { FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
-import { createCheckin, getClients, getKpiSummary } from "../api/client";
+import { createCheckin, getBookings, getClients, getKpiSummary } from "../api/client";
 import { ConsentBadges } from "../components/ConsentBadges";
+import { ClientPrefsPanel } from "../components/equipment/ClientPrefsPanel";
 import { VoiceCheckinWizard } from "../components/VoiceCheckinWizard";
-import { ClientItem, KpiSummary, StaffSession } from "../types";
+import { formatDateRu } from "../lib/dates";
+import { supportsClientPrefs, useInventory, visitOrdinal } from "../lib/equipment";
+import { formatCount, formatPercent, formatRubMinor } from "../lib/format";
+import { boatLabel, rideTypeLabel, roleLabel, useBoatNames } from "../lib/labels";
+import { BookingItem, ClientItem, KpiSummary, StaffSession } from "../types";
 import { getToday } from "./pilot-utils";
 
 type MobileOwnerPageProps = {
@@ -18,6 +24,10 @@ export function MobileOwnerPage({ session }: MobileOwnerPageProps): JSX.Element 
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Бронь после отметки о прибытии — «Как в прошлый раз». */
+  const [arrivedBooking, setArrivedBooking] = useState<BookingItem | null>(null);
+  const inventory = useInventory(session.token);
+  useBoatNames(session);
 
   const loadKpi = async () => {
     setError(null);
@@ -51,15 +61,21 @@ export function MobileOwnerPage({ session }: MobileOwnerPageProps): JSX.Element 
 
   const submitCheckin = async (status: "arrived" | "ready") => {
     if (!phone.trim()) {
-      setError("Введите телефон клиента");
+      setError("Введите телефон клиента.");
       return;
     }
     setError(null);
     setMessage(null);
     setLoading(true);
     try {
-      await createCheckin({ method: "phone", phone: phone.trim(), date, status }, session.token);
-      setMessage(status === "arrived" ? "Приезд отмечен" : "Клиент готов к старту");
+      const checkin = await createCheckin({ method: "phone", phone: phone.trim(), date, status }, session.token);
+      setMessage(status === "arrived" ? "Прибытие отмечено." : "Клиент отмечен как готовый к старту.");
+      setArrivedBooking(null);
+      if (checkin.booking_id) {
+        getBookings(date, session.token)
+          .then((rows) => setArrivedBooking(rows.find((row) => row.booking_id === checkin.booking_id) ?? null))
+          .catch(() => setArrivedBooking(null));
+      }
       setPhone("");
       setCheckinClient(null);
       await loadKpi();
@@ -78,45 +94,48 @@ export function MobileOwnerPage({ session }: MobileOwnerPageProps): JSX.Element 
   return (
     <div className="space-y-4">
       <section className="game-panel space-y-3">
-        <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Дата смены</div>
-        <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="game-input min-h-[48px]" />
+        <label htmlFor="owner-date" className="block text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Дата смены</label>
+        <input id="owner-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className="game-input min-h-[48px]" />
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-3">
-        <StatCard label="Заезды" value={kpi ? String(kpi.sessions_count) : "—"} />
-        <StatCard label="Загрузка" value={kpi ? `${kpi.utilization_pct.toFixed(0)}%` : "—"} />
-        <StatCard label="Чистое поступление" value={kpi ? `${Math.round(kpi.net_revenue_minor / 100).toLocaleString("ru-RU")} ₽` : "—"} />
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatCard label="Заезды" value={kpi ? formatCount(kpi.sessions_count) : "—"} />
+        <StatCard label="Загрузка" value={kpi ? formatPercent(kpi.utilization_pct, 0) : "—"} />
+        <StatCard wide label="Чистая выручка" value={kpi ? formatRubMinor(kpi.net_revenue_minor) : "—"} />
       </section>
 
       <div className="flex gap-2">
         <button type="button" className="game-button-secondary min-h-[48px] flex-1" disabled={loading} onClick={() => void loadKpi()}>
-          {loading ? "Обновляем..." : "Обновить KPI"}
+          {loading ? "Обновляем…" : "Обновить показатели"}
         </button>
       </div>
 
       <section className="game-panel space-y-4">
         <div>
-          <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Быстрый check-in</div>
-          <p className="mt-1 text-sm text-slate-400">По телефону клиента, без поиска в списке.</p>
+          <h2 className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Отметка о прибытии</h2>
+          <p className="mt-1 text-sm text-[color:var(--ink-muted)]">По телефону клиента, без поиска в списке.</p>
         </div>
         <form className="space-y-3" onSubmit={(event) => void onCheckin(event)}>
+          <label htmlFor="owner-phone" className="block text-sm font-bold text-[color:var(--ink-muted)]">Телефон клиента</label>
           <input
+            id="owner-phone"
+            type="tel"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
             className="game-input min-h-[52px] text-lg"
-            placeholder="+79990000001"
+            placeholder="+7 999 000-00-01"
             inputMode="tel"
             autoComplete="tel"
           />
           {checkinClient ? (
-            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-[color:var(--ink-muted)]">
               <span>{checkinClient.full_name}</span>
               <ConsentBadges consentFace={checkinClient.consent_face} consentVoice={checkinClient.consent_voice} compact />
             </div>
           ) : null}
-          <div className="grid gap-2 sm:grid-cols-2">
-            <button type="submit" className="game-button min-h-[56px] text-base" disabled={loading}>
-              Приехал
+          <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
+            <button type="submit" className="game-button min-h-[56px] text-base font-black" disabled={loading}>
+              Отметить прибытие
             </button>
             <button
               type="button"
@@ -136,22 +155,57 @@ export function MobileOwnerPage({ session }: MobileOwnerPageProps): JSX.Element 
         />
       </section>
 
-      {message ? <div className="game-panel border-emerald-400/30 bg-emerald-950/30 text-emerald-50">{message}</div> : null}
-      {error ? <div className="game-panel border-red-400/30 bg-red-950/30 text-red-50">{error}</div> : null}
+      {message ? <div role="status" className="game-panel border-emerald-600/25 bg-emerald-50 text-emerald-900">{message}</div> : null}
 
-      <section className="game-panel space-y-2 text-sm text-slate-300">
-        <div className="font-bold text-white">Owner: {session.full_name}</div>
-        <p>Дата: {date}. Полный dashboard: `/shift`, `/bookings`, `/kpi`.</p>
+      {arrivedBooking && supportsClientPrefs(arrivedBooking) ? (
+        <section className="game-panel space-y-3" aria-labelledby="owner-arrived-name">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">
+                {arrivedBooking.time} · {boatLabel(arrivedBooking.boat_id)} · {rideTypeLabel(arrivedBooking.ride_type)}
+              </div>
+              <h2 id="owner-arrived-name" className="mt-1 text-xl font-black text-[color:var(--ink)]">{arrivedBooking.client_name || arrivedBooking.client_id}</h2>
+              <div className="text-sm text-[color:var(--ink-muted)]">{visitOrdinal(arrivedBooking.visits_before)}</div>
+            </div>
+            <button
+              type="button"
+              className="game-button-secondary min-h-11 min-w-11 px-3"
+              onClick={() => setArrivedBooking(null)}
+              aria-label="Скрыть карточку клиента"
+            >
+              ✕
+            </button>
+          </div>
+          <ClientPrefsPanel
+            session={session}
+            booking={arrivedBooking}
+            inventory={inventory}
+            onUpdated={(updated) => setArrivedBooking((current) => (current ? { ...current, ...updated } : updated))}
+          />
+        </section>
+      ) : null}
+      {error ? <div role="alert" className="game-panel border-red-600/25 bg-red-50 text-red-900">{error}</div> : null}
+
+      <section className="game-panel space-y-3 text-sm text-[color:var(--ink-muted)]">
+        <div className="font-bold text-[color:var(--ink)]">
+          {session.full_name} · {roleLabel(session.role)}
+        </div>
+        <p>Смена на {formatDateRu(date)}. Полная версия панели:</p>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/shift" className="game-button-secondary min-h-11 px-4">Смена</Link>
+          <Link to="/bookings" className="game-button-secondary min-h-11 px-4">Брони</Link>
+          <Link to="/kpi" className="game-button-secondary min-h-11 px-4">Аналитика</Link>
+        </div>
       </section>
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }): JSX.Element {
+function StatCard({ label, value, wide = false }: { label: string; value: string; wide?: boolean }): JSX.Element {
   return (
-    <div className="game-stat p-4">
-      <div className="text-xs uppercase tracking-[0.12em] text-cyan-100/60">{label}</div>
-      <div className="mt-2 text-2xl font-black text-white">{value}</div>
+    <div className={`game-stat p-4 ${wide ? "col-span-2 sm:col-span-1" : ""}`}>
+      <div className="text-xs uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">{label}</div>
+      <div className="mt-2 text-2xl font-black text-[color:var(--ink)]">{value}</div>
     </div>
   );
 }

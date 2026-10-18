@@ -13,6 +13,10 @@ export const getShiftLive = () => window.shiftQa.getLive();
 export const runBookingTimerAction = (id, action) => window.shiftQa.mutate(id, action);
 export const updateBookingStatus = (id, status) => window.shiftQa.mutate(id, status);
 export const updateBookingPrep = (id, patch) => window.shiftQa.mutate(id, patch.arrival_action || patch.warmup_state);
+export const getBoats = () => Promise.resolve([]);
+export const getInventoryBoards = () => Promise.resolve([]);
+export const getInventoryWetsuits = () => Promise.resolve([]);
+export const isApiError = () => false;
 `;
 const server = await createServer({
   root, configFile: false, envDir: path.dirname(fileURLToPath(import.meta.url)),
@@ -109,16 +113,16 @@ try {
           const before = ["confirmed", "late", "arrived", "ready"].includes(status);
           const manager = ["admin", "operator"].includes(role);
           const prep = ["admin", "operator", "pilot"].includes(role) && before;
-          const noShow = focus.getByRole("button", { name: "Не пришел", exact: true });
+          const noShow = focus.getByRole("button", { name: "Неявка", exact: true });
           assert.equal(await noShow.count(), Number(manager && before));
           if (manager && before) assert.equal(await noShow.isDisabled(), !["confirmed", "late"].includes(status));
           assert.equal(await focus.getByRole("button", { name: "Отменить", exact: true }).count(), Number(manager && before));
           assert.equal(await focus.locator(".pilot-boat-button").count(), Number(["admin", "pilot"].includes(role) && ["ready", "in_progress"].includes(status)));
-          const arrival = focus.getByRole("button", { name: "Приехал", exact: true });
+          const arrival = focus.getByRole("button", { name: "На месте", exact: true });
           assert.equal(await arrival.count(), Number(prep));
           if (prep) {
             assert.equal(await arrival.isDisabled(), status === "ready");
-            assert.equal(await focus.getByRole("button", { name: "Не приехал", exact: true }).isDisabled(), !["confirmed", "late"].includes(status));
+            assert.equal(await focus.getByRole("button", { name: "Опаздывает", exact: true }).isDisabled(), !["confirmed", "late"].includes(status));
             assert.equal(await focus.getByRole("button", { name: "Размялся", exact: true }).isDisabled(), !["arrived", "ready"].includes(status));
           }
         });
@@ -132,7 +136,7 @@ try {
     for (const role of ["pilot", "admin"]) {
       await check(`${role} start -> pause -> stop preserves callback updates and fact`, async () => {
         await reset(role, "ready", "idle");
-        for (const [action, nextLabel] of [["start", "Пауза"], ["pause", "Завершить мягко"], ["stop", null]]) {
+        for (const [action, nextLabel] of [["start", "Пауза"], ["pause", "Завершить заезд"], ["stop", null]]) {
           await focus.locator(".pilot-boat-button").click();
           assert.equal(await page.evaluate(() => window.shiftQa.calls.at(-1).action), action);
           assert.equal(await focus.locator(".pilot-boat-button").isDisabled(), true);
@@ -163,7 +167,7 @@ try {
     });
     await check("cross-action duplicates also share the booking lock", async () => {
       await reset("admin", "confirmed", "idle");
-      await focus.getByRole("button", { name: "Не пришел", exact: true }).click();
+      await focus.getByRole("button", { name: "Неявка", exact: true }).click();
       const buttons = await page.getByTestId("duplicate").getByRole("button").all();
       for (const button of buttons) assert.equal(await button.isDisabled(), true);
       assert.equal(await page.evaluate(() => window.shiftQa.calls[0].action), "no_show");

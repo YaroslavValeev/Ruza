@@ -1,8 +1,9 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { getDefaultRouteForRole, getMobileRouteForRole, useAuth } from "../auth/session";
 import { Layout } from "../components/Layout";
 import { BookingsPage } from "../pages/BookingsPage";
+import { InventoryPage } from "../pages/InventoryPage";
 import { KpiPage } from "../pages/KpiPage";
 import { LoginPage } from "../pages/LoginPage";
 import { MarketingPage } from "../pages/MarketingPage";
@@ -16,6 +17,7 @@ import { MobileOwnerPage } from "../mobile/MobileOwnerPage";
 import { MobilePilotPage } from "../mobile/MobilePilotPage";
 import { MobileShell } from "../mobile/MobileShell";
 import { StaffRole } from "../types";
+import { resolvePostLoginRoute } from "../utils/routes";
 
 export function AppRouter(): JSX.Element {
   const { session, status, issue } = useAuth();
@@ -55,7 +57,7 @@ export function AppRouter(): JSX.Element {
 
   return (
     <Routes>
-      <Route path="/login" element={<Navigate to={defaultRoute} replace />} />
+      <Route path="/login" element={<PostLoginRedirect role={session.role} />} />
       <Route
         path="/m"
         element={
@@ -74,7 +76,7 @@ export function AppRouter(): JSX.Element {
         <Route
           path="owner"
           element={
-            <RoleGuard allowed={["admin", "operator"]} role={session.role} mobileFallback={<MobileForbidden role={session.role} pageLabel="Owner" />}>
+            <RoleGuard allowed={["admin", "operator"]} role={session.role} mobileFallback={<MobileForbidden role={session.role} pageLabel="Клуб" />}>
               <MobileOwnerPage session={session} />
             </RoleGuard>
           }
@@ -126,6 +128,14 @@ export function AppRouter(): JSX.Element {
                   </RoleGuard>
                 }
               />
+              <Route
+                path="/inventory"
+                element={
+                  <RoleGuard allowed={["admin"]} role={session.role}>
+                    <InventoryPage session={session} />
+                  </RoleGuard>
+                }
+              />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
               <Route path="*" element={<Navigate to={defaultRoute} replace />} />
             </Routes>
@@ -154,11 +164,18 @@ function RoleGuard({ allowed, role, children, mobileFallback }: RoleGuardProps):
   return children;
 }
 
+/** Авторизованный пользователь на /login: тот же маршрут, что выбирает LoginPage (мобильный — на /m/*). */
+function PostLoginRedirect({ role }: { role: StaffRole }): JSX.Element {
+  const location = useLocation();
+  const next = new URLSearchParams(location.search).get("next");
+  return <Navigate to={resolvePostLoginRoute(role, next)} replace />;
+}
+
 function AppLoadingScreen(): JSX.Element {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-slate-100">
-      <div className="rounded-xl border border-slate-800 bg-slate-900 px-6 py-4 text-sm text-slate-300 shadow-xl">
-        Проверяем сессию...
+    <div className="flex min-h-screen items-center justify-center bg-[color:var(--panel-solid)] px-6 text-[color:var(--ink)]">
+      <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--panel-solid)] px-6 py-4 text-sm text-[color:var(--ink-muted)] shadow-xl">
+        Проверяем вход…
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
-import { useState, useSyncExternalStore } from "react";
+import { useId, useState, useSyncExternalStore } from "react";
 
 import { runBookingTimerAction, updateBookingPrep, updateBookingStatus } from "../../api/client";
 import { BookingItem, StaffSession } from "../../types";
+import { isPositive } from "../../lib/format";
 import { beginBookingAction, formatDurationClock, getPrimaryTimerAction, getTimerActionLabel, isBookingActionPending, subscribeBookingActions } from "../../lib/shift-timer";
 import { emitShiftLiveRefresh } from "./LiveShiftStrip";
 
@@ -17,6 +18,10 @@ type PilotRideControlsProps = {
   compact?: boolean;
 };
 
+const WARMUP_LOCKED_HINT = "Разминку отмечают после «На месте».";
+const ARRIVAL_LOCKED_HINT = "Клиент уже готов к старту — прибытие менять поздно.";
+const LATE_LOCKED_HINT = "Опоздание и неявку отмечают только до прибытия клиента.";
+
 export function PilotRideControls({
   session,
   booking,
@@ -25,6 +30,7 @@ export function PilotRideControls({
   allowCancel = false,
   compact = false,
 }: PilotRideControlsProps): JSX.Element {
+  // Общий флаг на бронь: карточка фокуса и очередь в одной вкладке не отправят действие дважды.
   const actionKey = JSON.stringify([session.club_id, booking.booking_id]);
   const loading = useSyncExternalStore(subscribeBookingActions, () => isBookingActionPending(actionKey), () => false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +43,9 @@ export function PilotRideControls({
   const canUseTimer = allowTimerControls && (session.role === "admin" || session.role === "pilot");
   const canMarkWarmup = booking.status === "arrived" || booking.status === "ready";
   const timerAction = getPrimaryTimerAction(booking);
+  const warmupHintId = useId();
+  const arrivalHintId = useId();
+  const arrivalHint = !canMarkArrival ? ARRIVAL_LOCKED_HINT : !canMarkLate ? LATE_LOCKED_HINT : null;
 
   async function applyAction(task: () => Promise<BookingItem>) {
     const release = beginBookingAction(actionKey);
@@ -58,47 +67,69 @@ export function PilotRideControls({
       {canManagePrep && beforeOnWater ? (
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="space-y-2">
-            <div className="text-[11px] font-black uppercase tracking-[0.12em] text-cyan-100/70">Приезд</div>
+            <div className="text-[11px] font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Прибытие</div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                className={`game-button-secondary px-3 ${booking.status === "arrived" || booking.status === "ready" ? "ring-1 ring-emerald-300/45" : ""}`}
+                className={`game-button-secondary px-3 ${booking.status === "arrived" || booking.status === "ready" ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]" : ""}`}
+                aria-pressed={booking.status === "arrived" || booking.status === "ready"}
                 disabled={loading || !canMarkArrival}
+                title={!canMarkArrival ? ARRIVAL_LOCKED_HINT : undefined}
+                aria-describedby={!canMarkArrival ? arrivalHintId : undefined}
                 onClick={() => void applyAction(() => updateBookingPrep(booking.booking_id, { arrival_action: "arrived" }, session.token))}
               >
-                Приехал
+                На месте
               </button>
               <button
                 type="button"
-                className={`game-button-secondary px-3 ${booking.status === "late" ? "ring-1 ring-amber-300/45" : ""}`}
+                className={`game-button-secondary px-3 ${booking.status === "late" ? "border-[color:var(--warn)] bg-amber-50 text-amber-900" : ""}`}
+                aria-pressed={booking.status === "late"}
                 disabled={loading || !canMarkLate}
+                title={!canMarkLate ? LATE_LOCKED_HINT : undefined}
+                aria-describedby={!canMarkLate ? arrivalHintId : undefined}
                 onClick={() => void applyAction(() => updateBookingPrep(booking.booking_id, { arrival_action: "late" }, session.token))}
               >
-                Не приехал
+                Опаздывает
               </button>
             </div>
+            {arrivalHint ? (
+              <p id={arrivalHintId} className="text-xs text-[color:var(--ink-muted)]">
+                {arrivalHint}
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
-            <div className="text-[11px] font-black uppercase tracking-[0.12em] text-cyan-100/70">Подготовка</div>
+            <div className="text-[11px] font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Подготовка</div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                className={`game-button-secondary px-3 ${booking.warmup_state === "warmed_up" ? "ring-1 ring-cyan-300/45" : ""}`}
+                className={`game-button-secondary px-3 ${booking.warmup_state === "warmed_up" ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]" : ""}`}
+                aria-pressed={booking.warmup_state === "warmed_up"}
                 disabled={loading || !canMarkWarmup}
+                aria-describedby={!canMarkWarmup ? warmupHintId : undefined}
+                title={!canMarkWarmup ? WARMUP_LOCKED_HINT : undefined}
                 onClick={() => void applyAction(() => updateBookingPrep(booking.booking_id, { warmup_state: "warmed_up" }, session.token))}
               >
                 Размялся
               </button>
               <button
                 type="button"
-                className={`game-button-secondary px-3 ${booking.warmup_state === "no_warmup" ? "ring-1 ring-orange-300/45" : ""}`}
+                className={`game-button-secondary px-3 ${booking.warmup_state === "no_warmup" ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]" : ""}`}
+                aria-pressed={booking.warmup_state === "no_warmup"}
                 disabled={loading || !canMarkWarmup}
+                aria-describedby={!canMarkWarmup ? warmupHintId : undefined}
+                title={!canMarkWarmup ? WARMUP_LOCKED_HINT : undefined}
                 onClick={() => void applyAction(() => updateBookingPrep(booking.booking_id, { warmup_state: "no_warmup" }, session.token))}
               >
                 Без разминки
               </button>
             </div>
+            {!canMarkWarmup ? (
+              <p id={warmupHintId} className="text-xs text-[color:var(--ink-muted)]">
+                {WARMUP_LOCKED_HINT}
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -118,10 +149,10 @@ export function PilotRideControls({
               <span className="pilot-boat-label">{getTimerActionLabel(timerAction)}</span>
               <span className="pilot-boat-subtitle">
                 {booking.timer_state === "idle"
-                  ? "Первое нажатие мягко выводит катер на глиссирование"
+                  ? "Катер плавно выйдет на глиссирование, таймер начнёт отсчёт"
                   : booking.timer_state === "running"
-                    ? "Пауза спокойно фиксирует оставшееся время"
-                    : "Следующее нажатие мягко завершит заезд"}
+                    ? "Пауза сохранит оставшееся время"
+                    : "Следующее нажатие плавно завершит заезд"}
               </span>
             </span>
           </button>
@@ -149,13 +180,13 @@ export function PilotRideControls({
         </div>
       ) : null}
 
-      {allowTimerControls && !timerAction && booking.actual_duration_seconds > 0 ? (
-        <div className="rounded-[24px] border border-cyan-300/14 bg-slate-950/70 px-4 py-4">
-          <div className="text-xs font-black uppercase tracking-[0.12em] text-cyan-100/70">Фактическое время</div>
-          <div className="mt-2 text-lg font-black text-white">
-            {formatDurationClock(booking.actual_duration_seconds)} из {formatDurationClock(booking.planned_duration_minutes * 60)}
+      {allowTimerControls && !timerAction && isPositive(booking.actual_duration_seconds) ? (
+        <div className="rounded-[24px] border border-[color:var(--accent-border)] bg-[color:var(--panel-solid)] px-4 py-4">
+          <div className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--ink-muted)]">Фактическое время</div>
+          <div className="mt-2 text-lg font-black text-[color:var(--ink)]">
+            {formatDurationClock(booking.actual_duration_seconds)} из {formatDurationClock(booking.planned_duration_minutes === null ? null : booking.planned_duration_minutes * 60)}
           </div>
-          <div className="mt-1 text-sm text-cyan-100/70">Райд завершён мягко. План и факт сохранены отдельно, деньги не менялись.</div>
+          <div className="mt-1 text-sm text-[color:var(--ink-muted)]">Заезд завершён. План и факт сохранены отдельно, сумма оплаты не менялась.</div>
         </div>
       ) : null}
 
@@ -165,10 +196,10 @@ export function PilotRideControls({
             type="button"
             className="game-button-secondary px-3 text-xs"
             disabled={loading || !canMarkLate}
-            title={!canMarkLate ? "Неявку можно отметить только до приезда клиента" : undefined}
+            title={!canMarkLate ? LATE_LOCKED_HINT : undefined}
             onClick={() => void applyAction(() => updateBookingStatus(booking.booking_id, "no_show", session.token))}
           >
-            Не пришел
+            Неявка
           </button>
           {allowCancel ? (
             <button
@@ -183,7 +214,7 @@ export function PilotRideControls({
         </div>
       ) : null}
 
-      {error ? <div className="rounded-2xl border border-red-400/20 bg-red-950/20 px-3 py-3 text-sm text-red-100">{error}</div> : null}
+      {error ? <div role="alert" className="rounded-2xl border border-red-600/25 bg-red-50 px-3 py-3 text-sm text-red-900">{error}</div> : null}
     </div>
   );
 }
