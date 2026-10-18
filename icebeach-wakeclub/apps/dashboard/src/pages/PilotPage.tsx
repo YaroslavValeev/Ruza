@@ -44,8 +44,8 @@ function getWeekBounds(dateText: string): { from: string; to: string } {
 function getSeasonBounds(dateText: string): { from: string; to: string } {
   const year = Number(dateText.slice(0, 4)) || new Date().getFullYear();
   return {
-    from: `${year}-06-01`,
-    to: `${year}-10-01`,
+    from: `${year}-05-01`,
+    to: `${year}-09-25`,
   };
 }
 

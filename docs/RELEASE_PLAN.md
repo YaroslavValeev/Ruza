@@ -56,7 +56,7 @@ Execute in order unless Owner reprioritizes. Items marked **EXTERNAL** need Owne
 9. **EXTERNAL — mobile** — Android + **iOS Safari** main scenario on HTTPS.
 10. **EXTERNAL — dry-run shift then real shift** — SOP; no P0.
 
-Known by design: даты вне сезона (`06-01..10-01`, захардкожено в `operating_calendar.py`) дают blocker availability в preflight; настраиваемый сезон — на паузе по решению Owner.
+Known by design: даты вне сезона (`05-01..09-25` включительно, захардкожено в `operating_calendar.py`; до 2026-10 было `06-01..10-01`) дают blocker availability в preflight; настраиваемый сезон — на паузе по решению Owner.
 
 Definition of Cash-cow **10/10**: items 3–10 green with evidence links in audit; Owner signs GO.
 

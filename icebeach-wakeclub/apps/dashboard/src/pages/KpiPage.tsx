@@ -64,8 +64,8 @@ function getToday(): string {
 function getSeasonBounds(dateText: string): { start: string; end: string } {
   const year = Number(dateText.slice(0, 4)) || new Date().getFullYear();
   return {
-    start: `${year}-06-01`,
-    end: `${year}-10-01`,
+    start: `${year}-05-01`,
+    end: `${year}-09-25`,
   };
 }
 

@@ -5,10 +5,11 @@ from typing import Any
 
 from .common import parse_bool
 
-SEASON_START_MONTH = 6
+# Сезон: с 1 мая по 25 сентября включительно (обе границы — рабочие дни).
+SEASON_START_MONTH = 5
 SEASON_START_DAY = 1
-SEASON_END_MONTH = 10
-SEASON_END_DAY = 1
+SEASON_END_MONTH = 9
+SEASON_END_DAY = 25
 OPEN_HOUR = 7
 CLOSE_HOUR = 22
 SLOT_MINUTES = 30
