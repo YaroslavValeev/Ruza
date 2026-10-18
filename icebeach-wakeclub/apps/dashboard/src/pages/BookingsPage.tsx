@@ -91,8 +91,8 @@ const PAYMENT_STATUS_LABELS: Record<BookingItem["payment_status"], string> = {
   partially_refunded: "Частичный возврат",
   refunded: "Возвращено",
 };
-const SEASON_START = { month: 6, day: 1 };
-const SEASON_END = { month: 10, day: 1 };
+const SEASON_START = { month: 5, day: 1 };
+const SEASON_END = { month: 9, day: 25 };
 const OPERATING_HOURS_LABEL = "07:00–22:00";
 const SLOT_RULE_VALUE = "30 мин";
 const SLOT_RULE_DETAILS = "25 мин катание · 5 мин техпауза";

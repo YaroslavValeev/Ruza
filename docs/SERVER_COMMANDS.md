@@ -435,7 +435,7 @@ Prod proof (evidence 2026-10-07 MSK: `SUMMARY blockers=0`):
 powershell -ExecutionPolicy Bypass -File .\scripts\staging-proof.ps1 `
   -ApiBaseUrl "https://ruza.mywavewake.ru/api" `
   -DashboardUrl "https://ruza.mywavewake.ru" `
-  -Date "2026-09-30"   # любая дата внутри сезона
+  -Date "2026-09-21"   # любая дата внутри сезона (05-01..09-25 включительно)
 # ручная проверка с Windows: schannel без доступа к CRL/OCSP падает — нужен --ssl-no-revoke
 curl.exe --ssl-no-revoke -sS https://ruza.mywavewake.ru/api/health
 ```
@@ -443,8 +443,10 @@ curl.exe --ssl-no-revoke -sS https://ruza.mywavewake.ru/api/health
 Если включён Xray VPN, запросы к prod давали TLS timeouts — выключить VPN или
 добавить домен в обход и повторить.
 
-Preflight: даты вне сезона (`06-01..10-01`, захардкожено) дают blocker availability by design;
-для proof выбирайте дату внутри сезона (evidence: `2026-09-30` → `blockers=0`).
+Preflight: даты вне сезона (`05-01..09-25` включительно, захардкожено в `operating_calendar.py`)
+дают blocker availability by design; для proof выбирайте дату внутри сезона.
+Историческое evidence `2026-09-30` → `blockers=0` снято при старом сезоне `06-01..10-01`;
+с новым сезоном 30 сентября — вне сезона.
 
 ### Restore backup (только в отдельную таблицу)
 

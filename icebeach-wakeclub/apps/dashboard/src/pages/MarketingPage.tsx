@@ -21,7 +21,7 @@ const LEAD_STATUSES: Array<LeadItem["status"]> = ["new", "contacted", "booked", 
 
 function getSeasonRange(): { from: string; to: string } {
   const year = new Date().getFullYear();
-  return { from: `${year}-06-01`, to: `${year}-10-01` };
+  return { from: `${year}-05-01`, to: `${year}-09-25` };
 }
 
 export function MarketingPage({ session }: MarketingPageProps): JSX.Element {

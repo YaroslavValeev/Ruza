@@ -60,7 +60,7 @@ def test_availability_contract() -> None:
     assert payload[0]["available"] == 1
     assert payload[-1]["time"] == "21:30"
 
-    outside_season = client.get("/availability?date=2026-05-31")
+    outside_season = client.get("/availability?date=2026-04-30")
     assert outside_season.status_code == 200
     assert outside_season.json() == []
 

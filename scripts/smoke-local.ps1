@@ -142,7 +142,7 @@ try {
 }
 
 try {
-  $kpi = Invoke-RestMethod -WebSession $session -Uri "$ApiBase/kpi/summary?period=season&date_from=2026-06-01&date_to=2026-10-01"
+  $kpi = Invoke-RestMethod -WebSession $session -Uri "$ApiBase/kpi/summary?period=season&date_from=2026-05-01&date_to=2026-09-25"
   Assert-True ($null -ne $kpi.ride_breakdown) 'kpi.breakdown' 'ride breakdown present' 'ride breakdown missing'
 } catch {
   Fail 'kpi' $_.Exception.Message
