@@ -53,7 +53,9 @@ def agents_preflight(
     settings: Settings = Depends(get_settings),
 ) -> PreflightSummaryResponse:
     resolved = date_value or club_local_today(sheet, settings.public_club_id)
-    return PreflightSummaryResponse(**run_preflight_check(sheet, target_date=resolved.isoformat()))
+    return PreflightSummaryResponse(
+        **run_preflight_check(sheet, target_date=resolved.isoformat(), public_club_id=settings.public_club_id)
+    )
 
 
 @router.post("/mark-late", response_model=MarkLateResponse, dependencies=[Depends(verify_agents_secret)])

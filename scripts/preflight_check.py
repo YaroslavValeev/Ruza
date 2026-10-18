@@ -27,7 +27,7 @@ def main() -> int:
     args = parse_args()
     settings = get_settings()
     sheet = SheetWrapper(settings.spreadsheet_id, settings.service_account_json_path)
-    report = run_preflight_check(sheet, target_date=args.target_date)
+    report = run_preflight_check(sheet, target_date=args.target_date, public_club_id=settings.public_club_id)
 
     for item in report["checks"]:
         print(f"[{item['level']}] {item['code']}: {item['message']}")

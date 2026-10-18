@@ -58,7 +58,8 @@ def _client_row(sheet: SheetWrapper, *, club_id: str, client_id: str) -> dict[st
 
 
 def _club_zone(sheet: SheetWrapper, club_id: str):
-    row = next((item for item in sheet.read_tab("clubs") if item.get("club_id") == club_id), None)
+    # Нет вкладки clubs — не 400, а таймзона по умолчанию (см. preflight WARN clubs:*).
+    row = next((item for item in sheet.read_optional_tab("clubs") if item.get("club_id") == club_id), None)
     return resolve_club_timezone((row or {}).get("timezone"))
 
 

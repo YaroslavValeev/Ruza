@@ -8,7 +8,10 @@ from .ride_runtime import club_local_date
 
 
 def club_timezone_name(sheet: SheetWrapper, club_id: str) -> str | None:
-    row = next((item for item in sheet.read_tab("clubs") if item.get("club_id") == club_id), None)
+    # Вкладка clubs необязательна для работы: если её нет (или нет строки клуба),
+    # resolve_club_timezone откатывается на DEFAULT_CLUB_TIMEZONE (Europe/Moscow).
+    # Отсутствие вкладки/строки подсвечивается предупреждением в preflight.
+    row = next((item for item in sheet.read_optional_tab("clubs") if item.get("club_id") == club_id), None)
     return (row or {}).get("timezone")
 
 
