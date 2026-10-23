@@ -35,6 +35,27 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run build
       - run: npm audit --omit=dev --audit-level=low
+      - name: Record full dependency audit (including development tools)
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          npm audit --json > npm-audit-full.json
+          audit_exit=$?
+          set -e
+          echo "Full dependency audit exit code: ${audit_exit}"
+          if [ "$audit_exit" -gt 1 ]; then
+            echo "::warning::npm audit failed to complete; inspect the audit artifact"
+          fi
+          node -e 'try { const r=require("./npm-audit-full.json"); console.log("Full dependency findings:", JSON.stringify(r.metadata?.vulnerabilities ?? {})); } catch (e) { console.log("Audit JSON could not be parsed:", e.message); }'
+      - name: Upload full dependency audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-full-npm-audit
+          path: icebeach-wakeclub/apps/dashboard/npm-audit-full.json
+          retention-days: 14
+          if-no-files-found: warn
 
   dashboard-ui-scenarios:
     runs-on: ubuntu-latest
