@@ -3,11 +3,49 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import logging
+import random
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from googleapiclient.errors import HttpError
+
 from apps.api.app.config import get_settings
 from packages.sheets import SheetWrapper
+
+
+logger = logging.getLogger(__name__)
+
+
+class _BackupReader:
+    """Keep backup traffic below quota without changing the live API transport."""
+
+    def __init__(self, sheet: SheetWrapper) -> None:
+        self.sheet = sheet
+        self.next_read_at = 0.0
+
+    def read(self, request_factory):
+        for attempt in range(8):
+            delay = self.next_read_at - time.monotonic()
+            if delay > 0:
+                time.sleep(delay)
+            self.next_read_at = time.monotonic() + 2.0
+            try:
+                return self.sheet._execute_with_retries(request_factory, attempts=1)
+            except (HttpError, OSError) as exc:
+                status = int(exc.resp.status) if isinstance(exc, HttpError) else 0
+                if status and status not in {429, 500, 502, 503, 504}:
+                    raise
+                if attempt == 7:
+                    raise RuntimeError(f"Backup read failed after 8 attempts (HTTP {status or 'transport'})") from None
+                wait = min(2**attempt + random.uniform(0, 1), 64.0)
+                if isinstance(exc, HttpError):
+                    retry_after = str(exc.resp.get("retry-after", ""))
+                    if retry_after.isdigit():
+                        wait = max(wait, min(int(retry_after), 300))
+                logger.warning("Backup read retry: status=%s attempt=%s wait=%.1fs", status, attempt + 1, wait)
+                time.sleep(wait)
 
 
 def _sha256(path: Path) -> str:
@@ -31,12 +69,13 @@ def main() -> int:
         settings.service_account_json_path,
         service_account_info=settings.service_account_info,
     )
+    reader = _BackupReader(sheet)
     created_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     backup_dir = Path(args.out_dir) / created_at
     tabs_dir = backup_dir / "tabs"
     tabs_dir.mkdir(parents=True, exist_ok=True)
 
-    spreadsheet = sheet._execute_with_retries(
+    spreadsheet = reader.read(
         lambda: sheet.service.spreadsheets().get(spreadsheetId=spreadsheet_id)
     )
     manifest: dict[str, object] = {
@@ -49,10 +88,11 @@ def main() -> int:
         title = tab.get("properties", {}).get("title", "")
         if not title:
             continue
-        values = sheet._execute_with_retries(
-            lambda title=title: sheet.service.spreadsheets().values().get(
+        quoted_title = "'" + title.replace("'", "''") + "'"
+        values = reader.read(
+            lambda quoted_title=quoted_title: sheet.service.spreadsheets().values().get(
                 spreadsheetId=spreadsheet_id,
-                range=f"{title}!A1:ZZ",
+                range=f"{quoted_title}!A1:ZZ",
             )
         ).get("values", [])
         path = tabs_dir / f"{title}.json"
