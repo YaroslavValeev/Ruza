@@ -18,6 +18,22 @@ from packages.sheets import SheetWrapper
 logger = logging.getLogger(__name__)
 
 
+def _retryable_http_error(exc: HttpError) -> bool:
+    if int(exc.resp.status) in {429, 500, 502, 503, 504}:
+        return True
+    if int(exc.resp.status) != 403:
+        return False
+    try:
+        payload = json.loads(exc.content)
+        errors = payload["error"]["errors"]
+    except (ValueError, TypeError, KeyError):
+        return False
+    return isinstance(errors, list) and any(
+        isinstance(error, dict) and error.get("reason") in {"rateLimitExceeded", "userRateLimitExceeded"}
+        for error in errors
+    )
+
+
 class _BackupReader:
     """Keep backup traffic below quota without changing the live API transport."""
 
@@ -35,7 +51,7 @@ class _BackupReader:
                 return self.sheet._execute_with_retries(request_factory, attempts=1)
             except (HttpError, OSError) as exc:
                 status = int(exc.resp.status) if isinstance(exc, HttpError) else 0
-                if status and status not in {429, 500, 502, 503, 504}:
+                if isinstance(exc, HttpError) and not _retryable_http_error(exc):
                     raise
                 if attempt == 7:
                     raise RuntimeError(f"Backup read failed after 8 attempts (HTTP {status or 'transport'})") from None

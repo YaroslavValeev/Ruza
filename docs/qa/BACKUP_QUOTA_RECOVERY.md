@@ -19,9 +19,11 @@ wrapper, Docker Compose, credentials and Google Sheets data are unchanged.
 
 - Space read starts by at least two seconds, including the metadata request.
 - Retry HTTP 429/500/502/503/504 and transport failures at most eight attempts.
+- Retry HTTP 403 only with an explicit `rateLimitExceeded` or
+  `userRateLimitExceeded` reason; permission and malformed errors still fail fast.
 - Exponential backoff with jitter caps at 64 seconds. Numeric Retry-After can
   extend a wait to at most 300 seconds. No infinite retry or raw error payload log.
-- HTTP 400/401/403/404 fail immediately; do not mask permissions or range errors.
+- Other HTTP 400/401/403/404 fail immediately; do not mask permissions or range errors.
 - Quote A1 tab names, including apostrophes.
 - Keep the existing manifest format; publish it only after all tabs are saved.
 

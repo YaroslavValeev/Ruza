@@ -88,6 +88,28 @@ def test_permanent_errors_are_not_retried(clock, status):
     assert clock.delays == []
 
 
+@pytest.mark.parametrize("reason", ["rateLimitExceeded", "userRateLimitExceeded"])
+def test_403_rate_limit_reasons_are_retried(clock, reason):
+    calls = []
+
+    def request():
+        calls.append(1)
+        if len(calls) == 1:
+            payload = {"error": {"errors": [{"reason": reason}]}}
+            raise HttpError(httplib2.Response({"status": 403}), json.dumps(payload).encode())
+        return {}
+
+    assert backup._BackupReader(Sheet()).read(request) == {}
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("content", [b"not-json", b"[]", b'{"error": null}', b'{"error":{"errors":{}}}',
+                                   b'{"error":{"errors":[{"reason":"forbidden"}]}}'])
+def test_403_unknown_or_permission_reason_does_not_retry(clock, content):
+    exc = HttpError(httplib2.Response({"status": 403}), content)
+    assert backup._retryable_http_error(exc) is False
+
+
 def test_retry_exhaustion_is_bounded_and_redacted(clock):
     calls = []
 
