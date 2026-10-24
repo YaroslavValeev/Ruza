@@ -175,37 +175,55 @@ def main(argv: list[str] | None = None) -> int:
     spreadsheet = sheet._execute_with_retries(
         lambda: sheet.service.spreadsheets().get(spreadsheetId=target_id)
     )
-    existing_titles = {
-        item.get("properties", {}).get("title", "")
+    existing_sheets = {
+        item.get("properties", {}).get("title", ""): item.get("properties", {})
         for item in spreadsheet.get("sheets", [])
     }
-    missing_tabs = [title for title, _values in restored_tabs if title not in existing_titles]
-    if missing_tabs:
+    requests = []
+    for title, values in restored_tabs:
+        rows = max(len(values), 1)
+        columns = max((len(row) for row in values), default=1)
+        properties = existing_sheets.get(title)
+        if properties is None:
+            requests.append({"addSheet": {"properties": {
+                "title": title,
+                "gridProperties": {"rowCount": max(rows, 1000), "columnCount": max(columns, 26)},
+            }}})
+            continue
+        grid = properties.get("gridProperties", {})
+        growth = {}
+        if rows > int(grid.get("rowCount", 1000)):
+            growth["rowCount"] = rows
+        if columns > int(grid.get("columnCount", 26)):
+            growth["columnCount"] = columns
+        if growth:
+            requests.append({"updateSheetProperties": {
+                "properties": {"sheetId": properties["sheetId"], "gridProperties": growth},
+                "fields": ",".join(f"gridProperties.{key}" for key in growth),
+            }})
+    # Prepare all dimensions atomically before clearing any existing tab values.
+    if requests:
         sheet._execute_with_retries(
             lambda: sheet.service.spreadsheets().batchUpdate(
                 spreadsheetId=target_id,
-                body={
-                    "requests": [
-                        {"addSheet": {"properties": {"title": title}}}
-                        for title in missing_tabs
-                    ]
-                },
+                body={"requests": requests},
             )
         )
 
     for title, values in restored_tabs:
+        quoted_title = "'" + title.replace("'", "''") + "'"
         sheet._execute_with_retries(
-            lambda title=title: sheet.service.spreadsheets().values().clear(
+            lambda quoted_title=quoted_title: sheet.service.spreadsheets().values().clear(
                 spreadsheetId=target_id,
-                range=f"{title}!A1:ZZ",
+                range=f"{quoted_title}!A1:ZZ",
             )
         )
         if values:
-            end_col = _column_letter(max(len(row) for row in values))
+            end_col = _column_letter(max(max(len(row) for row in values), 1))
             sheet._execute_with_retries(
-                lambda title=title, values=values, end_col=end_col: sheet.service.spreadsheets().values().update(
+                lambda quoted_title=quoted_title, values=values, end_col=end_col: sheet.service.spreadsheets().values().update(
                     spreadsheetId=target_id,
-                    range=f"{title}!A1:{end_col}{len(values)}",
+                    range=f"{quoted_title}!A1:{end_col}{len(values)}",
                     valueInputOption="RAW",
                     body={"values": values},
                 )
