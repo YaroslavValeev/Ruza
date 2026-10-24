@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -25,6 +26,21 @@ def _single_manifest(root: Path) -> Path:
     if len(paths) != 1:
         raise RuntimeError("Expected exactly one completed snapshot")
     return paths[0].parent
+
+
+def _check_persisted_snapshot(root: Path, target: str) -> None:
+    manifest_path = _single_manifest(root / "before") / "manifest.json"
+    manifest_bytes = manifest_path.read_bytes()
+    manifest = json.loads(manifest_bytes)
+    if manifest.get("spreadsheet_id") != target:
+        raise RuntimeError("Pre-test snapshot belongs to another target")
+    try:
+        marker = json.loads((root / "snapshot-persisted").read_text(encoding="utf-8"))
+    except ValueError:
+        raise RuntimeError("Invalid persisted snapshot binding") from None
+    if (not isinstance(marker, dict) or marker.get("target") != target
+            or marker.get("manifest_sha256") != hashlib.sha256(manifest_bytes).hexdigest()):
+        raise RuntimeError("Invalid persisted snapshot binding")
 
 
 def _compare(source: Path, actual: Path) -> dict[str, int | str]:
@@ -92,6 +108,8 @@ def main(argv: list[str] | None = None) -> int:
         (root / "target-metadata-before.json").write_text(json.dumps(metadata), encoding="utf-8")
     elif not (root / "snapshot-persisted").is_file():
         raise RuntimeError("Persist and verify the pre-test snapshot on the host first")
+    else:
+        _check_persisted_snapshot(root, target)
 
     if args.phase == "restore":
         restore.main(["--backup-dir", str(_single_manifest(root / "before"))])

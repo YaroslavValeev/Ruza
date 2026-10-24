@@ -71,7 +71,9 @@ dc cp "api:$TMP/target-metadata-before.json" "$RUN/target-metadata-before.json"
 MANIFEST=$(find "$RUN/before" -type f -name manifest.json -print -quit)
 test -n "$MANIFEST"
 python3 "$RUN/restore_sheets_backup.py" --backup-dir "$(dirname "$MANIFEST")"
-dc exec -T api touch "$TMP/snapshot-persisted"
+sync -f "$MANIFEST"
+MANIFEST_HASH=$(sha256sum "$MANIFEST" | awk '{print $1}')
+dc exec -T api python -c 'import json,sys; from pathlib import Path; Path(sys.argv[1],"snapshot-persisted").write_text(json.dumps({"target":sys.argv[2].strip(),"manifest_sha256":sys.argv[3]}))' "$TMP" "$TARGET" "$MANIFEST_HASH"
 
 STEP=restore-approved-test-target
 phase restore

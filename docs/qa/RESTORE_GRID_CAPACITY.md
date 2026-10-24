@@ -37,7 +37,9 @@ The existing hash/dry-run and production-target guards remain unchanged. No
    `scripts/restore_test.py` provides `before`, `restore`, and `after` phases.
    It requires an operational source manifest, an exact approved target title,
    the existing production-target guard, and a `snapshot-persisted` marker after
-   the pre-test copy is durably saved and checked on the host. Place the pinned
+   the pre-test copy is durably saved and checked on the host. This JSON marker
+   binds the target spreadsheet ID and the SHA-256 of the manifest saved on the
+   host; switching targets or modifying the snapshot invalidates it. Place the pinned
    quota-aware backup helper from PR #20 alongside it as `backup_sheets.py`;
    place `restore_sheets_backup.py` and the input `source/` there too. The
    backup helper dependency is explicit; the application does not import it.

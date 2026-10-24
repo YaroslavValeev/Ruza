@@ -118,6 +118,15 @@ def offline(monkeypatch, tmp_path):
     _snapshot(tmp_path / "before" / "synthetic-snapshot", {"previous": [["old"]]}, TARGET)
     state.marker = tmp_path / "snapshot-persisted"
 
+    def persist_snapshot():
+        manifest = tmp_path / "before" / "synthetic-snapshot" / "manifest.json"
+        state.marker.write_text(json.dumps({
+            "target": TARGET,
+            "manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        }), encoding="utf-8")
+
+    state.persist_snapshot = persist_snapshot
+
     def run(phase, target=TARGET):
         return driver.main(["--phase", phase, "--work-dir", str(tmp_path),
                             "--target-spreadsheet-id", target, "--expected-target-title", TITLE])
@@ -192,9 +201,38 @@ def test_persisted_host_marker_required_before_write_or_backup(offline, phase, m
     assert offline.sheets.SheetWrapper is offline.original_wrapper
 
 
+@pytest.mark.parametrize("phase", ["restore", "after"])
+@pytest.mark.parametrize("mutation", ["target-switch", "manifest-target", "manifest-bytes", "marker-target", "marker-hash", "marker-json"])
+def test_snapshot_binding_blocks_target_switch_and_tampering(offline, phase, mutation):
+    offline.persist_snapshot()
+    manifest_path = offline.root / "before" / "synthetic-snapshot" / "manifest.json"
+    target = TARGET
+    if mutation == "target-switch":
+        target = "synthetic-other-target-with-same-title"
+    elif mutation.startswith("manifest-"):
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if mutation == "manifest-target":
+            manifest["spreadsheet_id"] = "synthetic-other-target"
+        else:
+            manifest["extra"] = "changed after host snapshot"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    elif mutation == "marker-json":
+        offline.marker.write_text("not-json", encoding="utf-8")
+    else:
+        marker = json.loads(offline.marker.read_text(encoding="utf-8"))
+        marker["target" if mutation == "marker-target" else "manifest_sha256"] = "wrong"
+        offline.marker.write_text(json.dumps(marker), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="snapshot (belongs|binding)"):
+        offline.run(phase, target)
+    assert all("--write" not in args[0] for args, _ in offline.restore.main.call_args_list)
+    offline.backup.main.assert_not_called()
+    assert offline.sheets.SheetWrapper is offline.original_wrapper
+    assert not (offline.root / "proof.json").exists()
+
+
 @pytest.mark.parametrize("phase", ["before", "restore", "after"])
 def test_wrong_target_title_blocks_write_and_backup(offline, phase):
-    offline.marker.touch()
+    offline.persist_snapshot()
     offline.metadata_get.return_value["properties"]["title"] = "Unexpected synthetic target"
     with pytest.raises(RuntimeError, match="Unexpected test target title"):
         offline.run(phase)
@@ -205,7 +243,7 @@ def test_wrong_target_title_blocks_write_and_backup(offline, phase):
 
 @pytest.mark.parametrize("fail_write", [False, True])
 def test_restore_calls_guard_and_helper_and_always_resets_wrapper(offline, fail_write):
-    offline.marker.touch()
+    offline.persist_snapshot()
     if fail_write:
         offline.write_error = RuntimeError("synthetic write failure")
         with pytest.raises(RuntimeError, match="synthetic write failure"):
@@ -225,7 +263,7 @@ def test_restore_calls_guard_and_helper_and_always_resets_wrapper(offline, fail_
 
 @pytest.mark.parametrize("phase", ["before", "after"])
 def test_backup_failure_restores_sys_argv(offline, monkeypatch, phase):
-    offline.marker.touch()
+    offline.persist_snapshot()
     previous = ["synthetic-caller", "--untouched"]
     monkeypatch.setattr(sys, "argv", previous)
     offline.backup.main.side_effect = RuntimeError("synthetic backup failure")
@@ -240,7 +278,7 @@ def test_backup_failure_restores_sys_argv(offline, monkeypatch, phase):
 @pytest.mark.parametrize("phase", ["before", "after"])
 def test_backup_phase_succeeds_and_after_persists_proof(offline, monkeypatch, capsys, phase):
     if phase == "after":
-        offline.marker.touch()
+        offline.persist_snapshot()
     previous = ["synthetic-caller"]
     monkeypatch.setattr(sys, "argv", previous)
     assert offline.run(phase) == 0
