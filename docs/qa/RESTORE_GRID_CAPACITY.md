@@ -41,6 +41,10 @@ The existing hash/dry-run and production-target guards remain unchanged. No
    quota-aware backup helper from PR #20 alongside it as `backup_sheets.py`;
    place `restore_sheets_backup.py` and the input `source/` there too. The
    backup helper dependency is explicit; the application does not import it.
+   `scripts/server/restore-proof.sh` orchestrates these phases using a pinned
+   tools commit and explicit SHA-256 hashes. It serializes runs with a host lock,
+   snapshots the current target before writing, and checks production Git and
+   container identities plus health afterward. Use `--help` for required flags.
 5. Restore the operational snapshot into that approved target. Read all restored
    tabs back and compare every saved JSON value with the input backup, not merely
    row counts or successful HTTP status. Keep only paths/counts/status in logs.

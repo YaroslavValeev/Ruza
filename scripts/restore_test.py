@@ -39,7 +39,8 @@ def _compare(source: Path, actual: Path) -> dict[str, int | str]:
             raise RuntimeError("Restore verification failed: a tab is missing")
         expected_values = json.loads((source / tab["file"]).read_text(encoding="utf-8"))
         actual_values = json.loads((actual / restored[tab["name"]]["file"]).read_text(encoding="utf-8"))
-        if expected_values != actual_values:
+        # Python considers True == 1; recovery proof must preserve JSON types.
+        if json.dumps(expected_values, allow_nan=False) != json.dumps(actual_values, allow_nan=False):
             raise RuntimeError("Restore verification failed: cell values differ")
         cells += sum(len(row) for row in expected_values)
     return {"status": "PASS", "tabs": len(expected_manifest["tabs"]), "cells": cells}
