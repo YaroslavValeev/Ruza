@@ -28,7 +28,7 @@ class LoginRequest(BaseModel):
 
 class LoginCodeRequest(BaseModel):
     staff_user_id: str | None = None
-    phone: str = Field(min_length=5)
+    phone: str = Field(min_length=5, max_length=64)
 
     @field_validator("staff_user_id", mode="before")
     @classmethod
@@ -49,7 +49,7 @@ class LoginCodeResponse(BaseModel):
 
 class LoginVerifyRequest(BaseModel):
     staff_user_id: str | None = None
-    phone: str | None = None
+    phone: str | None = Field(default=None, min_length=5, max_length=64)
     code: str = Field(min_length=4, max_length=8)
 
     @field_validator("staff_user_id", "phone", mode="before")
@@ -370,7 +370,7 @@ class ClientItem(BaseModel):
 
 class ClientCreateRequest(BaseModel):
     full_name: str = Field(min_length=1)
-    phone: str = Field(min_length=5)
+    phone: str = Field(min_length=5, max_length=64)
     telegram_id: str = ""
     consent_face: bool = False
     consent_voice: bool = False
@@ -534,7 +534,7 @@ class ClientStatsItem(BaseModel):
 
 class PublicBookingRequest(BaseModel):
     full_name: str = Field(min_length=1)
-    phone: str = Field(min_length=5)
+    phone: str = Field(min_length=5, max_length=64)
     date: date
     time: str = Field(pattern=r"^\d{2}:\d{2}$")
     ride_type: RideType = "wakeboard"
@@ -623,7 +623,7 @@ class LeadItem(BaseModel):
 
 class LeadCreateRequest(BaseModel):
     full_name: str = Field(min_length=1)
-    phone: str = Field(min_length=5)
+    phone: str = Field(min_length=5, max_length=64)
     source: str = "offline"
     utm_source: str = ""
     utm_campaign: str = ""
