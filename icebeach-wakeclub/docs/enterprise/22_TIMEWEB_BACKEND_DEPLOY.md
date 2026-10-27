@@ -58,6 +58,8 @@
     - `OTP_DELIVERY_TIMEOUT_SECONDS=8`
     - `DISABLE_SYSTEM_PROXY_FOR_GOOGLE=true`
     - `SHEETS_TAB_CACHE_TTL_SECONDS=15`
+    - `MALLOC_ARENA_MAX=2`
+    - `API_MAX_REQUESTS=20000`
     - `CORS_ALLOW_ORIGINS=https://<staging-dashboard-domain>`
 12. Передай Google credentials одним из способов:
     - рекомендуется: `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=...`
@@ -92,6 +94,8 @@
 - `SESSION_COOKIE_SECURE=true`
 - `CORS_ALLOW_ORIGINS=https://<dashboard-domain>`
 - `ALLOW_MANUAL_OTP_DELIVERY=false`
+- `MALLOC_ARENA_MAX=2`
+- `API_MAX_REQUESTS=20000`
 - `OTP_DELIVERY_WEBHOOK_URL=https://<sms-provider>/send`
 - `OTP_DELIVERY_WEBHOOK_TOKEN`
 - один из:
@@ -113,6 +117,11 @@
 3. `preflight` на сезонную дату
 4. `smoke` на сезонную дату
 5. ручная бронь через staging dashboard
+
+`API_MAX_REQUESTS` заставляет Uvicorn штатно завершаться после указанного
+числа HTTP-запросов. В Docker Compose с `restart: unless-stopped` контейнер
+запускается заново и освобождает удержанную allocator-память. Перед production-выкаткой
+нужно проверить автозапуск, health-check и текущие операции в коротком staging-прогоне.
 
 ## Definition of Done для backend staging
 - deploy воспроизводим через Dockerfile
