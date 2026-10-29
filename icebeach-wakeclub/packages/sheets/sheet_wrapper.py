@@ -45,6 +45,8 @@ class SheetWrapper:
         self._disable_proxy = _truthy_env("DISABLE_SYSTEM_PROXY_FOR_GOOGLE", "true")
         self._tab_cache_ttl_seconds = int(os.getenv("SHEETS_TAB_CACHE_TTL_SECONDS", "15"))
         self._tab_cache: dict[str, tuple[float, list[list[str]]]] = {}
+        self._diagnostics_enabled = _truthy_env("RUNTIME_MEMORY_DIAGNOSTICS_ENABLED", "false")
+        self._diagnostic_counters: dict[str, int] = {}
         # FastAPI runs sync routes concurrently, but httplib2 connections are
         # not thread-safe. A cached wrapper must serialize its HTTP transport.
         self._http_lock = threading.RLock()
@@ -58,6 +60,7 @@ class SheetWrapper:
         return build("sheets", "v4", http=self._build_http(), cache_discovery=False)
 
     def _refresh_service(self) -> None:
+        self._increment_diagnostic("service_refreshes")
         self.service = self._build_service()
 
     def _execute_with_retries(self, request_factory, *, attempts: int = 4, base_sleep_seconds: float = 0.6):
@@ -66,6 +69,7 @@ class SheetWrapper:
             for i in range(attempts):
                 try:
                     request = request_factory()
+                    self._increment_diagnostic("transport_attempts")
                     return request.execute()
                 except (ssl.SSLError, OSError) as exc:
                     last_exc = exc
@@ -317,9 +321,11 @@ class SheetWrapper:
         if cached is not None:
             fetched_at, cached_values = cached
             if self._tab_cache_ttl_seconds <= 0 or (time.time() - fetched_at) < self._tab_cache_ttl_seconds:
+                self._increment_diagnostic("cache_hits")
                 return cached_values
             self._tab_cache.pop(tab_name, None)
 
+        self._increment_diagnostic("cache_misses")
         response = self._execute_with_retries(
             lambda: self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
@@ -327,8 +333,38 @@ class SheetWrapper:
             )
         )
         values = response.get("values", [])
+        if self._diagnostics_enabled:
+            self._increment_diagnostic("response_rows", len(values))
+            self._increment_diagnostic("response_cells", sum(len(row) for row in values))
+            self._increment_diagnostic(
+                "response_characters",
+                sum(len(str(cell)) for row in values for cell in row),
+            )
         self._tab_cache[tab_name] = (time.time(), values)
         return values
+
+    def _increment_diagnostic(self, name: str, amount: int = 1) -> None:
+        if not self.__dict__.get("_diagnostics_enabled", False):
+            return
+        with self._http_lock:
+            counters: dict[str, int] = self.__dict__.setdefault("_diagnostic_counters", {})
+            counters[name] = counters.get(name, 0) + amount
+
+    def diagnostics_snapshot(self) -> dict[str, int]:
+        """Return aggregate counters only; never expose tab names or cell values."""
+        with self._http_lock:
+            snapshot = dict(self._diagnostic_counters)
+            snapshot["tab_cache_entries"] = len(self._tab_cache)
+            snapshot["tab_cache_rows"] = sum(
+                len(values) for _fetched_at, values in self._tab_cache.values()
+            )
+            snapshot["tab_cache_cells"] = sum(
+                len(row)
+                for _fetched_at, values in self._tab_cache.values()
+                for row in values
+            )
+            snapshot["missing_tab_entries"] = len(self.__dict__.get("_missing_tabs", {}))
+            return snapshot
 
     @staticmethod
     def _serialize_cell(value: Any) -> str:
