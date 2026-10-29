@@ -18,6 +18,7 @@ from ..models import (
     ShiftReminderRunResponse,
     ShiftSummary,
 )
+from ..runtime_diagnostics import observe_runtime_operation
 from ..services.analytics_snapshot import write_analytics_snapshot
 from ..services.checkins import mark_late_checkins
 from ..services.daily_brief import build_daily_brief
@@ -127,10 +128,11 @@ def agents_shift_reminders(
     sheet: SheetWrapper = Depends(get_sheet_wrapper),
     settings: Settings = Depends(get_settings),
 ) -> ShiftReminderRunResponse:
-    result = process_shift_reminders(
-        sheet,
-        settings,
-        club_id=settings.public_club_id,
-        actor_staff_user_id=settings.agents_staff_user_id,
-    )
+    with observe_runtime_operation("internal_agents.shift_reminders", sheet):
+        result = process_shift_reminders(
+            sheet,
+            settings,
+            club_id=settings.public_club_id,
+            actor_staff_user_id=settings.agents_staff_user_id,
+        )
     return ShiftReminderRunResponse(**result)

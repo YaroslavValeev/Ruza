@@ -17,6 +17,7 @@ def test_sheet_wrapper_serializes_shared_http_client() -> None:
 
     wrapper = SheetWrapper.__new__(SheetWrapper)
     wrapper._http_lock = threading.RLock()  # noqa: SLF001
+    wrapper._diagnostics_enabled = False  # noqa: SLF001
     active = 0
     max_active = 0
     state_lock = threading.Lock()
